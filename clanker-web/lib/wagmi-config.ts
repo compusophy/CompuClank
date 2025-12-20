@@ -1,10 +1,16 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { http, createConfig } from 'wagmi';
 import { base } from 'wagmi/chains';
+import { injected, coinbaseWallet } from 'wagmi/connectors';
 
-export const config = getDefaultConfig({
-  appName: 'CABAL',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'your-project-id',
+export const config = createConfig({
   chains: [base],
+  connectors: [
+    injected(),
+    coinbaseWallet({ appName: 'CABAL' }),
+  ],
+  transports: {
+    [base.id]: http(),
+  },
   ssr: true,
 });
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import { LibAppStorage, AppStorage, CabalData, CabalPhase } from "../libraries/LibAppStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
  * @title StakingFacet
@@ -53,6 +54,59 @@ contract StakingFacet {
         );
         if (!success) revert TransferFailed();
         
+        _stakeInternal(cabalId, amount, cabal);
+    }
+
+    /**
+     * @notice Stake tokens with EIP-2612 permit (single transaction, no separate approval)
+     * @param cabalId The Cabal to stake in
+     * @param amount Amount of tokens to stake
+     * @param deadline Permit signature deadline
+     * @param v Signature v component
+     * @param r Signature r component
+     * @param s Signature s component
+     */
+    function stakeWithPermit(
+        uint256 cabalId,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        if (amount == 0) revert ZeroAmount();
+        
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        
+        // Execute permit to approve this contract
+        IERC20Permit(cabal.tokenAddress).permit(
+            msg.sender,
+            address(this),
+            amount,
+            deadline,
+            v,
+            r,
+            s
+        );
+        
+        // Transfer tokens from user to TBA
+        bool success = IERC20(cabal.tokenAddress).transferFrom(
+            msg.sender,
+            cabal.tbaAddress,
+            amount
+        );
+        if (!success) revert TransferFailed();
+        
+        _stakeInternal(cabalId, amount, cabal);
+    }
+
+    // ============ Internal Functions ============
+
+    /**
+     * @notice Internal stake logic (shared by stake and stakeWithPermit)
+     */
+    function _stakeInternal(uint256 cabalId, uint256 amount, CabalData storage cabal) internal {
         // Update staked balance
         uint256 currentStake = LibAppStorage.getStakedBalance(cabalId, msg.sender);
         uint256 newBalance = currentStake + amount;

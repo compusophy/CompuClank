@@ -31,6 +31,7 @@ export interface StakingFacetInterface extends Interface {
       | "getUserStakedCabals"
       | "getVotingPower"
       | "stake"
+      | "stakeWithPermit"
       | "unstake"
   ): FunctionFragment;
 
@@ -57,6 +58,17 @@ export interface StakingFacetInterface extends Interface {
     values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "stakeWithPermit",
+    values: [
+      BigNumberish,
+      BigNumberish,
+      BigNumberish,
+      BigNumberish,
+      BytesLike,
+      BytesLike
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "unstake",
     values: [BigNumberish, BigNumberish]
   ): string;
@@ -78,6 +90,10 @@ export interface StakingFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "stake", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "stakeWithPermit",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "unstake", data: BytesLike): Result;
 }
 
@@ -204,6 +220,19 @@ export interface StakingFacet extends BaseContract {
     "nonpayable"
   >;
 
+  stakeWithPermit: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      amount: BigNumberish,
+      deadline: BigNumberish,
+      v: BigNumberish,
+      r: BytesLike,
+      s: BytesLike
+    ],
+    [void],
+    "nonpayable"
+  >;
+
   unstake: TypedContractMethod<
     [cabalId: BigNumberish, amount: BigNumberish],
     [void],
@@ -238,6 +267,20 @@ export interface StakingFacet extends BaseContract {
     nameOrSignature: "stake"
   ): TypedContractMethod<
     [cabalId: BigNumberish, amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "stakeWithPermit"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      amount: BigNumberish,
+      deadline: BigNumberish,
+      v: BigNumberish,
+      r: BytesLike,
+      s: BytesLike
+    ],
     [void],
     "nonpayable"
   >;

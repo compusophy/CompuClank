@@ -1062,8 +1062,8 @@
       ]
     },
     "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\StakingFacet.sol": {
-      "lastModificationDate": 1766208995685,
-      "contentHash": "32388221bed268511f0278a31ae71179",
+      "lastModificationDate": 1766238310815,
+      "contentHash": "675910be2580aa430095b6636afcea37",
       "sourceName": "contracts/cabal/diamond/facets/StakingFacet.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -1092,7 +1092,8 @@
       },
       "imports": [
         "../libraries/LibAppStorage.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol"
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
@@ -1608,10 +1609,10 @@
         "StorageRepairFacet"
       ]
     },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\test\\EncodingTest.sol": {
-      "lastModificationDate": 1766233279723,
-      "contentHash": "bf431445167e7011b32f239c0e79a110",
-      "sourceName": "contracts/test/EncodingTest.sol",
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Permit.sol": {
+      "lastModificationDate": 1766154986114,
+      "contentHash": "b01905745d47df90c7bd5dd70d498cb7",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -1639,10 +1640,10 @@
       },
       "imports": [],
       "versionPragmas": [
-        "^0.8.20"
+        ">=0.4.16"
       ],
       "artifacts": [
-        "EncodingTest"
+        "IERC20Permit"
       ]
     }
   }

@@ -61,6 +61,20 @@ export const CABAL_ABI = [
     inputs: [
       { name: "cabalId", type: "uint256" },
       { name: "amount", type: "uint256" },
+      { name: "deadline", type: "uint256" },
+      { name: "v", type: "uint8" },
+      { name: "r", type: "bytes32" },
+      { name: "s", type: "bytes32" },
+    ],
+    name: "stakeWithPermit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "amount", type: "uint256" },
     ],
     name: "unstake",
     outputs: [],

@@ -123,3 +123,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Consistent spacing utilities */
+@layer utilities {
+  .container-padding {
+    @apply px-4;
+  }
+  .container-max {
+    @apply max-w-5xl mx-auto;
+  }
+  .page-container {
+    @apply px-4 max-w-5xl mx-auto;
+  }
+  .section-gap {
+    @apply py-4;
+  }
+}

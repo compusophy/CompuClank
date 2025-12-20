@@ -4,6 +4,7 @@ import { ClankerTokenV4, POOL_POSITIONS, FEE_CONFIGS } from 'clanker-sdk';
 import { createWalletClient, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
+import { CLANKER_INDEX_ABI } from '@/lib/clanker-index-abi';
 
 export async function POST(req: NextRequest) {
   try {
@@ -103,6 +104,49 @@ export async function POST(req: NextRequest) {
        return NextResponse.json({ error: 'Transaction failed or returned no address' }, { status: 500 });
     }
 
+    // Index the deployment
+    if (process.env.CLANKER_INDEX_ADDRESS) {
+      try {
+        console.log('Indexing deployment at:', process.env.CLANKER_INDEX_ADDRESS);
+
+        // Retry logic for nonce issues
+        let retries = 5;
+        while (retries > 0) {
+          try {
+            const { request } = await client.simulateContract({
+              address: process.env.CLANKER_INDEX_ADDRESS as `0x${string}`,
+              abi: CLANKER_INDEX_ABI,
+              functionName: 'addDeployment',
+              args: [
+                 result.address as `0x${string}`, 
+                 name, 
+                 symbol, 
+                 image || '', 
+                 account.address
+              ],
+              account
+            });
+            const hash = await wallet.writeContract(request);
+            console.log('Indexing tx:', hash);
+            break; // Success
+          } catch (e: any) {
+            console.error(`Indexing attempt failed (${retries} retries left):`, e.message);
+            
+            // If nonce is too low or other transient error, wait and retry
+            if (e.message?.includes("nonce") || e.message?.includes("replacement transaction underpriced")) {
+               await new Promise(r => setTimeout(r, 2000));
+               retries--;
+               continue;
+            }
+            throw e; // Non-recoverable error
+          }
+        }
+      } catch (e) {
+        console.error("Failed to index deployment:", e);
+        // Don't fail the request, just log it
+      }
+    }
+
     return NextResponse.json({ 
       success: true, 
       address: result.address,
@@ -114,4 +158,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }
+
+
 

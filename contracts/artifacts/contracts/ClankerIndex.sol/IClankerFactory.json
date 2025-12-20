@@ -1,0 +1,202 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IClankerFactory",
+  "sourceName": "contracts/ClankerIndex.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "tokenAdmin",
+                  "type": "address"
+                },
+                {
+                  "internalType": "string",
+                  "name": "name",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "symbol",
+                  "type": "string"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "salt",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "string",
+                  "name": "image",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "metadata",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "context",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "originatingChainId",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IClankerFactory.TokenConfig",
+              "name": "tokenConfig",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "hook",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "pairedToken",
+                  "type": "address"
+                },
+                {
+                  "internalType": "int24",
+                  "name": "tickIfToken0IsClanker",
+                  "type": "int24"
+                },
+                {
+                  "internalType": "int24",
+                  "name": "tickSpacing",
+                  "type": "int24"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "poolData",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct IClankerFactory.PoolConfig",
+              "name": "poolConfig",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "locker",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "rewardAdmins",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "rewardRecipients",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint16[]",
+                  "name": "rewardBps",
+                  "type": "uint16[]"
+                },
+                {
+                  "internalType": "int24[]",
+                  "name": "tickLower",
+                  "type": "int24[]"
+                },
+                {
+                  "internalType": "int24[]",
+                  "name": "tickUpper",
+                  "type": "int24[]"
+                },
+                {
+                  "internalType": "uint16[]",
+                  "name": "positionBps",
+                  "type": "uint16[]"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "lockerData",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct IClankerFactory.LockerConfig",
+              "name": "lockerConfig",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "mevModule",
+                  "type": "address"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "mevModuleData",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct IClankerFactory.MevModuleConfig",
+              "name": "mevModuleConfig",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "extension",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "msgValue",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint16",
+                  "name": "extensionBps",
+                  "type": "uint16"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "extensionData",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct IClankerFactory.ExtensionConfig[]",
+              "name": "extensionConfigs",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct IClankerFactory.DeploymentConfig",
+          "name": "config",
+          "type": "tuple"
+        }
+      ],
+      "name": "deployToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

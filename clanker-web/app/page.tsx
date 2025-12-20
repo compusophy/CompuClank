@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -81,6 +82,13 @@ export default function DeployPage() {
 
   return (
     <div className="container mx-auto py-10 max-w-2xl">
+      <div className="flex justify-end mb-4">
+        <Link href="/deployments">
+          <Button variant="outline">
+            View My Deployments
+          </Button>
+        </Link>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Deploy New Token</CardTitle>

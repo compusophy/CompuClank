@@ -1,262 +1,169 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { toast } from 'sonner';
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useReadContract, useBalance } from 'wagmi';
+import { erc20Abi } from 'viem';
+import { WalletButton } from '@/components/wallet/WalletButton';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { CABAL_ABI, CabalInfo, CabalPhase } from '@/lib/abi/cabal';
+import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
+import { TokenAmount } from '@/components/TokenAmount';
+import { Plus } from 'lucide-react';
 
-const formSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters."),
-  symbol: z.string().min(2, "Symbol must be at least 2 characters.").max(10, "Symbol too long"),
-  description: z.string().optional(),
-  image: z.string().url("Must be a valid URL (e.g. ipfs://...)").optional().or(z.literal('')),
-  website: z.string().url("Must be a valid URL").optional().or(z.literal('')),
-  twitter: z.string().url("Must be a valid URL").optional().or(z.literal('')),
-  telegram: z.string().url("Must be a valid URL").optional().or(z.literal('')),
-  devBuyAmount: z.string().regex(/^\d*\.?\d*$/, "Must be a number").optional(),
-  vaultPercentage: z.string().regex(/^\d+$/, "Must be a whole number").optional(),
-});
+function CabalCard({ cabalId }: { cabalId: bigint }) {
+  const { data: cabal } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: 'getCabal',
+    args: [cabalId],
+  }) as { data: CabalInfo | undefined };
 
-export default function DeployPage() {
-  const [deploying, setDeploying] = useState(false);
-  const [deployedAddress, setDeployedAddress] = useState<string | null>(null);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      symbol: "",
-      description: "",
-      image: "",
-      website: "",
-      twitter: "",
-      telegram: "",
-      devBuyAmount: "0",
-      vaultPercentage: "0",
+  const { data: totalSupply } = useReadContract({
+    address: cabal?.tokenAddress,
+    abi: erc20Abi,
+    functionName: 'totalSupply',
+    query: {
+      enabled: !!cabal && cabal.phase === CabalPhase.Active,
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setDeploying(true);
-    setDeployedAddress(null);
-    try {
-      const response = await fetch('/api/deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
+  const { data: treasuryBalance } = useBalance({
+    address: cabal?.tbaAddress,
+    query: {
+      enabled: !!cabal && cabal.phase === CabalPhase.Active,
+    },
+  });
 
-      const data = await response.json();
+  if (!cabal) return null;
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Deployment failed');
-      }
+  const phaseLabel = ['Presale', 'Active', 'Paused'][cabal.phase] || 'Unknown';
+  const phaseColor = {
+    [CabalPhase.Presale]: 'bg-yellow-500',
+    [CabalPhase.Active]: 'bg-green-500',
+    [CabalPhase.Paused]: 'bg-red-500',
+  }[cabal.phase] || 'bg-gray-500';
 
-      setDeployedAddress(data.address);
-      toast.success("Token deployed successfully!", {
-        description: `Address: ${data.address}`,
-      });
-    } catch (error: any) {
-      toast.error("Error deploying token", {
-        description: error.message,
-      });
-    } finally {
-      setDeploying(false);
-    }
+  const stakedPercentage = (cabal.phase === CabalPhase.Active && totalSupply && totalSupply > 0n)
+    ? Number((cabal.totalStaked * 10000n) / totalSupply) / 100
+    : 0;
+
+  return (
+    <Link href={`/${cabalId.toString()}`}>
+      <Card className="hover:border-primary transition-colors cursor-pointer h-full py-0">
+        <CardContent className="p-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-mono font-bold text-lg">${cabal.symbol}</span>
+            <span className={`px-2 py-0.5 text-xs rounded-full text-white ${phaseColor}`}>
+              {phaseLabel}
+            </span>
+          </div>
+          <div className="space-y-1.5 text-sm">
+            {cabal.phase === CabalPhase.Presale && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Contributors</span>
+                  <span>{cabal.contributorCount.toString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Raised</span>
+                  <TokenAmount amount={cabal.totalRaised} symbol="ETH" className="font-mono" />
+                </div>
+              </>
+            )}
+            {cabal.phase === CabalPhase.Active && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Staked</span>
+                  <span className="font-mono font-bold text-green-600">
+                    {stakedPercentage.toFixed(2)}%
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Treasury</span>
+                  <TokenAmount amount={treasuryBalance?.value} symbol="ETH" className="font-mono" />
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+export default function HomePage() {
+  const { data: cabalIds, isLoading } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: 'getAllCabals',
+  });
+
+  if (!CABAL_DIAMOND_ADDRESS) {
+    return (
+      <div className="min-h-screen">
+        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+          <div className="page-container">
+            <div className="flex items-center justify-between h-12">
+              <Link href="/" className="text-xl font-bold tracking-tight">CABAL</Link>
+              <WalletButton />
+            </div>
+          </div>
+        </header>
+        <main className="page-container section-gap">
+          <Card className="p-8 text-center">
+            <p className="font-medium mb-2">Contract Not Deployed</p>
+            <p className="text-sm text-muted-foreground">
+              Deploy using: <code className="bg-muted px-2 py-1 rounded text-xs">npm run deploy</code>
+            </p>
+          </Card>
+        </main>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto py-10 max-w-2xl">
-      <div className="flex justify-between mb-4">
-        <Link href="/cabal">
-          <Button>
-            Enter CABAL
-          </Button>
-        </Link>
-        <Link href="/deployments">
-          <Button variant="outline">
-            View My Deployments
-          </Button>
-        </Link>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Deploy New Token</CardTitle>
-          <CardDescription>Launch a token on Base using Clanker SDK</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Token Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="My Cool Token" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="symbol"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Symbol</FormLabel>
-                      <FormControl>
-                        <Input placeholder="MCT" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Tell us about your token..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="image"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL (IPFS)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ipfs://..." {...field} />
-                    </FormControl>
-                    <FormDescription>Link to your token icon</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="website"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Website</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="twitter"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Twitter</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://x.com/..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="telegram"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Telegram</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://t.me/..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                 <FormField
-                  control={form.control}
-                  name="devBuyAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Dev Buy (ETH)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.0001" {...field} />
-                      </FormControl>
-                      <FormDescription>Amount of ETH to buy at launch</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="vaultPercentage"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Vault %</FormLabel>
-                      <FormControl>
-                        <Input type="number" max="90" {...field} />
-                      </FormControl>
-                      <FormDescription>Percentage of supply to lock (0-90)</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={deploying}>
-                {deploying ? "Deploying..." : "Deploy Token"}
-              </Button>
-            </form>
-          </Form>
-
-          {deployedAddress && (
-            <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-900">
-              <h3 className="font-semibold text-green-800 dark:text-green-300">Success!</h3>
-              <p className="text-sm text-green-700 dark:text-green-400 mt-1">
-                Token deployed at: <span className="font-mono">{deployedAddress}</span>
-              </p>
-              <a 
-                href={`https://clanker.world/clanker/${deployedAddress}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-blue-600 hover:underline mt-2 inline-block"
-              >
-                View on Clanker World &rarr;
-              </a>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+        <div className="page-container">
+          <div className="flex items-center justify-between h-12">
+            <Link href="/" className="text-xl font-bold tracking-tight">CABAL</Link>
+            <div className="flex items-center gap-2">
+              <Link href="/create">
+                <Button size="sm" className="gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Create</span>
+                </Button>
+              </Link>
+              <WalletButton />
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </header>
+
+      <main className="page-container section-gap">
+        {isLoading ? (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        ) : !cabalIds || cabalIds.length === 0 ? (
+          <Card className="p-6 text-center max-w-md mx-auto">
+            <p className="font-medium mb-2">No CABALs Yet</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create the first CABAL to get started.
+            </p>
+            <Link href="/create">
+              <Button>Create CABAL</Button>
+            </Link>
+          </Card>
+        ) : (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {cabalIds.map((id) => (
+              <CabalCard key={id.toString()} cabalId={id} />
+            ))}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

@@ -481,7 +481,7 @@ export default function CabalDetailPage() {
           <div className="page-container">
             <div className="flex items-center justify-between h-12">
               <div className="flex items-center gap-3">
-                <Link href="/cabal"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="h-5 w-5" /></Button></Link>
+                <Link href="/"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="h-5 w-5" /></Button></Link>
                 <span className="text-muted-foreground">Loading...</span>
               </div>
               <WalletButton />
@@ -506,7 +506,7 @@ export default function CabalDetailPage() {
         <div className="page-container">
           <div className="flex items-center justify-between h-12">
             <div className="flex items-center gap-3">
-              <Link href="/cabal"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="h-5 w-5" /></Button></Link>
+              <Link href="/"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="h-5 w-5" /></Button></Link>
               <span className="font-mono font-bold text-lg">${cabal.symbol}</span>
             </div>
             <WalletButton />

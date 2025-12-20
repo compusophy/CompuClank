@@ -10,7 +10,16 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x000000000000000000000000000000
 const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.20",
+  solidity: {
+    version: "0.8.20",
+    settings: {
+      viaIR: true,
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
   networks: {
     base: {
       url: RPC_URL,

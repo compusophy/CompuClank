@@ -2,3 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export * as clankerIndexSol from "./ClankerIndex.sol";
+export * as cabal from "./cabal";
+export * as test from "./test";

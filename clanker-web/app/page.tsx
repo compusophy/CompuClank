@@ -82,7 +82,12 @@ export default function DeployPage() {
 
   return (
     <div className="container mx-auto py-10 max-w-2xl">
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between mb-4">
+        <Link href="/cabals">
+          <Button>
+            Enter CABAL
+          </Button>
+        </Link>
         <Link href="/deployments">
           <Button variant="outline">
             View My Deployments

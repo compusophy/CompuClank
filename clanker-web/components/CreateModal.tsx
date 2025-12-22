@@ -85,10 +85,17 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
     });
   };
 
+  // Handle success via callback in writeContract
+  const handleSuccess = () => {
+    toast.success('CABAL created successfully!');
+    reset();
+    onOpenChange(false);
+    onSuccess?.();
+  };
+
+  // Reset form when modal closes
   useEffect(() => {
-    if (isSuccess) {
-      toast.success('CABAL created successfully!');
-      // Reset form
+    if (!isOpen) {
       setFormData({
         name: '',
         symbol: '',
@@ -99,11 +106,16 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
         proposalThreshold: '0',
       });
       setShowAdvanced(false);
-      reset();
-      onOpenChange(false);
-      onSuccess?.();
     }
-  }, [isSuccess, reset, onOpenChange, onSuccess]);
+  }, [isOpen]);
+
+  // Watch for transaction confirmation
+  useEffect(() => {
+    if (isSuccess && hash) {
+      handleSuccess();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess, hash]);
 
   const isLoading = isPending || isConfirming;
 

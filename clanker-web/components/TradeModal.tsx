@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignTypedData, useChainId } from 'wagmi';
-import { formatEther, parseEther, erc20Abi, hexToSignature } from 'viem';
-import { readContract } from '@wagmi/core';
-import { config as wagmiConfig } from '@/lib/wagmi-config';
+import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { formatEther, parseEther, erc20Abi } from 'viem';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TokenAmount } from '@/components/TokenAmount';
 import { CABAL_ABI, CabalInfo } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { ArrowDownUp, Loader2 } from 'lucide-react';
@@ -62,11 +59,8 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, initialTab = 'buy' }: TradeModalProps) {
   const [activeTab, setActiveTab] = useState<TradeTab>(initialTab);
   const [amount, setAmount] = useState('');
-  const [isSigning, setIsSigning] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const { address } = useAccount();
-  const chainId = useChainId();
-  const { signTypedDataAsync } = useSignTypedData();
 
   // Reset amount when tab changes
   useEffect(() => {
@@ -99,14 +93,6 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
     args: address && CABAL_DIAMOND_ADDRESS ? [address, CABAL_DIAMOND_ADDRESS] : undefined,
   });
 
-  // Staked Balance
-  const { data: stakedBalance, refetch: refetchStaked } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    functionName: 'getStakedBalance',
-    args: address ? [cabalId, address] : undefined,
-  });
-
   // Buy tokens contract call
   const { writeContract: buyWrite, data: buyHash, isPending: isBuying, reset: resetBuy } = useWriteContract();
   const { isSuccess: buySuccess, isLoading: buyConfirming } = useWaitForTransactionReceipt({ hash: buyHash });
@@ -118,10 +104,6 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
   // Approve tokens contract call
   const { writeContract: approveWrite, data: approveHash, isPending: approving } = useWriteContract();
   const { isSuccess: approveSuccess, isLoading: approveConfirming } = useWaitForTransactionReceipt({ hash: approveHash });
-
-  // Stake write contract
-  const { writeContract: stakeWrite, data: stakeHash, isPending: isStaking } = useWriteContract();
-  const { isSuccess: stakeSuccess, isLoading: stakeConfirming } = useWaitForTransactionReceipt({ hash: stakeHash });
 
   // Handle buy success
   useEffect(() => {
@@ -158,18 +140,6 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveSuccess, approveHash]);
-
-  // Handle stake success
-  useEffect(() => {
-    if (stakeSuccess && stakeHash) {
-      showTransactionToast(stakeHash, 'Staked!');
-      refetchStaked();
-      refetchTokenBalance();
-      onSuccess();
-      setAmount('');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stakeSuccess, stakeHash]);
 
   const executeSell = () => {
     if (!CABAL_DIAMOND_ADDRESS || !amount || !address) return;
@@ -243,82 +213,6 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
     }
     
     executeSell();
-  };
-
-  const handleStake = async () => {
-    if (!CABAL_DIAMOND_ADDRESS || !amount || !address) return;
-    const stakeAmount = parseEther(amount);
-    setIsSigning(true);
-    
-    try {
-      const nonce = await readContract(wagmiConfig, {
-        address: cabal.tokenAddress,
-        abi: [...erc20Abi, { 
-          inputs: [{ name: 'owner', type: 'address' }], 
-          name: 'nonces', 
-          outputs: [{ name: '', type: 'uint256' }], 
-          stateMutability: 'view', 
-          type: 'function' 
-        }] as const,
-        functionName: 'nonces', 
-        args: [address],
-      });
-      
-      const tokenName = await readContract(wagmiConfig, { 
-        address: cabal.tokenAddress, 
-        abi: erc20Abi, 
-        functionName: 'name' 
-      });
-      
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-      
-      const signature = await signTypedDataAsync({
-        domain: { 
-          name: tokenName, 
-          version: '1', 
-          chainId, 
-          verifyingContract: cabal.tokenAddress 
-        },
-        types: { 
-          Permit: [
-            { name: 'owner', type: 'address' }, 
-            { name: 'spender', type: 'address' }, 
-            { name: 'value', type: 'uint256' }, 
-            { name: 'nonce', type: 'uint256' }, 
-            { name: 'deadline', type: 'uint256' }
-          ] 
-        },
-        primaryType: 'Permit',
-        message: { 
-          owner: address, 
-          spender: CABAL_DIAMOND_ADDRESS, 
-          value: stakeAmount, 
-          nonce: nonce as bigint, 
-          deadline 
-        },
-      });
-      
-      const { v, r, s } = hexToSignature(signature);
-      
-      stakeWrite({ 
-        address: CABAL_DIAMOND_ADDRESS, 
-        abi: CABAL_ABI, 
-        functionName: 'stakeWithPermit', 
-        args: [cabalId, stakeAmount, deadline, Number(v), r, s] 
-      }, {
-        onError: (e) => { 
-          toast.error(e.message); 
-          setIsSigning(false); 
-        },
-        onSuccess: () => { 
-          setIsSigning(false); 
-          setAmount(''); 
-        }
-      });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to sign');
-      setIsSigning(false);
-    }
   };
 
   const handleAction = () => {

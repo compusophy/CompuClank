@@ -3,7 +3,6 @@
 import { useEffect, useState, createContext, useContext, useCallback } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useConnect, useAccount } from 'wagmi';
-import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector';
 
 type FarcasterContextType = {
   isInMiniApp: boolean;

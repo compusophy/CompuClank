@@ -3,45 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSignTypedData, useChainId } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatEther, parseEther, erc20Abi, hexToSignature } from 'viem';
-import { readContract } from '@wagmi/core';
-import { config as wagmiConfig } from '@/lib/wagmi-config';
+import { formatEther, parseEther, erc20Abi } from 'viem';
 import { toast } from 'sonner';
 import { WalletButton } from '@/components/wallet/WalletButton';
+import { SettingsModal } from '@/components/SettingsModal';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { CABAL_ABI, CabalInfo, CabalPhase } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { TokenAmount } from '@/components/TokenAmount';
-import { ArrowLeft } from 'lucide-react';
-
-function SimpleTabs({ tabs, activeTab, onTabChange }: { 
-  tabs: { id: string; label: string }[];
-  activeTab: string;
-  onTabChange: (id: string) => void;
-}) {
-  return (
-    <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit mb-6">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onTabChange(tab.id)}
-          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-            activeTab === tab.id
-              ? 'bg-background shadow-sm font-medium'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+import { TradeModal } from '@/components/TradeModal';
+import { ArrowLeft, ExternalLink, Users, Coins, Vote, Settings, History, TrendingUp, Plus } from 'lucide-react';
 
 function showTransactionToast(hash: string, message: string) {
   toast.success(message, {
@@ -51,6 +35,12 @@ function showTransactionToast(hash: string, message: string) {
     },
     duration: 5000,
   });
+}
+
+function formatPercent(value: number): string {
+  if (value === 0) return '0.00%';
+  if (value < 0.01) return '<0.01%';
+  return `${value.toFixed(2)}%`;
 }
 
 // PRESALE COMPONENTS
@@ -94,10 +84,10 @@ function ContributeSection({ cabalId, onSuccess, userAddress }: { cabalId: bigin
 
   return (
     <div className="space-y-4">
-      {contributionAmount && contributionAmount > 0n && (
-        <div className="p-3 bg-muted rounded-md flex justify-between items-center text-sm">
-          <span>Your Contribution</span>
-          <TokenAmount amount={contributionAmount} symbol="ETH" className="font-mono font-medium" />
+      {!!contributionAmount && contributionAmount > 0n && (
+        <div className="p-3 bg-muted rounded-lg flex justify-between items-center text-sm">
+          <span className="text-muted-foreground">Your Contribution</span>
+          <TokenAmount amount={contributionAmount} symbol="ETH" className="font-mono font-semibold" />
         </div>
       )}
       <div className="flex gap-2">
@@ -108,6 +98,7 @@ function ContributeSection({ cabalId, onSuccess, userAddress }: { cabalId: bigin
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="ETH amount"
+          className="font-mono"
         />
         <Button onClick={handleContribute} disabled={isPending || isConfirming}>
           {isPending || isConfirming ? 'Confirming...' : 'Contribute'}
@@ -152,36 +143,48 @@ function LaunchSection({ cabalId, cabal, userAddress, onSuccess }: {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="text-sm space-y-1">
+    <div className="space-y-4">
+      <div className="text-sm space-y-2 p-3 bg-muted rounded-lg">
         <div className="flex justify-between">
           <span className="text-muted-foreground">Treasury (10%)</span>
-          <TokenAmount amount={cabal.totalRaised / 10n} symbol="ETH" className="font-mono" />
+          <TokenAmount amount={cabal.totalRaised / 10n} symbol="ETH" className="font-mono font-medium" />
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">DevBuy (90%)</span>
-          <TokenAmount amount={cabal.totalRaised * 9n / 10n} symbol="ETH" className="font-mono" />
+          <TokenAmount amount={cabal.totalRaised * 9n / 10n} symbol="ETH" className="font-mono font-medium" />
         </div>
       </div>
-      <Button onClick={handleFinalize} disabled={isPending || isConfirming || cabal.totalRaised === 0n} className="w-full">
+      <Button onClick={handleFinalize} disabled={isPending || isConfirming || cabal.totalRaised === 0n} className="w-full" size="lg">
         {isPending || isConfirming ? 'Deploying...' : 'Launch Token'}
       </Button>
     </div>
   );
 }
 
-// ACTIVE COMPONENTS - POSITION TAB
+// ACTIVE SECTION - Combined Position & Governance
 
-function PositionSection({ cabalId, cabal, userAddress, onSuccess }: { 
-  cabalId: bigint; cabal: CabalInfo; userAddress: string; onSuccess: () => void;
+function ActiveSection({ cabalId, cabal, userAddress, totalSupply, ethBalance, onSuccess }: { 
+  cabalId: bigint; 
+  cabal: CabalInfo; 
+  userAddress: string; 
+  totalSupply: bigint | undefined;
+  ethBalance: bigint | undefined;
+  onSuccess: () => void;
 }) {
   const { address } = useAccount();
-  const chainId = useChainId();
   const queryClient = useQueryClient();
-  const [stakeAmount, setStakeAmount] = useState('');
   const [unstakeAmount, setUnstakeAmount] = useState('');
-  const [isSigning, setIsSigning] = useState(false);
-  const { signTypedDataAsync } = useSignTypedData();
+  const [delegatee, setDelegatee] = useState('');
+  const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false);
+  const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
+  const [isPresaleModalOpen, setIsPresaleModalOpen] = useState(false);
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [tradeModalTab, setTradeModalTab] = useState<'buy' | 'sell' | 'stake'>('buy');
+
+  const openTradeModal = (tab: 'buy' | 'sell' | 'stake') => {
+    setTradeModalTab(tab);
+    setIsTradeModalOpen(true);
+  };
 
   // Read data
   const { data: claimable, refetch: refetchClaimable } = useReadContract({
@@ -200,26 +203,19 @@ function PositionSection({ cabalId, cabal, userAddress, onSuccess }: {
     address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'getStakedBalance',
     args: address ? [cabalId, address] : undefined,
   });
-  const { data: votingPower, refetch: refetchVoting } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'getVotingPower',
-    args: address ? [cabalId, address] : undefined,
-  });
   const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
     address: cabal.tokenAddress, abi: erc20Abi, functionName: 'balanceOf',
     args: address ? [address] : undefined,
   });
 
-  // Claim
+  // Write contracts
   const { writeContract: claimWrite, data: claimHash, isPending: isClaiming } = useWriteContract();
   const { isSuccess: claimSuccess, isLoading: claimConfirming } = useWaitForTransactionReceipt({ hash: claimHash });
-
-  // Stake
-  const { writeContract: stakeWrite, data: stakeHash, isPending: isStaking, reset: resetStake } = useWriteContract();
-  const { isSuccess: stakeSuccess, isLoading: stakeConfirming } = useWaitForTransactionReceipt({ hash: stakeHash });
-
-  // Unstake
   const { writeContract: unstakeWrite, data: unstakeHash, isPending: isUnstaking } = useWriteContract();
   const { isSuccess: unstakeSuccess, isLoading: unstakeConfirming } = useWaitForTransactionReceipt({ hash: unstakeHash });
+  const { writeContract: delegate, isPending: isDelegating } = useWriteContract();
+  const { writeContract: undelegate, isPending: isUndelegating } = useWriteContract();
+  const { writeContract: claimFees, isPending: isFeesClaiming } = useWriteContract();
 
   useEffect(() => {
     if (claimSuccess && claimHash) {
@@ -229,16 +225,10 @@ function PositionSection({ cabalId, cabal, userAddress, onSuccess }: {
   }, [claimSuccess, claimHash]);
 
   useEffect(() => {
-    if (stakeSuccess && stakeHash) {
-      showTransactionToast(stakeHash, 'Staked!');
-      refetchStaked(); refetchVoting(); refetchTokenBalance(); queryClient.invalidateQueries(); onSuccess();
-    }
-  }, [stakeSuccess, stakeHash]);
-
-  useEffect(() => {
     if (unstakeSuccess && unstakeHash) {
       showTransactionToast(unstakeHash, 'Unstaked!');
-      refetchStaked(); refetchVoting(); refetchTokenBalance(); queryClient.invalidateQueries(); onSuccess();
+      refetchStaked(); refetchTokenBalance(); queryClient.invalidateQueries(); onSuccess();
+      setIsUnstakeModalOpen(false);
     }
   }, [unstakeSuccess, unstakeHash]);
 
@@ -249,35 +239,6 @@ function PositionSection({ cabalId, cabal, userAddress, onSuccess }: {
     });
   };
 
-  const handleStake = async () => {
-    if (!CABAL_DIAMOND_ADDRESS || !stakeAmount || !address) return;
-    const amount = parseEther(stakeAmount);
-    setIsSigning(true);
-    try {
-      const nonce = await readContract(wagmiConfig, {
-        address: cabal.tokenAddress,
-        abi: [...erc20Abi, { inputs: [{ name: 'owner', type: 'address' }], name: 'nonces', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }] as const,
-        functionName: 'nonces', args: [address],
-      });
-      const tokenName = await readContract(wagmiConfig, { address: cabal.tokenAddress, abi: erc20Abi, functionName: 'name' });
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-      const signature = await signTypedDataAsync({
-        domain: { name: tokenName, version: '1', chainId, verifyingContract: cabal.tokenAddress },
-        types: { Permit: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }, { name: 'value', type: 'uint256' }, { name: 'nonce', type: 'uint256' }, { name: 'deadline', type: 'uint256' }] },
-        primaryType: 'Permit',
-        message: { owner: address, spender: CABAL_DIAMOND_ADDRESS, value: amount, nonce: nonce as bigint, deadline },
-      });
-      const { v, r, s } = hexToSignature(signature);
-      stakeWrite({ address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'stakeWithPermit', args: [cabalId, amount, deadline, Number(v), r, s] }, {
-        onError: (e) => { toast.error(e.message); setIsSigning(false); },
-        onSuccess: () => { setIsSigning(false); setStakeAmount(''); }
-      });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to sign');
-      setIsSigning(false);
-    }
-  };
-
   const handleUnstake = () => {
     if (!CABAL_DIAMOND_ADDRESS || !unstakeAmount) return;
     unstakeWrite({ address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'unstake', args: [cabalId, parseEther(unstakeAmount)] }, {
@@ -286,101 +247,10 @@ function PositionSection({ cabalId, cabal, userAddress, onSuccess }: {
     });
   };
 
-  const contributionAmount = contribution as bigint | undefined;
-  const claimableAmount = claimable as bigint | undefined;
-  const hasClaimedStatus = hasClaimed as boolean | undefined;
-  const canClaim = contributionAmount && contributionAmount > 0n && claimableAmount && claimableAmount > 0n && !hasClaimedStatus;
-
-  return (
-    <div className="space-y-6">
-      {/* Balances */}
-      <div className="grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p className="text-2xl font-mono font-bold">
-            <TokenAmount amount={tokenBalance as bigint} decimals={2} />
-          </p>
-          <p className="text-xs text-muted-foreground">Balance</p>
-        </div>
-        <div>
-          <p className="text-2xl font-mono font-bold">
-            <TokenAmount amount={stakedBalance as bigint} decimals={2} />
-          </p>
-          <p className="text-xs text-muted-foreground">Staked</p>
-        </div>
-        <div>
-          <p className="text-2xl font-mono font-bold">
-            <TokenAmount amount={votingPower as bigint} decimals={2} />
-          </p>
-          <p className="text-xs text-muted-foreground">Votes</p>
-        </div>
-      </div>
-
-      {/* Claim */}
-      {canClaim && (
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium">Claimable Tokens</p>
-                <p className="text-xl font-mono font-bold">
-                  <TokenAmount amount={claimableAmount} symbol={cabal.symbol} />
-                </p>
-              </div>
-              <Button onClick={handleClaim} disabled={isClaiming || claimConfirming}>
-                {isClaiming || claimConfirming ? 'Claiming...' : 'Claim'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Stake/Unstake */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="pt-4 space-y-2">
-            <Label className="text-xs">Stake</Label>
-            <div className="flex gap-2">
-              <Input type="number" placeholder="Amount" value={stakeAmount} onChange={(e) => setStakeAmount(e.target.value)} />
-              <Button variant="outline" size="sm" onClick={() => tokenBalance && setStakeAmount(formatEther(tokenBalance as bigint))}>Max</Button>
-            </div>
-            <Button onClick={handleStake} disabled={isSigning || isStaking || stakeConfirming || !stakeAmount} className="w-full" size="sm">
-              {isSigning ? 'Sign...' : isStaking || stakeConfirming ? 'Staking...' : 'Stake'}
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 space-y-2">
-            <Label className="text-xs">Unstake</Label>
-            <div className="flex gap-2">
-              <Input type="number" placeholder="Amount" value={unstakeAmount} onChange={(e) => setUnstakeAmount(e.target.value)} />
-              <Button variant="outline" size="sm" onClick={() => stakedBalance && setUnstakeAmount(formatEther(stakedBalance as bigint))}>Max</Button>
-            </div>
-            <Button onClick={handleUnstake} disabled={isUnstaking || unstakeConfirming || !unstakeAmount} className="w-full" size="sm" variant="outline">
-              {isUnstaking || unstakeConfirming ? 'Unstaking...' : 'Unstake'}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// ACTIVE COMPONENTS - GOVERNANCE TAB
-
-function GovernanceSection({ cabalId, cabal }: { cabalId: bigint; cabal: CabalInfo }) {
-  const [delegatee, setDelegatee] = useState('');
-  const { writeContract: delegate, isPending: isDelegating } = useWriteContract();
-  const { writeContract: undelegate, isPending: isUndelegating } = useWriteContract();
-  const { writeContract: claimFees, isPending: isClaiming } = useWriteContract();
-
-  const { data: ethBalance } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'getTreasuryETHBalance', args: [cabalId],
-  });
-
   const handleDelegate = () => {
     if (!CABAL_DIAMOND_ADDRESS || !delegatee) return;
     delegate({ address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'delegate', args: [cabalId, delegatee as `0x${string}`] }, {
-      onSuccess: () => { toast.success('Delegated!'); setDelegatee(''); },
+      onSuccess: () => { toast.success('Delegated!'); setDelegatee(''); setIsDelegateModalOpen(false); onSuccess(); },
       onError: (e) => toast.error(e.message),
     });
   };
@@ -388,7 +258,7 @@ function GovernanceSection({ cabalId, cabal }: { cabalId: bigint; cabal: CabalIn
   const handleUndelegate = () => {
     if (!CABAL_DIAMOND_ADDRESS) return;
     undelegate({ address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'undelegate', args: [cabalId] }, {
-      onSuccess: () => toast.success('Undelegated!'),
+      onSuccess: () => { toast.success('Undelegated!'); onSuccess(); },
       onError: (e) => toast.error(e.message),
     });
   };
@@ -396,59 +266,336 @@ function GovernanceSection({ cabalId, cabal }: { cabalId: bigint; cabal: CabalIn
   const handleClaimFees = () => {
     if (!CABAL_DIAMOND_ADDRESS) return;
     claimFees({ address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'claimLPFees', args: [cabalId, '0x4200000000000000000000000000000000000006'] }, {
-      onSuccess: () => toast.success('LP fees claimed!'),
+      onSuccess: () => { toast.success('LP fees claimed!'); onSuccess(); },
       onError: (e) => toast.error(e.message),
     });
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Treasury */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Treasury</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">ETH Balance</span>
-            <span className="text-xl font-mono font-bold">
-              <TokenAmount amount={ethBalance as bigint} symbol="ETH" />
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground break-all">TBA: {cabal.tbaAddress}</p>
-          <Button onClick={handleClaimFees} disabled={isClaiming} variant="outline" size="sm" className="w-full">
-            {isClaiming ? 'Claiming...' : 'Claim LP Fees'}
-          </Button>
-        </CardContent>
-      </Card>
+  const contributionAmount = contribution as bigint | undefined;
+  const hasClaimedStatus = hasClaimed as boolean | undefined;
 
-      {/* Delegation */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Delegation</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Input placeholder="0x..." value={delegatee} onChange={(e) => setDelegatee(e.target.value)} />
-          <div className="flex gap-2">
-            <Button onClick={handleDelegate} disabled={isDelegating || !delegatee} size="sm" className="flex-1">
-              {isDelegating ? 'Delegating...' : 'Delegate'}
+  // Calculate total claim amount (what they can claim OR have already claimed)
+  // We calculate this manually because getClaimable returns 0 after claiming
+  const totalClaimAmount = (contributionAmount && cabal.totalRaised > 0n)
+    ? (contributionAmount * cabal.totalTokensReceived) / cabal.totalRaised
+    : 0n;
+
+  // Show card if user contributed, regardless of claim status
+  const showClaimCard = !!contributionAmount && contributionAmount > 0n && totalClaimAmount > 0n;
+
+  // Calculate voting power percentage (user staked / total staked)
+  const userStaked = stakedBalance as bigint | undefined;
+  const votingPowerPercent = userStaked && cabal.totalStaked > 0n 
+    ? Number((userStaked * 10000n) / cabal.totalStaked) / 100 
+    : 0;
+
+  return (
+    <div className="space-y-3.5">
+      {/* Claim Banner - prominent if available */}
+      {showClaimCard && (
+        <Card className={`${hasClaimedStatus ? 'bg-muted/50' : 'bg-green-500/5 border-green-500/50'}`}>
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Your Contribution</p>
+                  <p className="text-lg font-mono font-bold">
+                    <TokenAmount amount={contributionAmount} symbol="ETH" />
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{hasClaimedStatus ? 'Claimed from presale' : 'Claimable from presale'}</p>
+                  <p className="text-xl font-mono font-bold">
+                    <TokenAmount amount={totalClaimAmount} symbol={cabal.symbol} />
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={handleClaim} 
+                disabled={hasClaimedStatus || isClaiming || claimConfirming} 
+                className={hasClaimedStatus ? "" : "bg-green-600 hover:bg-green-700"}
+                variant={hasClaimedStatus ? "secondary" : "default"}
+              >
+                {hasClaimedStatus 
+                  ? 'Already Claimed' 
+                  : (isClaiming || claimConfirming ? 'Claiming...' : 'Claim Tokens')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+        {/* Position Card */}
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Coins className="h-5 w-5 text-muted-foreground" />
+                Your Position
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setIsPresaleModalOpen(true)} className="text-xs text-muted-foreground">
+                <History className="h-3 w-3 mr-1" />
+                Presale Info
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Balance & Staked - Vertical Stack */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Wallet Balance</p>
+                  <div className="flex gap-2 mt-0.5">
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      className="h-auto p-0 text-xs font-medium" 
+                      onClick={() => openTradeModal('stake')}
+                      disabled={!tokenBalance || (tokenBalance as bigint) === 0n}
+                    >
+                      Stake →
+                    </Button>
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      className="h-auto p-0 text-xs font-medium text-muted-foreground" 
+                      onClick={() => openTradeModal('sell')}
+                      disabled={!tokenBalance || (tokenBalance as bigint) === 0n}
+                    >
+                      Sell
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-2xl font-mono font-bold tracking-tight">
+                  <TokenAmount amount={tokenBalance as bigint} decimals={2} />
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Staked</p>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="h-auto p-0 text-xs font-medium mt-0.5" 
+                    onClick={() => setIsUnstakeModalOpen(true)}
+                    disabled={!stakedBalance || (stakedBalance as bigint) === 0n}
+                  >
+                    Unstake →
+                  </Button>
+                </div>
+                <p className="text-2xl font-mono font-bold tracking-tight">
+                  <TokenAmount amount={stakedBalance as bigint} decimals={2} />
+                </p>
+              </div>
+            </div>
+
+            {/* Trade Button */}
+            <Button 
+              onClick={() => openTradeModal('buy')} 
+              className="w-full"
+              size="lg"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Trade ${cabal.symbol}
             </Button>
-            <Button onClick={handleUndelegate} disabled={isUndelegating} variant="outline" size="sm" className="flex-1">
-              {isUndelegating ? '...' : 'Undelegate'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Governance Card */}
+        <Card>
+          <CardHeader className="p-3.5 pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Vote className="h-5 w-5 text-muted-foreground" />
+              Governance
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0 space-y-3.5">
+            {/* Voting Power & Quorum - Vertical Stack */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Your Voting Power</p>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="h-auto p-0 text-xs font-medium mt-0.5" 
+                    onClick={() => setIsDelegateModalOpen(true)}
+                  >
+                    Delegate →
+                  </Button>
+                </div>
+                <p className="text-2xl font-mono font-bold tracking-tight">
+                  {formatPercent(votingPowerPercent)}
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Quorum Required</p>
+                <p className="text-2xl font-mono font-bold tracking-tight">
+                  {Number(cabal.settings.quorumBps) / 100}%
+                </p>
+              </div>
+            </div>
+
+            {/* Treasury Actions */}
+            <div className="pt-4 border-t space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Treasury Address</p>
+                  <a 
+                    href={`https://basescan.org/address/${cabal.tbaAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    {cabal.tbaAddress.slice(0, 8)}...{cabal.tbaAddress.slice(-6)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleClaimFees} 
+                  disabled={isFeesClaiming}
+                >
+                  {isFeesClaiming ? 'Claiming...' : 'Claim LP Fees'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Proposals */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Proposals</CardTitle>
+        <CardHeader className="p-3.5 pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Settings className="h-5 w-5 text-muted-foreground" />
+            Proposals
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">Coming soon...</p>
+        <CardContent className="p-3.5 pt-0">
+          <div className="text-center py-6 border-2 border-dashed rounded-lg">
+            <p className="text-muted-foreground">No active proposals</p>
+            <p className="text-xs text-muted-foreground mt-1">Proposals will appear here when created</p>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Presale Info Modal */}
+      <Dialog open={isPresaleModalOpen} onOpenChange={setIsPresaleModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Presale History
+            </DialogTitle>
+            <DialogDescription>
+              Historical information from the token presale phase.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Total Raised</p>
+                <p className="text-xl font-mono font-bold">
+                  <TokenAmount amount={cabal.totalRaised} symbol="ETH" />
+                </p>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Contributors</p>
+                <p className="text-xl font-bold">{cabal.contributorCount.toString()}</p>
+              </div>
+            </div>
+            {!!contributionAmount && contributionAmount > 0n && (
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Your Contribution</span>
+                  <span className="font-mono font-semibold">
+                    <TokenAmount amount={contributionAmount} symbol="ETH" />
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unstake Modal */}
+      <Dialog open={isUnstakeModalOpen} onOpenChange={setIsUnstakeModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unstake ${cabal.symbol}</DialogTitle>
+            <DialogDescription>
+              Unstaking will reduce your voting power.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Amount to Unstake</Label>
+              <div className="flex gap-2">
+                <Input type="number" placeholder="0.0" value={unstakeAmount} onChange={(e) => setUnstakeAmount(e.target.value)} className="font-mono" />
+                <Button variant="outline" onClick={() => stakedBalance && setUnstakeAmount(formatEther(stakedBalance as bigint))}>Max</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Staked: <TokenAmount amount={stakedBalance as bigint} symbol={cabal.symbol} />
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUnstake} disabled={isUnstaking || unstakeConfirming || !unstakeAmount} className="w-full" variant="outline">
+              {isUnstaking || unstakeConfirming ? 'Unstaking...' : 'Unstake Tokens'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delegate Modal */}
+      <Dialog open={isDelegateModalOpen} onOpenChange={setIsDelegateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delegate Voting Power</DialogTitle>
+            <DialogDescription>
+              Delegate your votes to another address, or undelegate to vote yourself.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Your Voting Power</span>
+                <span className="font-mono font-semibold">{formatPercent(votingPowerPercent)}</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Delegatee Address</Label>
+              <Input placeholder="0x..." value={delegatee} onChange={(e) => setDelegatee(e.target.value)} className="font-mono" />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDelegate} disabled={isDelegating || !delegatee} className="flex-1">
+                {isDelegating ? 'Delegating...' : 'Delegate'}
+              </Button>
+              <Button onClick={handleUndelegate} disabled={isUndelegating} variant="outline" className="flex-1">
+                {isUndelegating ? 'Undelegating...' : 'Undelegate'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Trade Modal */}
+      <TradeModal
+        isOpen={isTradeModalOpen}
+        onOpenChange={setIsTradeModalOpen}
+        cabalId={cabalId}
+        cabal={cabal}
+        onSuccess={() => {
+          refetchStaked();
+          refetchTokenBalance();
+          onSuccess();
+        }}
+        initialTab={tradeModalTab}
+      />
     </div>
   );
 }
@@ -459,7 +606,6 @@ export default function CabalDetailPage() {
   const params = useParams();
   const cabalId = BigInt(params.id as string);
   const { address, isConnected } = useAccount();
-  const [activeTab, setActiveTab] = useState('position');
   const queryClient = useQueryClient();
 
   const { data: cabal, isLoading, refetch } = useReadContract({
@@ -469,124 +615,190 @@ export default function CabalDetailPage() {
     args: [cabalId],
   }) as { data: CabalInfo | undefined; isLoading: boolean; refetch: () => void };
 
+  const { data: ethBalance, refetch: refetchEthBalance } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: 'getTreasuryETHBalance', args: [cabalId],
+  });
+
+  // Get total supply for staked percentage calculation
+  const { data: totalSupply } = useReadContract({
+    address: cabal?.tokenAddress,
+    abi: erc20Abi,
+    functionName: 'totalSupply',
+    query: { enabled: !!cabal?.tokenAddress && cabal.phase === CabalPhase.Active },
+  });
+
   const handleSuccess = () => {
     refetch();
+    refetchEthBalance();
     queryClient.invalidateQueries();
   };
 
   if (!CABAL_DIAMOND_ADDRESS || isLoading || !cabal) {
     return (
       <div className="min-h-screen">
-        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
-          <div className="page-container">
-            <div className="flex items-center justify-between h-12">
-              <div className="flex items-center gap-3">
-                <Link href="/"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="h-5 w-5" /></Button></Link>
-                <span className="text-muted-foreground">Loading...</span>
-              </div>
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+        <div className="page-container">
+          <div className="flex items-center justify-between h-14">
+            <Link href="/" className="text-xl font-bold tracking-tight">CABAL</Link>
+            <div className="flex items-center gap-3">
+              <Link href="/create">
+                <Button size="sm" className="gap-1.5 shadow-sm">
+                  <Plus className="h-4 w-4" />
+                  <span>Create</span>
+                </Button>
+              </Link>
               <WalletButton />
+              <SettingsModal />
             </div>
           </div>
-        </header>
+        </div>
+      </header>
+        <main className="page-container py-3.5">
+          <div className="h-40 bg-muted animate-pulse rounded-xl" />
+        </main>
       </div>
     );
   }
 
   const phaseLabel = ['Presale', 'Active', 'Paused'][cabal.phase] || 'Unknown';
-  const phaseColor = cabal.phase === CabalPhase.Presale ? 'bg-yellow-500' : cabal.phase === CabalPhase.Active ? 'bg-green-500' : 'bg-red-500';
+  const phaseColor = cabal.phase === CabalPhase.Presale 
+    ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30' 
+    : cabal.phase === CabalPhase.Active 
+    ? 'bg-green-500/10 text-green-500 border-green-500/30' 
+    : 'bg-red-500/10 text-red-500 border-red-500/30';
 
-  const tabs = cabal.phase === CabalPhase.Active
-    ? [{ id: 'position', label: 'Position' }, { id: 'governance', label: 'Governance' }]
-    : [];
+  // Calculate staked percentage
+  const stakedPercent = totalSupply && (totalSupply as bigint) > 0n && cabal.totalStaked > 0n
+    ? Number((cabal.totalStaked * 10000n) / (totalSupply as bigint)) / 100
+    : 0;
 
   return (
     <div className="min-h-screen">
-      {/* Header - just ticker */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="page-container">
-          <div className="flex items-center justify-between h-12">
+          <div className="flex items-center justify-between h-14">
+            <Link href="/" className="text-xl font-bold tracking-tight">CABAL</Link>
             <div className="flex items-center gap-3">
-              <Link href="/"><Button variant="ghost" size="icon" className="rounded-full"><ArrowLeft className="h-5 w-5" /></Button></Link>
-              <span className="font-mono font-bold text-lg">${cabal.symbol}</span>
+              <Link href="/create">
+                <Button size="sm" className="gap-1.5 shadow-sm">
+                  <Plus className="h-4 w-4" />
+                  <span>Create</span>
+                </Button>
+              </Link>
+              <WalletButton />
+              <SettingsModal />
             </div>
-            <WalletButton />
           </div>
         </div>
       </header>
 
-      <main className="page-container section-gap">
-        {/* Status + Stats - always visible */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <span className={`px-2 py-0.5 text-xs rounded-full text-white ${phaseColor}`}>{phaseLabel}</span>
-            {cabal.phase === CabalPhase.Active && (
-              <a href={`https://basescan.org/address/${cabal.tokenAddress}`} target="_blank" rel="noopener noreferrer" 
-                 className="text-xs font-mono text-muted-foreground hover:text-foreground">
-                {cabal.tokenAddress.slice(0, 6)}...{cabal.tokenAddress.slice(-4)}
-              </a>
-            )}
-          </div>
+      <main className="page-container py-3.5 space-y-3.5">
+        {/* Hero Card - Key Stats */}
+        <Card className="overflow-hidden">
+          <div className="p-3.5">
+            <div className="flex justify-between items-start gap-3.5 mb-3.5">
+              <div className="flex flex-col gap-1.5">
+                <span className="font-mono font-bold text-xl">${cabal.symbol}</span>
+                {cabal.phase === CabalPhase.Active && (
+                  <a 
+                    href={`https://basescan.org/address/${cabal.tokenAddress}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    {cabal.tokenAddress.slice(0, 6)}...{cabal.tokenAddress.slice(-4)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${phaseColor} shrink-0`}>
+                {phaseLabel}
+              </span>
+            </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground text-xs">Raised</p>
-              <p className="font-mono font-medium"><TokenAmount amount={cabal.totalRaised} symbol="ETH" /></p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">Contributors</p>
-              <p className="font-medium">{cabal.contributorCount.toString()}</p>
-            </div>
-            {cabal.phase === CabalPhase.Active && (
-              <>
-                <div>
-                  <p className="text-muted-foreground text-xs">Staked</p>
-                  <p className="font-mono font-medium"><TokenAmount amount={cabal.totalStaked} /></p>
+            {/* Main Stats */}
+            {cabal.phase === CabalPhase.Active ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider">Staked</p>
+                  <p className="text-3xl sm:text-4xl font-mono font-bold tracking-tight">
+                    {formatPercent(stakedPercent)}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Quorum</p>
-                  <p className="font-medium">{Number(cabal.settings.quorumBps) / 100}%</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider">Treasury ETH</p>
+                  <p className="text-3xl sm:text-4xl font-mono font-bold tracking-tight">
+                    <TokenAmount amount={ethBalance as bigint} decimals={6} />
+                  </p>
                 </div>
-              </>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider">ETH Raised</p>
+                  <p className="text-3xl sm:text-4xl font-mono font-bold tracking-tight">
+                    <TokenAmount amount={cabal.totalRaised} decimals={6} />
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider">Contributors</p>
+                  <p className="text-3xl sm:text-4xl font-bold tracking-tight">
+                    {cabal.contributorCount.toString()}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Connect prompt */}
         {!isConnected && (
-          <Card className="p-6 text-center">
-            <p className="text-sm text-muted-foreground">Connect wallet to interact</p>
+          <Card className="border-dashed">
+            <CardContent className="py-6 text-center space-y-3.5">
+              <p className="text-muted-foreground">Connect your wallet to interact with this cabal</p>
+              <WalletButton />
+            </CardContent>
           </Card>
         )}
 
         {/* Presale Content */}
         {isConnected && address && cabal.phase === CabalPhase.Presale && (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-3.5 md:grid-cols-2">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Contribute</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="p-3.5 pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Coins className="h-5 w-5 text-muted-foreground" />
+                  Contribute
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3.5 pt-0">
                 <ContributeSection cabalId={cabalId} onSuccess={handleSuccess} userAddress={address} />
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Launch</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="p-3.5 pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  Launch
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3.5 pt-0">
                 <LaunchSection cabalId={cabalId} cabal={cabal} userAddress={address} onSuccess={handleSuccess} />
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Active Content - Tabbed */}
+        {/* Active Content */}
         {isConnected && address && cabal.phase === CabalPhase.Active && (
-          <>
-            <SimpleTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-            {activeTab === 'position' && (
-              <PositionSection cabalId={cabalId} cabal={cabal} userAddress={address} onSuccess={handleSuccess} />
-            )}
-            {activeTab === 'governance' && (
-              <GovernanceSection cabalId={cabalId} cabal={cabal} />
-            )}
-          </>
+          <ActiveSection 
+            cabalId={cabalId} 
+            cabal={cabal} 
+            userAddress={address} 
+            totalSupply={totalSupply as bigint | undefined}
+            ethBalance={ethBalance as bigint | undefined}
+            onSuccess={handleSuccess} 
+          />
         )}
       </main>
     </div>

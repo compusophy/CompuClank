@@ -312,6 +312,92 @@ export const CABAL_ABI = [
     type: "function",
   },
 
+  // ============ SwapFacet ============
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "minAmountOut", type: "uint256" },
+    ],
+    name: "buyTokens",
+    outputs: [{ name: "amountOut", type: "uint256" }],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "minAmountOut", type: "uint256" },
+      { name: "hookData", type: "bytes" },
+    ],
+    name: "buyTokensWithHookData",
+    outputs: [{ name: "amountOut", type: "uint256" }],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "tokenAmount", type: "uint256" },
+      { name: "minEthOut", type: "uint256" },
+    ],
+    name: "sellTokens",
+    outputs: [{ name: "ethOut", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "tokenAmount", type: "uint256" },
+      { name: "minEthOut", type: "uint256" },
+      { name: "hookData", type: "bytes" },
+    ],
+    name: "sellTokensWithHookData",
+    outputs: [{ name: "ethOut", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "ethAmount", type: "uint256" },
+    ],
+    name: "quoteBuy",
+    outputs: [{ name: "tokenAmount", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "tokenAmount", type: "uint256" },
+    ],
+    name: "quoteSell",
+    outputs: [{ name: "ethAmount", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getPoolKey",
+    outputs: [
+      { name: "currency0", type: "address" },
+      { name: "currency1", type: "address" },
+      { name: "fee", type: "uint24" },
+      { name: "tickSpacing", type: "int24" },
+      { name: "hooks", type: "address" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "hasActivePool",
+    outputs: [{ name: "hasPool", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+
   // ============ Events ============
   {
     anonymous: false,
@@ -346,6 +432,28 @@ export const CABAL_ABI = [
       { indexed: false, name: "devBuyAmount", type: "uint256" },
     ],
     name: "CabalFinalized",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "buyer", type: "address" },
+      { indexed: false, name: "ethAmount", type: "uint256" },
+      { indexed: false, name: "tokensReceived", type: "uint256" },
+    ],
+    name: "TokensBought",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "seller", type: "address" },
+      { indexed: false, name: "tokenAmount", type: "uint256" },
+      { indexed: false, name: "ethReceived", type: "uint256" },
+    ],
+    name: "TokensSold",
     type: "event",
   },
 ] as const;

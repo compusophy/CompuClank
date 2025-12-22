@@ -3,6 +3,8 @@
 /* eslint-disable */
 import type * as ownershipFacetSol from "./OwnershipFacet.sol";
 export type { ownershipFacetSol };
+import type * as swapFacetSol from "./SwapFacet.sol";
+export type { swapFacetSol };
 import type * as treasuryFacetSol from "./TreasuryFacet.sol";
 export type { treasuryFacetSol };
 export type { CabalCreationFacet } from "./CabalCreationFacet";

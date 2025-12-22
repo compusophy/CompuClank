@@ -74,6 +74,74 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Strings__factory>;
     getContractFactory(
+      name: "BaseHook",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.BaseHook__factory>;
+    getContractFactory(
+      name: "IERC20Minimal",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC20Minimal__factory>;
+    getContractFactory(
+      name: "IERC6909Claims",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC6909Claims__factory>;
+    getContractFactory(
+      name: "IExtsload",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IExtsload__factory>;
+    getContractFactory(
+      name: "IExttload",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IExttload__factory>;
+    getContractFactory(
+      name: "IHooks",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IHooks__factory>;
+    getContractFactory(
+      name: "IPoolManager",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPoolManager__factory>;
+    getContractFactory(
+      name: "IProtocolFees",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IProtocolFees__factory>;
+    getContractFactory(
+      name: "CustomRevert",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.CustomRevert__factory>;
+    getContractFactory(
+      name: "Hooks",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Hooks__factory>;
+    getContractFactory(
+      name: "LPFeeLibrary",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.LPFeeLibrary__factory>;
+    getContractFactory(
+      name: "SafeCast",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.SafeCast__factory>;
+    getContractFactory(
+      name: "BalanceDeltaLibrary",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.BalanceDeltaLibrary__factory>;
+    getContractFactory(
+      name: "BeforeSwapDeltaLibrary",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.BeforeSwapDeltaLibrary__factory>;
+    getContractFactory(
+      name: "CurrencyLibrary",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.CurrencyLibrary__factory>;
+    getContractFactory(
+      name: "IImmutableState",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IImmutableState__factory>;
+    getContractFactory(
+      name: "IV4Router",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IV4Router__factory>;
+    getContractFactory(
       name: "CabalNFT",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.CabalNFT__factory>;
@@ -138,6 +206,22 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.StorageRepairFacet__factory>;
     getContractFactory(
+      name: "IPermit2",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPermit2__factory>;
+    getContractFactory(
+      name: "IUniversalRouter",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IUniversalRouter__factory>;
+    getContractFactory(
+      name: "IWETH",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IWETH__factory>;
+    getContractFactory(
+      name: "SwapFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.SwapFacet__factory>;
+    getContractFactory(
       name: "IClankerFeeLocker",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IClankerFeeLocker__factory>;
@@ -162,6 +246,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC165__factory>;
     getContractFactory(
+      name: "ISwapFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ISwapFacet__factory>;
+    getContractFactory(
       name: "LibDiamond",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.LibDiamond__factory>;
@@ -182,9 +270,13 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IClankerFactory__factory>;
     getContractFactory(
-      name: "EncodingTest",
+      name: "Counter",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.EncodingTest__factory>;
+    ): Promise<Contracts.Counter__factory>;
+    getContractFactory(
+      name: "EncodeTest",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.EncodeTest__factory>;
 
     getContractAt(
       name: "Ownable",
@@ -261,6 +353,91 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.Strings>;
+    getContractAt(
+      name: "BaseHook",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.BaseHook>;
+    getContractAt(
+      name: "IERC20Minimal",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC20Minimal>;
+    getContractAt(
+      name: "IERC6909Claims",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC6909Claims>;
+    getContractAt(
+      name: "IExtsload",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IExtsload>;
+    getContractAt(
+      name: "IExttload",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IExttload>;
+    getContractAt(
+      name: "IHooks",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IHooks>;
+    getContractAt(
+      name: "IPoolManager",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPoolManager>;
+    getContractAt(
+      name: "IProtocolFees",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IProtocolFees>;
+    getContractAt(
+      name: "CustomRevert",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.CustomRevert>;
+    getContractAt(
+      name: "Hooks",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Hooks>;
+    getContractAt(
+      name: "LPFeeLibrary",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.LPFeeLibrary>;
+    getContractAt(
+      name: "SafeCast",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.SafeCast>;
+    getContractAt(
+      name: "BalanceDeltaLibrary",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.BalanceDeltaLibrary>;
+    getContractAt(
+      name: "BeforeSwapDeltaLibrary",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.BeforeSwapDeltaLibrary>;
+    getContractAt(
+      name: "CurrencyLibrary",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.CurrencyLibrary>;
+    getContractAt(
+      name: "IImmutableState",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IImmutableState>;
+    getContractAt(
+      name: "IV4Router",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IV4Router>;
     getContractAt(
       name: "CabalNFT",
       address: string | ethers.Addressable,
@@ -342,6 +519,26 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.StorageRepairFacet>;
     getContractAt(
+      name: "IPermit2",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPermit2>;
+    getContractAt(
+      name: "IUniversalRouter",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IUniversalRouter>;
+    getContractAt(
+      name: "IWETH",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IWETH>;
+    getContractAt(
+      name: "SwapFacet",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.SwapFacet>;
+    getContractAt(
       name: "IClankerFeeLocker",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -372,6 +569,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IERC165>;
     getContractAt(
+      name: "ISwapFacet",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ISwapFacet>;
+    getContractAt(
       name: "LibDiamond",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -397,10 +599,15 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IClankerFactory>;
     getContractAt(
-      name: "EncodingTest",
+      name: "Counter",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
-    ): Promise<Contracts.EncodingTest>;
+    ): Promise<Contracts.Counter>;
+    getContractAt(
+      name: "EncodeTest",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.EncodeTest>;
 
     deployContract(
       name: "Ownable",
@@ -462,6 +669,74 @@ declare module "hardhat/types/runtime" {
       name: "Strings",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Strings>;
+    deployContract(
+      name: "BaseHook",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BaseHook>;
+    deployContract(
+      name: "IERC20Minimal",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20Minimal>;
+    deployContract(
+      name: "IERC6909Claims",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC6909Claims>;
+    deployContract(
+      name: "IExtsload",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IExtsload>;
+    deployContract(
+      name: "IExttload",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IExttload>;
+    deployContract(
+      name: "IHooks",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IHooks>;
+    deployContract(
+      name: "IPoolManager",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPoolManager>;
+    deployContract(
+      name: "IProtocolFees",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IProtocolFees>;
+    deployContract(
+      name: "CustomRevert",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CustomRevert>;
+    deployContract(
+      name: "Hooks",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Hooks>;
+    deployContract(
+      name: "LPFeeLibrary",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.LPFeeLibrary>;
+    deployContract(
+      name: "SafeCast",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.SafeCast>;
+    deployContract(
+      name: "BalanceDeltaLibrary",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BalanceDeltaLibrary>;
+    deployContract(
+      name: "BeforeSwapDeltaLibrary",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BeforeSwapDeltaLibrary>;
+    deployContract(
+      name: "CurrencyLibrary",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CurrencyLibrary>;
+    deployContract(
+      name: "IImmutableState",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IImmutableState>;
+    deployContract(
+      name: "IV4Router",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IV4Router>;
     deployContract(
       name: "CabalNFT",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -527,6 +802,22 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.StorageRepairFacet>;
     deployContract(
+      name: "IPermit2",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPermit2>;
+    deployContract(
+      name: "IUniversalRouter",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IUniversalRouter>;
+    deployContract(
+      name: "IWETH",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IWETH>;
+    deployContract(
+      name: "SwapFacet",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.SwapFacet>;
+    deployContract(
       name: "IClankerFeeLocker",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IClankerFeeLocker>;
@@ -551,6 +842,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IERC165>;
     deployContract(
+      name: "ISwapFacet",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ISwapFacet>;
+    deployContract(
       name: "LibDiamond",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.LibDiamond>;
@@ -571,9 +866,13 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IClankerFactory>;
     deployContract(
-      name: "EncodingTest",
+      name: "Counter",
       signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.EncodingTest>;
+    ): Promise<Contracts.Counter>;
+    deployContract(
+      name: "EncodeTest",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.EncodeTest>;
 
     deployContract(
       name: "Ownable",
@@ -650,6 +949,91 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Strings>;
+    deployContract(
+      name: "BaseHook",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BaseHook>;
+    deployContract(
+      name: "IERC20Minimal",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20Minimal>;
+    deployContract(
+      name: "IERC6909Claims",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC6909Claims>;
+    deployContract(
+      name: "IExtsload",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IExtsload>;
+    deployContract(
+      name: "IExttload",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IExttload>;
+    deployContract(
+      name: "IHooks",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IHooks>;
+    deployContract(
+      name: "IPoolManager",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPoolManager>;
+    deployContract(
+      name: "IProtocolFees",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IProtocolFees>;
+    deployContract(
+      name: "CustomRevert",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CustomRevert>;
+    deployContract(
+      name: "Hooks",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Hooks>;
+    deployContract(
+      name: "LPFeeLibrary",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.LPFeeLibrary>;
+    deployContract(
+      name: "SafeCast",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.SafeCast>;
+    deployContract(
+      name: "BalanceDeltaLibrary",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BalanceDeltaLibrary>;
+    deployContract(
+      name: "BeforeSwapDeltaLibrary",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.BeforeSwapDeltaLibrary>;
+    deployContract(
+      name: "CurrencyLibrary",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CurrencyLibrary>;
+    deployContract(
+      name: "IImmutableState",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IImmutableState>;
+    deployContract(
+      name: "IV4Router",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IV4Router>;
     deployContract(
       name: "CabalNFT",
       args: any[],
@@ -731,6 +1115,26 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.StorageRepairFacet>;
     deployContract(
+      name: "IPermit2",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPermit2>;
+    deployContract(
+      name: "IUniversalRouter",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IUniversalRouter>;
+    deployContract(
+      name: "IWETH",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IWETH>;
+    deployContract(
+      name: "SwapFacet",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.SwapFacet>;
+    deployContract(
       name: "IClankerFeeLocker",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -761,6 +1165,11 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IERC165>;
     deployContract(
+      name: "ISwapFacet",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ISwapFacet>;
+    deployContract(
       name: "LibDiamond",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -786,10 +1195,15 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IClankerFactory>;
     deployContract(
-      name: "EncodingTest",
+      name: "Counter",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.EncodingTest>;
+    ): Promise<Contracts.Counter>;
+    deployContract(
+      name: "EncodeTest",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.EncodeTest>;
 
     // default types
     getContractFactory(

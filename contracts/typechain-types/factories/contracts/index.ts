@@ -3,4 +3,5 @@
 /* eslint-disable */
 export * as clankerIndexSol from "./ClankerIndex.sol";
 export * as cabal from "./cabal";
+export * as hooks from "./hooks";
 export * as test from "./test";

@@ -7,10 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatTokenAmount(amount: bigint | undefined, decimals: number = 4): string {
-  if (!amount) return '0';
+  if (amount === undefined || amount === 0n) return '0.00';
   const formatted = formatEther(amount);
   const [whole, decimal] = formatted.split('.');
-  if (!decimal) return whole;
+  if (!decimal) return `${whole}.00`;
 
   // If we have a whole number part, just stick to fixed decimals
   if (whole !== '0') {

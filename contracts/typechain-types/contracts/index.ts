@@ -5,5 +5,7 @@ import type * as clankerIndexSol from "./ClankerIndex.sol";
 export type { clankerIndexSol };
 import type * as cabal from "./cabal";
 export type { cabal };
+import type * as hooks from "./hooks";
+export type { hooks };
 import type * as test from "./test";
 export type { test };

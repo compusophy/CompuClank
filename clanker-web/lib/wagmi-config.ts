@@ -9,7 +9,7 @@ export const config = createConfig({
     coinbaseWallet({ appName: 'CABAL' }),
   ],
   transports: {
-    [base.id]: http(),
+    [base.id]: http(process.env.NEXT_PUBLIC_RPC_URL),
   },
   ssr: true,
 });

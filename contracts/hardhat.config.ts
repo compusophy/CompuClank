@@ -11,12 +11,13 @@ const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.26",
     settings: {
+      evmVersion: "cancun",
       viaIR: true,
       optimizer: {
         enabled: true,
-        runs: 200,
+        runs: 1000,
       },
     },
   },
@@ -28,7 +29,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: RPC_URL,
-        enabled: false,
+        enabled: true,
       }
     }
   },

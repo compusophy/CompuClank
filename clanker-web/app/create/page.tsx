@@ -6,16 +6,17 @@ import Link from 'next/link';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
 import { WalletButton } from '@/components/wallet/WalletButton';
+import { SettingsModal } from '@/components/SettingsModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { CABAL_ABI } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
-import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Plus, Wallet } from 'lucide-react';
 
 export default function CreateCabalPage() {
   const router = useRouter();
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -88,7 +89,7 @@ export default function CreateCabalPage() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="page-container">
-          <div className="flex items-center justify-between h-12">
+          <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
               <Link href="/">
                 <Button variant="ghost" size="icon" className="rounded-full">
@@ -97,18 +98,29 @@ export default function CreateCabalPage() {
               </Link>
               <span className="text-xl font-bold tracking-tight">Create</span>
             </div>
-            <WalletButton />
+            <div className="flex items-center gap-3">
+              <WalletButton />
+              <SettingsModal />
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="page-container section-gap max-w-lg">
+      <main className="page-container py-8 max-w-lg mx-auto">
         {!isConnected ? (
-          <Card className="p-6 text-center">
-            <CardTitle className="mb-3">Connect Wallet</CardTitle>
-            <CardDescription>
-              Connect your wallet to create a CABAL.
-            </CardDescription>
+          <Card className="p-12 text-center border-dashed">
+            <div className="space-y-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Wallet className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-xl mb-2">Connect Wallet</CardTitle>
+                <CardDescription className="mb-6">
+                  Connect your wallet to create a CABAL.
+                </CardDescription>
+                <WalletButton />
+              </div>
+            </div>
           </Card>
         ) : (
           <Card>

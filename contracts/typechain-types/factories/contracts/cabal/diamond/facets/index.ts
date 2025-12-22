@@ -2,6 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export * as ownershipFacetSol from "./OwnershipFacet.sol";
+export * as swapFacetSol from "./SwapFacet.sol";
 export * as treasuryFacetSol from "./TreasuryFacet.sol";
 export { CabalCreationFacet__factory } from "./CabalCreationFacet__factory";
 export { DelegationFacet__factory } from "./DelegationFacet__factory";

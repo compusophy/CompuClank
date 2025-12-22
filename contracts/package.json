@@ -11,10 +11,18 @@
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^5.1.0",
     "@types/node": "^20.0.0",
-    "clanker-sdk": "github:clanker-devco/clanker-sdk",
     "dotenv": "^16.0.0",
     "hardhat": "^2.22.0",
     "ts-node": "^10.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@openzeppelin/uniswap-hooks": "^1.1.1",
+    "@uniswap/universal-router": "^2.1.0",
+    "@uniswap/v4-core": "^1.0.2",
+    "@uniswap/v4-periphery": "^1.0.3",
+    "clanker-sdk": "^4.2.8",
+    "viem": "^2.43.3"
   }
 }

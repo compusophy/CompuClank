@@ -122,6 +122,14 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* All interactive elements should show pointer cursor */
+  button,
+  [role="button"],
+  a,
+  summary,
+  [tabindex]:not([tabindex="-1"]) {
+    @apply cursor-pointer;
+  }
 }
 
 /* Consistent spacing utilities */

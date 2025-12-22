@@ -8,7 +8,6 @@ import { WalletButton } from "@/components/wallet/WalletButton"
 import { SettingsModal } from "@/components/SettingsModal"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { TokenAmount } from "@/components/TokenAmount"
@@ -113,8 +112,8 @@ function CabalCard({
       : 0
 
   return (
-    <div onClick={() => onClick(cabalId)} className="block h-full">
-      <Card className="overflow-hidden hover:border-foreground/20 hover:shadow-lg transition-all duration-200 cursor-pointer h-full group relative">
+    <div onClick={() => onClick(cabalId)} role="button" tabIndex={0} className="block h-full">
+      <Card className="overflow-hidden hover:border-foreground/20 hover:shadow-lg transition-all duration-200 h-full group relative">
         <CardContent className="p-3.5 space-y-3.5">
           <div className="flex justify-between items-center">
             <h3 className="font-mono font-bold text-lg tracking-tight group-hover:text-primary transition-colors">
@@ -253,6 +252,9 @@ export default function HomePage() {
   // Get selected cabal data
   const selectedCabal = selectedCabalId !== null ? cabalMap.get(selectedCabalId) : undefined
 
+  // Handle back navigation
+  const handleBack = () => setSelectedCabalId(null)
+
   if (!CABAL_DIAMOND_ADDRESS) {
     return (
       <div className="min-h-screen">
@@ -293,9 +295,12 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="page-container">
           <div className="flex items-center justify-between h-14">
-            <Link href="/" className="text-xl font-bold tracking-tight">
+            <button 
+              onClick={handleBack}
+              className="text-xl font-bold tracking-tight"
+            >
               CABAL
-            </Link>
+            </button>
             <div className="flex items-center gap-3">
               <Link href="/create">
                 <Button size="sm" className="gap-1.5 shadow-sm">
@@ -311,7 +316,10 @@ export default function HomePage() {
       </header>
 
       <main className="page-container py-3.5">
-        {isLoading ? (
+        {/* Show details view when a cabal is selected */}
+        {selectedCabalId !== null ? (
+          <CabalDetailsContent cabalId={selectedCabalId} initialCabal={selectedCabal} />
+        ) : isLoading ? (
           <div className="space-y-3.5">
             {/* Skeleton filter bar */}
             <div className="flex items-center justify-between">
@@ -395,23 +403,6 @@ export default function HomePage() {
           </div>
         )}
       </main>
-
-      {/* Cabal Details Modal */}
-      <Dialog open={selectedCabalId !== null} onOpenChange={(open) => !open && setSelectedCabalId(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedCabal ? `$${selectedCabal.symbol}` : "Cabal Details"}
-            </DialogTitle>
-            <DialogDescription>
-              View and interact with this Cabal.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedCabalId !== null && (
-            <CabalDetailsContent cabalId={selectedCabalId} initialCabal={selectedCabal} />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

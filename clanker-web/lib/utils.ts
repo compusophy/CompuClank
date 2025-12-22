@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export const UI_CONSTANTS = {
+  padding: "p-3.5",
+  gap: "gap-3.5",
+  spaceY: "space-y-3.5",
+  rounded: "rounded-xl",
+} as const;
+
 export function formatTokenAmount(amount: bigint | undefined, decimals: number = 4): string {
   if (amount === undefined || amount === 0n) return '0.00';
   const formatted = formatEther(amount);

@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { formatEther } from 'viem';
 
 export function WalletButton() {
-  const { address, isConnected, connector } = useAccount();
+  const { address, isConnected } = useAccount();
   const { connectors, connect, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({ address });

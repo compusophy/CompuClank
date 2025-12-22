@@ -2,6 +2,16 @@ import { http, createConfig } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { injected, coinbaseWallet } from 'wagmi/connectors';
 
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
+
+if (typeof window !== 'undefined') {
+  if (!rpcUrl) {
+    console.warn('⚠️ NEXT_PUBLIC_RPC_URL is not set. Using default public RPC (rate-limited).');
+  } else {
+    console.log('✅ Using custom RPC:', rpcUrl.includes('base.org') ? 'Base Public' : 'Custom Provider');
+  }
+}
+
 export const config = createConfig({
   chains: [base],
   connectors: [
@@ -9,7 +19,7 @@ export const config = createConfig({
     coinbaseWallet({ appName: 'CABAL' }),
   ],
   transports: {
-    [base.id]: http(process.env.NEXT_PUBLIC_RPC_URL),
+    [base.id]: http(rpcUrl),
   },
   ssr: true,
 });

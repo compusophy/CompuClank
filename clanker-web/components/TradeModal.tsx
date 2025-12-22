@@ -20,6 +20,7 @@ import { TokenAmount } from '@/components/TokenAmount';
 import { CABAL_ABI, CabalInfo } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { ArrowDownUp, Loader2 } from 'lucide-react';
+import { UI_CONSTANTS } from '@/lib/utils';
 
 type TradeTab = 'buy' | 'sell' | 'stake';
 
@@ -131,6 +132,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
       setAmount('');
       resetBuy();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buySuccess, buyHash]);
 
   // Handle sell success
@@ -142,6 +144,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
       setAmount('');
       resetSell();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sellSuccess, sellHash]);
 
   // Handle approve success - continue with sell
@@ -153,6 +156,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
       // Execute the sell after approval
       executeSell();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveSuccess, approveHash]);
 
   // Handle stake success
@@ -164,6 +168,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
       onSuccess();
       setAmount('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stakeSuccess, stakeHash]);
 
   const executeSell = () => {
@@ -398,7 +403,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
         </DialogHeader>
         
         {/* Tab Selector */}
-        <div className="flex gap-1 p-1 bg-muted rounded-xl">
+        <div className={`flex gap-1 p-1 bg-muted ${UI_CONSTANTS.rounded}`}>
           <TabButton active={activeTab === 'buy'} onClick={() => setActiveTab('buy')}>
             Buy
           </TabButton>
@@ -411,8 +416,8 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
         </div>
 
         {/* Input Section */}
-        <div className="space-y-4 py-2">
-          <div className="p-4 bg-muted/50 rounded-xl space-y-3">
+        <div className={`${UI_CONSTANTS.spaceY} py-2`}>
+          <div className={`${UI_CONSTANTS.padding} bg-muted/50 ${UI_CONSTANTS.rounded} space-y-3`}>
             <div className="flex justify-between items-center text-sm">
               <Label className="text-muted-foreground">
                 {activeTab === 'buy' ? 'You pay' : activeTab === 'sell' ? 'You sell' : 'You stake'}
@@ -448,7 +453,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
           )}
 
           {activeTab !== 'stake' && (
-            <div className="p-4 bg-muted/30 rounded-xl space-y-3 border border-dashed">
+            <div className={`${UI_CONSTANTS.padding} bg-muted/30 ${UI_CONSTANTS.rounded} space-y-3 border border-dashed`}>
               <div className="flex justify-between items-center text-sm">
                 <Label className="text-muted-foreground">
                   {activeTab === 'buy' ? 'You receive' : 'You receive'}
@@ -468,7 +473,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
 
           {/* Stake Info */}
           {activeTab === 'stake' && (
-            <div className="p-4 bg-primary/5 rounded-xl border border-primary/20 space-y-2">
+            <div className={`${UI_CONSTANTS.padding} bg-primary/5 ${UI_CONSTANTS.rounded} border border-primary/20 space-y-2`}>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Currently Staked</span>
                 <span className="font-mono font-medium">

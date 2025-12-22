@@ -1,56 +1,54 @@
-'use client';
+"use client"
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { useReadContract, useReadContracts, useBalance } from 'wagmi';
-import { erc20Abi } from 'viem';
-import { WalletButton } from '@/components/wallet/WalletButton';
-import { SettingsModal } from '@/components/SettingsModal';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { CABAL_ABI, CabalInfo, CabalPhase } from '@/lib/abi/cabal';
-import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
-import { TokenAmount } from '@/components/TokenAmount';
-import { Plus, Users, Coins, TrendingUp, Wallet, ArrowUpDown } from 'lucide-react';
+import { useState, useMemo } from "react"
+import Link from "next/link"
+import { useReadContract, useReadContracts, useBalance } from "wagmi"
+import { erc20Abi } from "viem"
+import { WalletButton } from "@/components/wallet/WalletButton"
+import { SettingsModal } from "@/components/SettingsModal"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
+import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
+import { TokenAmount } from "@/components/TokenAmount"
+import { Plus, Users, Coins, TrendingUp, Wallet } from "lucide-react"
+import { CabalDetailsContent } from "@/components/CabalDetailsContent"
 
-type PhaseFilter = 'all' | 'active' | 'presale';
-type SortOrder = 'newest' | 'oldest';
+type PhaseFilter = "all" | "active" | "presale"
+type SortOrder = "newest" | "oldest"
 
 function formatPercent(value: number): string {
-  if (value === 0) return '0.00%';
-  if (value < 0.01) return '<0.01%';
-  return `${value.toFixed(2)}%`;
+  if (value === 0) return "0.00%"
+  if (value < 0.01) return "<0.01%"
+  return `${value.toFixed(2)}%`
 }
 
 // Filter pill button component
-function FilterPill({ 
-  active, 
-  onClick, 
+function FilterPill({
+  active,
+  onClick,
   children,
-  count 
-}: { 
-  active: boolean; 
-  onClick: () => void; 
-  children: React.ReactNode;
-  count?: number;
+  count,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+  count?: number
 }) {
   return (
     <button
       onClick={onClick}
       className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
         active
-          ? 'bg-foreground text-background'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          ? "bg-foreground text-background"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted"
       }`}
     >
       {children}
-      {count !== undefined && (
-        <span className={`ml-1.5 text-xs ${active ? 'opacity-70' : 'opacity-50'}`}>
-          {count}
-        </span>
-      )}
+      {count !== undefined && <span className={`ml-1.5 text-xs ${active ? "opacity-70" : "opacity-50"}`}>{count}</span>}
     </button>
-  );
+  )
 }
 
 function CabalCardSkeleton() {
@@ -73,40 +71,50 @@ function CabalCardSkeleton() {
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
 
-function CabalCard({ cabal, cabalId }: { cabal: CabalInfo; cabalId: bigint }) {
+function CabalCard({
+  cabal,
+  cabalId,
+  onClick,
+}: {
+  cabal: CabalInfo
+  cabalId: bigint
+  onClick: (id: bigint) => void
+}) {
   const { data: totalSupply } = useReadContract({
     address: cabal.tokenAddress,
     abi: erc20Abi,
-    functionName: 'totalSupply',
+    functionName: "totalSupply",
     query: {
       enabled: cabal.phase === CabalPhase.Active,
     },
-  });
+  })
 
   const { data: treasuryBalance } = useBalance({
     address: cabal.tbaAddress,
     query: {
       enabled: cabal.phase === CabalPhase.Active,
     },
-  });
+  })
 
-  const phaseLabel = ['Presale', 'Active', 'Paused'][cabal.phase] || 'Unknown';
-  const phaseStyles = {
-    [CabalPhase.Presale]: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30',
-    [CabalPhase.Active]: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30',
-    [CabalPhase.Paused]: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30',
-  }[cabal.phase] || 'bg-gray-500/10 text-gray-600 border-gray-500/30';
+  const phaseLabel = ["Presale", "Active", "Paused"][cabal.phase] || "Unknown"
+  const phaseStyles =
+    {
+      [CabalPhase.Presale]: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30",
+      [CabalPhase.Active]: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30",
+      [CabalPhase.Paused]: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30",
+    }[cabal.phase] || "bg-gray-500/10 text-gray-600 border-gray-500/30"
 
-  const stakedPercentage = (cabal.phase === CabalPhase.Active && totalSupply && totalSupply > 0n)
-    ? Number((cabal.totalStaked * 10000n) / totalSupply) / 100
-    : 0;
+  const stakedPercentage =
+    cabal.phase === CabalPhase.Active && totalSupply && totalSupply > 0n
+      ? Number((cabal.totalStaked * 10000n) / totalSupply) / 100
+      : 0
 
   return (
-    <Link href={`/${cabalId.toString()}`}>
-      <Card className="overflow-hidden hover:border-foreground/20 hover:shadow-lg transition-all duration-200 cursor-pointer h-full group">
+    <div onClick={() => onClick(cabalId)} className="block h-full">
+      <Card className="overflow-hidden hover:border-foreground/20 hover:shadow-lg transition-all duration-200 cursor-pointer h-full group relative">
         <CardContent className="p-3.5 space-y-3.5">
           <div className="flex justify-between items-center">
             <h3 className="font-mono font-bold text-lg tracking-tight group-hover:text-primary transition-colors">
@@ -125,9 +133,7 @@ function CabalCard({ cabal, cabalId }: { cabal: CabalInfo; cabalId: bigint }) {
                     <Users className="h-3.5 w-3.5" />
                     <span className="text-xs">Contributors</span>
                   </div>
-                  <p className="text-lg font-bold tracking-tight">
-                    {cabal.contributorCount.toString()}
-                  </p>
+                  <p className="text-lg font-bold tracking-tight">{cabal.contributorCount.toString()}</p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -165,74 +171,87 @@ function CabalCard({ cabal, cabalId }: { cabal: CabalInfo; cabalId: bigint }) {
           </div>
         </CardContent>
       </Card>
-    </Link>
-  );
+    </div>
+  )
 }
 
 export default function HomePage() {
-  const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('all');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("all")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
+  const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
 
   // Get all cabal IDs
   const { data: cabalIds, isLoading: isLoadingIds } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
-    functionName: 'getAllCabals',
-  });
+    functionName: "getAllCabals",
+  })
 
   // Fetch all cabal data in parallel
   const { data: cabalResults, isLoading: isLoadingCabals } = useReadContracts({
-    contracts: cabalIds?.map((id) => ({
-      address: CABAL_DIAMOND_ADDRESS!,
-      abi: CABAL_ABI,
-      functionName: 'getCabal',
-      args: [id],
-    })) ?? [],
+    contracts:
+      cabalIds?.map((id) => ({
+        address: CABAL_DIAMOND_ADDRESS!,
+        abi: CABAL_ABI,
+        functionName: "getCabal",
+        args: [id],
+      })) ?? [],
     query: {
       enabled: !!cabalIds && cabalIds.length > 0,
     },
-  });
+  })
 
   // Process and filter cabals
-  const { filteredCabals, counts } = useMemo(() => {
+  const { filteredCabals, counts, cabalMap } = useMemo(() => {
     if (!cabalIds || !cabalResults) {
-      return { filteredCabals: [], counts: { all: 0, active: 0, presale: 0 } };
+      return { filteredCabals: [], counts: { all: 0, active: 0, presale: 0 }, cabalMap: new Map() }
     }
 
     // Pair IDs with cabal data
-    const cabalsWithIds = cabalIds.map((id, index) => ({
-      id,
-      cabal: cabalResults[index]?.result as CabalInfo | undefined,
-    })).filter((item) => item.cabal !== undefined);
+    const cabalsWithIds = cabalIds
+      .map((id, index) => ({
+        id,
+        cabal: cabalResults[index]?.result as CabalInfo | undefined,
+      }))
+      .filter((item) => item.cabal !== undefined)
+    
+    // Create a map for quick lookup
+    const map = new Map<bigint, CabalInfo>()
+    cabalsWithIds.forEach(({ id, cabal }) => {
+      if (cabal) map.set(id, cabal)
+    })
 
     // Count by phase
     const counts = {
       all: cabalsWithIds.length,
-      active: cabalsWithIds.filter(c => c.cabal?.phase === CabalPhase.Active).length,
-      presale: cabalsWithIds.filter(c => c.cabal?.phase === CabalPhase.Presale).length,
-    };
+      active: cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Active).length,
+      presale: cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Presale).length,
+    }
 
     // Filter by phase
-    let filtered = cabalsWithIds;
-    if (phaseFilter === 'active') {
-      filtered = cabalsWithIds.filter(c => c.cabal?.phase === CabalPhase.Active);
-    } else if (phaseFilter === 'presale') {
-      filtered = cabalsWithIds.filter(c => c.cabal?.phase === CabalPhase.Presale);
+    let filtered = cabalsWithIds
+    if (phaseFilter === "active") {
+      filtered = cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Active)
+    } else if (phaseFilter === "presale") {
+      filtered = cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Presale)
     }
 
     // Sort by ID (which correlates with creation order)
     filtered.sort((a, b) => {
-      if (sortOrder === 'newest') {
-        return Number(b.id - a.id);
+      if (sortOrder === "newest") {
+        return Number(b.id - a.id)
       } else {
-        return Number(a.id - b.id);
+        return Number(a.id - b.id)
       }
-    });
+    })
 
-    return { filteredCabals: filtered, counts };
-  }, [cabalIds, cabalResults, phaseFilter, sortOrder]);
+    return { filteredCabals: filtered, counts, cabalMap: map }
+  }, [cabalIds, cabalResults, phaseFilter, sortOrder])
 
-  const isLoading = isLoadingIds || isLoadingCabals;
+  const isLoading = isLoadingIds || isLoadingCabals
+
+  // Get selected cabal data
+  const selectedCabal = selectedCabalId !== null ? cabalMap.get(selectedCabalId) : undefined
 
   if (!CABAL_DIAMOND_ADDRESS) {
     return (
@@ -240,7 +259,9 @@ export default function HomePage() {
         <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
           <div className="page-container">
             <div className="flex items-center justify-between h-14">
-              <Link href="/" className="text-xl font-bold tracking-tight">CABAL</Link>
+              <Link href="/" className="text-xl font-bold tracking-tight">
+                CABAL
+              </Link>
               <div className="flex items-center gap-3">
                 <WalletButton />
                 <SettingsModal />
@@ -264,7 +285,7 @@ export default function HomePage() {
           </Card>
         </main>
       </div>
-    );
+    )
   }
 
   return (
@@ -272,7 +293,9 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="page-container">
           <div className="flex items-center justify-between h-14">
-            <Link href="/" className="text-xl font-bold tracking-tight">CABAL</Link>
+            <Link href="/" className="text-xl font-bold tracking-tight">
+              CABAL
+            </Link>
             <div className="flex items-center gap-3">
               <Link href="/create">
                 <Button size="sm" className="gap-1.5 shadow-sm">
@@ -310,9 +333,7 @@ export default function HomePage() {
               <div className="space-y-3.5">
                 <div>
                   <p className="font-semibold text-base">No CABALs Yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Create the first CABAL to get started.
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Create the first CABAL to get started.</p>
                 </div>
                 <Link href="/create">
                   <Button size="sm" className="gap-2">
@@ -329,23 +350,19 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
               {/* Phase Filter */}
               <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full w-fit">
-                <FilterPill 
-                  active={phaseFilter === 'all'} 
-                  onClick={() => setPhaseFilter('all')}
-                  count={counts.all}
-                >
+                <FilterPill active={phaseFilter === "all"} onClick={() => setPhaseFilter("all")} count={counts.all}>
                   All
                 </FilterPill>
-                <FilterPill 
-                  active={phaseFilter === 'active'} 
-                  onClick={() => setPhaseFilter('active')}
+                <FilterPill
+                  active={phaseFilter === "active"}
+                  onClick={() => setPhaseFilter("active")}
                   count={counts.active}
                 >
                   Active
                 </FilterPill>
-                <FilterPill 
-                  active={phaseFilter === 'presale'} 
-                  onClick={() => setPhaseFilter('presale')}
+                <FilterPill
+                  active={phaseFilter === "presale"}
+                  onClick={() => setPhaseFilter("presale")}
                   count={counts.presale}
                 >
                   Presale
@@ -354,16 +371,10 @@ export default function HomePage() {
 
               {/* Sort Toggle */}
               <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full w-fit">
-                <FilterPill 
-                  active={sortOrder === 'newest'} 
-                  onClick={() => setSortOrder('newest')}
-                >
+                <FilterPill active={sortOrder === "newest"} onClick={() => setSortOrder("newest")}>
                   Newest
                 </FilterPill>
-                <FilterPill 
-                  active={sortOrder === 'oldest'} 
-                  onClick={() => setSortOrder('oldest')}
-                >
+                <FilterPill active={sortOrder === "oldest"} onClick={() => setSortOrder("oldest")}>
                   Oldest
                 </FilterPill>
               </div>
@@ -377,13 +388,30 @@ export default function HomePage() {
             ) : (
               <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredCabals.map(({ id, cabal }) => (
-                  <CabalCard key={id.toString()} cabalId={id} cabal={cabal!} />
+                  <CabalCard key={id.toString()} cabalId={id} cabal={cabal!} onClick={setSelectedCabalId} />
                 ))}
               </div>
             )}
           </div>
         )}
       </main>
+
+      {/* Cabal Details Modal */}
+      <Dialog open={selectedCabalId !== null} onOpenChange={(open) => !open && setSelectedCabalId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedCabal ? `$${selectedCabal.symbol}` : "Cabal Details"}
+            </DialogTitle>
+            <DialogDescription>
+              View and interact with this Cabal.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCabalId !== null && (
+            <CabalDetailsContent cabalId={selectedCabalId} initialCabal={selectedCabal} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
-  );
+  )
 }

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import Link from "next/link"
 import { useReadContract, useReadContracts, useBalance } from "wagmi"
 import { erc20Abi } from "viem"
 import { WalletButton } from "@/components/wallet/WalletButton"
@@ -13,6 +12,10 @@ import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { TokenAmount } from "@/components/TokenAmount"
 import { Plus, Users, Coins, TrendingUp, Wallet } from "lucide-react"
 import { CabalDetailsContent } from "@/components/CabalDetailsContent"
+import { Footer } from "@/components/layout/Footer"
+import { PrimaryCTA } from "@/components/layout/PrimaryCTA"
+import { CreateModal } from "@/components/CreateModal"
+import { TradeModal } from "@/components/TradeModal"
 
 type PhaseFilter = "all" | "active" | "presale"
 type SortOrder = "newest" | "oldest"
@@ -152,7 +155,7 @@ function CabalCard({
                     <TrendingUp className="h-3.5 w-3.5" />
                     <span className="text-xs">Staked</span>
                   </div>
-                  <p className="text-lg font-mono font-bold tracking-tight text-green-600 dark:text-green-400">
+                  <p className="text-lg font-mono font-bold tracking-tight">
                     {formatPercent(stakedPercentage)}
                   </p>
                 </div>
@@ -178,9 +181,11 @@ export default function HomePage() {
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("all")
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
   const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
 
   // Get all cabal IDs
-  const { data: cabalIds, isLoading: isLoadingIds } = useReadContract({
+  const { data: cabalIds, isLoading: isLoadingIds, refetch: refetchCabals } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getAllCabals",
@@ -251,19 +256,23 @@ export default function HomePage() {
 
   // Get selected cabal data
   const selectedCabal = selectedCabalId !== null ? cabalMap.get(selectedCabalId) : undefined
+  const isViewingDetails = selectedCabalId !== null
 
   // Handle back navigation
   const handleBack = () => setSelectedCabalId(null)
 
+  // Handle create success
+  const handleCreateSuccess = () => {
+    refetchCabals()
+  }
+
   if (!CABAL_DIAMOND_ADDRESS) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen pb-28">
         <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
           <div className="page-container">
             <div className="flex items-center justify-between h-14">
-              <Link href="/" className="text-xl font-bold tracking-tight">
-                CABAL
-              </Link>
+              <span className="text-xl font-bold tracking-tight">CABAL</span>
               <div className="flex items-center gap-3">
                 <WalletButton />
                 <SettingsModal />
@@ -286,12 +295,14 @@ export default function HomePage() {
             </div>
           </Card>
         </main>
+        <Footer />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-28">
+      {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="page-container">
           <div className="flex items-center justify-between h-14">
@@ -302,12 +313,13 @@ export default function HomePage() {
               CABAL
             </button>
             <div className="flex items-center gap-3">
-              <Link href="/create">
-                <Button size="sm" className="gap-1.5 shadow-sm">
+              {/* Only show Create button in header when viewing cabal details */}
+              {isViewingDetails && (
+                <Button size="sm" className="gap-1.5 shadow-sm" onClick={() => setIsCreateModalOpen(true)}>
                   <Plus className="h-4 w-4" />
                   <span>Create</span>
                 </Button>
-              </Link>
+              )}
               <WalletButton />
               <SettingsModal />
             </div>
@@ -315,10 +327,14 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="page-container py-3.5">
         {/* Show details view when a cabal is selected */}
-        {selectedCabalId !== null ? (
-          <CabalDetailsContent cabalId={selectedCabalId} initialCabal={selectedCabal} />
+        {isViewingDetails ? (
+          <CabalDetailsContent 
+            cabalId={selectedCabalId} 
+            initialCabal={selectedCabal}
+          />
         ) : isLoading ? (
           <div className="space-y-3.5">
             {/* Skeleton filter bar */}
@@ -343,12 +359,6 @@ export default function HomePage() {
                   <p className="font-semibold text-base">No CABALs Yet</p>
                   <p className="text-xs text-muted-foreground mt-1">Create the first CABAL to get started.</p>
                 </div>
-                <Link href="/create">
-                  <Button size="sm" className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Create CABAL
-                  </Button>
-                </Link>
               </div>
             </div>
           </Card>
@@ -403,6 +413,41 @@ export default function HomePage() {
           </div>
         )}
       </main>
+
+      {/* Primary CTA - different button based on context */}
+      {!isViewingDetails ? (
+        <PrimaryCTA onClick={() => setIsCreateModalOpen(true)}>
+          <Plus className="h-5 w-5 mr-2" />
+          Create CABAL
+        </PrimaryCTA>
+      ) : selectedCabal?.phase === CabalPhase.Active && (
+        <PrimaryCTA onClick={() => setIsTradeModalOpen(true)}>
+          <TrendingUp className="h-5 w-5 mr-2" />
+          Trade ${selectedCabal.symbol}
+        </PrimaryCTA>
+      )}
+
+      {/* Footer */}
+      <Footer />
+
+      {/* Create Modal */}
+      <CreateModal 
+        isOpen={isCreateModalOpen} 
+        onOpenChange={setIsCreateModalOpen}
+        onSuccess={handleCreateSuccess}
+      />
+
+      {/* Trade Modal for Primary CTA */}
+      {selectedCabal && (
+        <TradeModal
+          isOpen={isTradeModalOpen}
+          onOpenChange={setIsTradeModalOpen}
+          cabalId={selectedCabalId!}
+          cabal={selectedCabal}
+          onSuccess={refetchCabals}
+          initialTab="buy"
+        />
+      )}
     </div>
   )
 }

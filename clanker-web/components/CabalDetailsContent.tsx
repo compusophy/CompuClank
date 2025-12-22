@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { TokenAmount } from "@/components/TokenAmount"
 import { TradeModal } from "@/components/TradeModal"
+import { StakeModal } from "@/components/StakeModal"
 import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 
@@ -192,11 +193,13 @@ function ActiveSection({
   cabal,
   userAddress,
   onSuccess,
+  onOpenTradeModal,
 }: {
   cabalId: bigint
   cabal: CabalInfo
   userAddress: string
   onSuccess: () => void
+  onOpenTradeModal?: () => void
 }) {
   const { address } = useAccount()
   const queryClient = useQueryClient()
@@ -204,13 +207,17 @@ function ActiveSection({
   const [delegatee, setDelegatee] = useState("")
   const [isUnstakeModalOpen, setIsUnstakeModalOpen] = useState(false)
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false)
-  const [isPresaleModalOpen, setIsPresaleModalOpen] = useState(false)
+  const [isStakeModalOpen, setIsStakeModalOpen] = useState(false)
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
-  const [tradeModalTab, setTradeModalTab] = useState<"buy" | "sell" | "stake">("buy")
+  const [tradeModalTab, setTradeModalTab] = useState<"buy" | "sell">("buy")
 
-  const openTradeModal = (tab: "buy" | "sell" | "stake") => {
+  const openTradeModal = (tab: "buy" | "sell") => {
     setTradeModalTab(tab)
     setIsTradeModalOpen(true)
+  }
+
+  const openStakeModal = () => {
+    setIsStakeModalOpen(true)
   }
 
   // Read data
@@ -414,22 +421,11 @@ function ActiveSection({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
         {/* Position Card */}
         <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Coins className="h-5 w-5 text-muted-foreground" />
-                Your Position
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsPresaleModalOpen(true)}
-                className="text-xs text-muted-foreground"
-              >
-                <History className="h-3 w-3 mr-1" />
-                Presale Info
-              </Button>
-            </div>
+          <CardHeader className="pt-5 pb-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Coins className="h-5 w-5 text-muted-foreground" />
+              Your Position
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Balance & Staked - Vertical Stack */}
@@ -437,26 +433,15 @@ function ActiveSection({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Wallet Balance</p>
-                  <div className="flex gap-2 mt-0.5">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs font-medium"
-                      onClick={() => openTradeModal("stake")}
-                      disabled={!tokenBalance || (tokenBalance as bigint) === 0n}
-                    >
-                      Stake →
-                    </Button>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs font-medium text-muted-foreground"
-                      onClick={() => openTradeModal("sell")}
-                      disabled={!tokenBalance || (tokenBalance as bigint) === 0n}
-                    >
-                      Sell
-                    </Button>
-                  </div>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs font-medium mt-0.5"
+                    onClick={() => openStakeModal()}
+                    disabled={!tokenBalance || (tokenBalance as bigint) === 0n}
+                  >
+                    Stake →
+                  </Button>
                 </div>
                 <p className="text-2xl font-mono font-bold tracking-tight">
                   <TokenAmount amount={tokenBalance as bigint} decimals={2} />
@@ -480,12 +465,6 @@ function ActiveSection({
                 </p>
               </div>
             </div>
-
-            {/* Trade Button */}
-            <Button onClick={() => openTradeModal("buy")} className="w-full" size="lg">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Trade ${cabal.symbol}
-            </Button>
           </CardContent>
         </Card>
 
@@ -546,6 +525,40 @@ function ActiveSection({
         </Card>
       </div>
 
+      {/* Presale History Card */}
+      <Card>
+        <CardHeader className="p-3.5 pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            Presale History
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-3.5 pt-0 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">Total Raised</p>
+              <p className="text-lg font-mono font-bold">
+                <TokenAmount amount={cabal.totalRaised} symbol="ETH" />
+              </p>
+            </div>
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">Contributors</p>
+              <p className="text-lg font-bold">{cabal.contributorCount.toString()}</p>
+            </div>
+          </div>
+          {!!contributionAmount && contributionAmount > 0n && (
+            <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Your Contribution</span>
+                <span className="font-mono font-semibold">
+                  <TokenAmount amount={contributionAmount} symbol="ETH" />
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Proposals */}
       <Card>
         <CardHeader className="p-3.5 pb-2">
@@ -561,43 +574,6 @@ function ActiveSection({
           </div>
         </CardContent>
       </Card>
-
-      {/* Presale Info Modal */}
-      <Dialog open={isPresaleModalOpen} onOpenChange={setIsPresaleModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Presale History
-            </DialogTitle>
-            <DialogDescription>Historical information from the token presale phase.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Total Raised</p>
-                <p className="text-xl font-mono font-bold">
-                  <TokenAmount amount={cabal.totalRaised} symbol="ETH" />
-                </p>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Contributors</p>
-                <p className="text-xl font-bold">{cabal.contributorCount.toString()}</p>
-              </div>
-            </div>
-            {!!contributionAmount && contributionAmount > 0n && (
-              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm">Your Contribution</span>
-                  <span className="font-mono font-semibold">
-                    <TokenAmount amount={contributionAmount} symbol="ETH" />
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Unstake Modal */}
       <Dialog open={isUnstakeModalOpen} onOpenChange={setIsUnstakeModalOpen}>
@@ -692,13 +668,32 @@ function ActiveSection({
         }}
         initialTab={tradeModalTab}
       />
+
+      {/* Stake Modal */}
+      <StakeModal
+        isOpen={isStakeModalOpen}
+        onOpenChange={setIsStakeModalOpen}
+        cabalId={cabalId}
+        cabal={cabal}
+        onSuccess={() => {
+          refetchStaked()
+          refetchTokenBalance()
+          onSuccess()
+        }}
+      />
     </div>
   )
 }
 
 // MAIN COMPONENT
 
-export function CabalDetailsContent({ cabalId, initialCabal }: { cabalId: bigint; initialCabal?: CabalInfo }) {
+interface CabalDetailsContentProps {
+  cabalId: bigint;
+  initialCabal?: CabalInfo;
+  onOpenTradeModal?: () => void;
+}
+
+export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }: CabalDetailsContentProps) {
   const { address, isConnected } = useAccount()
   const queryClient = useQueryClient()
 
@@ -861,7 +856,7 @@ export function CabalDetailsContent({ cabalId, initialCabal }: { cabalId: bigint
 
       {/* Active Content */}
       {isConnected && address && cabal.phase === CabalPhase.Active && (
-        <ActiveSection cabalId={cabalId} cabal={cabal} userAddress={address} onSuccess={handleSuccess} />
+        <ActiveSection cabalId={cabalId} cabal={cabal} userAddress={address} onSuccess={handleSuccess} onOpenTradeModal={onOpenTradeModal} />
       )}
     </div>
   )

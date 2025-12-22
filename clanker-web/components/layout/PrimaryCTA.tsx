@@ -1,0 +1,31 @@
+'use client';
+
+import { Button } from '@/components/ui/button';
+import { ReactNode } from 'react';
+
+interface PrimaryCTAProps {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+// Golden ratio: 61.803%
+const GOLDEN_RATIO_WIDTH = 'w-[61.803%]';
+
+export function PrimaryCTA({ children, onClick, disabled, className = '' }: PrimaryCTAProps) {
+  return (
+    <div className="fixed bottom-14 left-0 right-0 z-40 pointer-events-none">
+      <div className="page-container h-14 flex items-center justify-center">
+        <Button
+          onClick={onClick}
+          disabled={disabled}
+          size="lg"
+          className={`${GOLDEN_RATIO_WIDTH} h-12 text-base font-semibold shadow-lg pointer-events-auto ${className}`}
+        >
+          {children}
+        </Button>
+      </div>
+    </div>
+  );
+}

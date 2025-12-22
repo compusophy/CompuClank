@@ -22,7 +22,7 @@ import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { ArrowDownUp, Loader2 } from 'lucide-react';
 import { UI_CONSTANTS } from '@/lib/utils';
 
-type TradeTab = 'buy' | 'sell' | 'stake';
+type TradeTab = 'buy' | 'sell';
 
 interface TradeModalProps {
   isOpen: boolean;
@@ -322,74 +322,48 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
   };
 
   const handleAction = () => {
-    switch (activeTab) {
-      case 'buy':
-        handleBuy();
-        break;
-      case 'sell':
-        handleSell();
-        break;
-      case 'stake':
-        handleStake();
-        break;
+    if (activeTab === 'buy') {
+      handleBuy();
+    } else {
+      handleSell();
     }
   };
 
   const handleMax = () => {
-    switch (activeTab) {
-      case 'buy':
-        if (ethBalance) {
-          // Leave some ETH for gas
-          const maxEth = ethBalance.value > parseEther('0.001') 
-            ? ethBalance.value - parseEther('0.001') 
-            : 0n;
-          setAmount(formatEther(maxEth));
-        }
-        break;
-      case 'sell':
-        if (tokenBalance) {
-          setAmount(formatEther(tokenBalance as bigint));
-        }
-        break;
-      case 'stake':
-        if (tokenBalance) {
-          setAmount(formatEther(tokenBalance as bigint));
-        }
-        break;
+    if (activeTab === 'buy') {
+      if (ethBalance) {
+        // Leave some ETH for gas
+        const maxEth = ethBalance.value > parseEther('0.001') 
+          ? ethBalance.value - parseEther('0.001') 
+          : 0n;
+        setAmount(formatEther(maxEth));
+      }
+    } else {
+      if (tokenBalance) {
+        setAmount(formatEther(tokenBalance as bigint));
+      }
     }
   };
 
-  const isLoading = isBuying || buyConfirming || isSelling || sellConfirming || isStaking || stakeConfirming || isSigning || approving || approveConfirming || isApproving;
+  const isLoading = isBuying || buyConfirming || isSelling || sellConfirming || approving || approveConfirming || isApproving;
   
   const getButtonText = () => {
-    if (isSigning) return 'Sign Permit...';
     if (approving || approveConfirming || isApproving) return 'Approving...';
-    if (isBuying || isSelling || isStaking) return 'Confirming...';
-    if (buyConfirming || sellConfirming || stakeConfirming) return 'Processing...';
+    if (isBuying || isSelling) return 'Confirming...';
+    if (buyConfirming || sellConfirming) return 'Processing...';
     
-    switch (activeTab) {
-      case 'buy': return 'Buy';
-      case 'sell': return 'Sell';
-      case 'stake': return 'Stake';
-    }
+    return activeTab === 'buy' ? 'Buy' : 'Sell';
   };
 
   const getAvailableBalance = () => {
-    switch (activeTab) {
-      case 'buy':
-        return ethBalance ? formatEther(ethBalance.value) : '0';
-      case 'sell':
-      case 'stake':
-        return tokenBalance ? formatEther(tokenBalance as bigint) : '0';
+    if (activeTab === 'buy') {
+      return ethBalance ? formatEther(ethBalance.value) : '0';
     }
+    return tokenBalance ? formatEther(tokenBalance as bigint) : '0';
   };
 
   const getInputSymbol = () => {
-    switch (activeTab) {
-      case 'buy': return 'ETH';
-      case 'sell':
-      case 'stake': return cabal.symbol;
-    }
+    return activeTab === 'buy' ? 'ETH' : cabal.symbol;
   };
 
   return (
@@ -398,7 +372,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
         <DialogHeader>
           <DialogTitle className="text-xl">Trade ${cabal.symbol}</DialogTitle>
           <DialogDescription>
-            Buy, sell, or stake your tokens
+            Buy or sell tokens
           </DialogDescription>
         </DialogHeader>
         
@@ -410,9 +384,6 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
           <TabButton active={activeTab === 'sell'} onClick={() => setActiveTab('sell')}>
             Sell
           </TabButton>
-          <TabButton active={activeTab === 'stake'} onClick={() => setActiveTab('stake')}>
-            Stake
-          </TabButton>
         </div>
 
         {/* Input Section */}
@@ -420,7 +391,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
           <div className={`${UI_CONSTANTS.padding} bg-muted/50 ${UI_CONSTANTS.rounded} space-y-3`}>
             <div className="flex justify-between items-center text-sm">
               <Label className="text-muted-foreground">
-                {activeTab === 'buy' ? 'You pay' : activeTab === 'sell' ? 'You sell' : 'You stake'}
+                {activeTab === 'buy' ? 'You pay' : 'You sell'}
               </Label>
               <button 
                 onClick={handleMax}
@@ -443,48 +414,29 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
             </div>
           </div>
 
-          {/* Output Preview for Buy/Sell */}
-          {activeTab !== 'stake' && (
-            <div className="flex justify-center -my-1">
-              <div className="p-2 bg-muted rounded-full">
-                <ArrowDownUp className="h-4 w-4 text-muted-foreground" />
-              </div>
+          {/* Output Preview */}
+          <div className="flex justify-center -my-1">
+            <div className="p-2 bg-muted rounded-full">
+              <ArrowDownUp className="h-4 w-4 text-muted-foreground" />
             </div>
-          )}
+          </div>
 
-          {activeTab !== 'stake' && (
-            <div className={`${UI_CONSTANTS.padding} bg-muted/30 ${UI_CONSTANTS.rounded} space-y-3 border border-dashed`}>
-              <div className="flex justify-between items-center text-sm">
-                <Label className="text-muted-foreground">
-                  {activeTab === 'buy' ? 'You receive' : 'You receive'}
-                </Label>
-              </div>
-              <div className="flex gap-3 items-center">
-                <span className="text-2xl font-mono text-muted-foreground">≈ ---</span>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-lg border">
-                  <span className="font-medium">{activeTab === 'buy' ? cabal.symbol : 'ETH'}</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Swaps via Uniswap V4. Price impact may apply.
-              </p>
+          <div className={`${UI_CONSTANTS.padding} bg-muted/30 ${UI_CONSTANTS.rounded} space-y-3 border border-dashed`}>
+            <div className="flex justify-between items-center text-sm">
+              <Label className="text-muted-foreground">
+                You receive
+              </Label>
             </div>
-          )}
-
-          {/* Stake Info */}
-          {activeTab === 'stake' && (
-            <div className={`${UI_CONSTANTS.padding} bg-primary/5 ${UI_CONSTANTS.rounded} border border-primary/20 space-y-2`}>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Currently Staked</span>
-                <span className="font-mono font-medium">
-                  <TokenAmount amount={stakedBalance as bigint} symbol={cabal.symbol} />
-                </span>
+            <div className="flex gap-3 items-center">
+              <span className="text-2xl font-mono text-muted-foreground">≈ ---</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-background rounded-lg border">
+                <span className="font-medium">{activeTab === 'buy' ? cabal.symbol : 'ETH'}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Staking gives you voting power in governance proposals.
-              </p>
             </div>
-          )}
+            <p className="text-xs text-muted-foreground">
+              Swaps via Uniswap V4. Price impact may apply.
+            </p>
+          </div>
         </div>
 
         {/* Action Button */}

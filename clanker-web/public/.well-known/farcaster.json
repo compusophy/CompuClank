@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjM1MDkxMSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDJGREVmM0Y0NzBlQ2QyQmM5YTk3NzU2OEM0M0FEMzg2MGMxNjExRDgifQ",
+    "payload": "eyJkb21haW4iOiJjb21wdS1jYWJhbC52ZXJjZWwuYXBwIn0",
+    "signature": "LK+pAq9NSJou2XxYGpHHFqSq6Wn2wIV0a7/XdhspqSV6ZwRb6oem9f1aGQNMiL6V4soGtksvcOt77mj9rcKycBw="
+  },
+  "frame": {
+    "version": "1",
+    "name": "CABAL",
+    "iconUrl": "https://compu-cabal.vercel.app/icon.png",
+    "homeUrl": "https://compu-cabal.vercel.app",
+    "imageUrl": "https://compu-cabal.vercel.app/image.png",
+    "buttonTitle": "Open CABAL",
+    "splashImageUrl": "https://compu-cabal.vercel.app/splash.png",
+    "splashBackgroundColor": "#000000",
+    "webhookUrl": "https://compu-cabal.vercel.app/api/webhook"
+  }
+}

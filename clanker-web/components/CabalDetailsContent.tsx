@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent } from "wagmi"
 import { useQueryClient } from "@tanstack/react-query"
 import { formatEther, parseEther, erc20Abi } from "viem"
 import { toast } from "sonner"
@@ -697,7 +697,7 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
   const { address, isConnected } = useAccount()
   const queryClient = useQueryClient()
 
-  // Use initialCabal if provided, otherwise fetch
+  // Fetch cabal data - always enabled to allow refetching
   const {
     data: cabal,
     isLoading,
@@ -709,9 +709,75 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
     args: [cabalId],
     query: {
       initialData: initialCabal,
-      enabled: !initialCabal,
     },
   }) as { data: CabalInfo | undefined; isLoading: boolean; refetch: () => void }
+
+  // Watch for CabalFinalized events to update UI when presale -> active
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "CabalFinalized",
+    onLogs(logs) {
+      // Check if any log is for the current cabal
+      const relevantLog = logs.find((log) => {
+        const args = log.args as { cabalId?: bigint }
+        return args.cabalId === cabalId
+      })
+      if (relevantLog) {
+        // Refetch cabal data when it gets finalized
+        refetch()
+        refetchEthBalance()
+        queryClient.invalidateQueries()
+      }
+    },
+  })
+
+  // Watch for contribution events to update stats
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "Contributed",
+    onLogs(logs) {
+      const relevantLog = logs.find((log) => {
+        const args = log.args as { cabalId?: bigint }
+        return args.cabalId === cabalId
+      })
+      if (relevantLog) {
+        refetch()
+      }
+    },
+  })
+
+  // Watch for trade events to keep balances in sync
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "TokensBought",
+    onLogs(logs) {
+      const relevantLog = logs.find((log) => {
+        const args = log.args as { cabalId?: bigint }
+        return args.cabalId === cabalId
+      })
+      if (relevantLog) {
+        queryClient.invalidateQueries()
+      }
+    },
+  })
+
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "TokensSold",
+    onLogs(logs) {
+      const relevantLog = logs.find((log) => {
+        const args = log.args as { cabalId?: bigint }
+        return args.cabalId === cabalId
+      })
+      if (relevantLog) {
+        queryClient.invalidateQueries()
+      }
+    },
+  })
 
   const { data: ethBalance, refetch: refetchEthBalance } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,

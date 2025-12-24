@@ -9,14 +9,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CABAL_ABI } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { Plus, Wallet, Loader2 } from 'lucide-react';
-import { GOLDEN_RATIO_WIDTH } from '@/components/layout/PrimaryCTA';
-import { UI_CONSTANTS } from '@/lib/utils';
 
 interface CreateModalProps {
   isOpen: boolean;
@@ -26,7 +23,6 @@ interface CreateModalProps {
 
 export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProps) {
   const { isConnected } = useAccount();
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     symbol: '',
@@ -144,61 +140,49 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} blurBackground className="sm:max-w-md overflow-y-auto">
+      <DialogContent showCloseButton={false} className="sm:max-w-sm dialog-glow-animated">
         <DialogTitle className="sr-only">Create CABAL</DialogTitle>
         <DialogDescription className="sr-only">
           Create a decentralized group wallet with its own governance token.
         </DialogDescription>
 
         {!isConnected ? (
-          <div className="py-8 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <Wallet className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium mb-1">Connect Wallet</p>
-              <p className="text-sm text-muted-foreground">
-                Connect your wallet to create a CABAL.
-              </p>
+          <div className="flex flex-col items-center gap-3 py-2">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Wallet className="h-4 w-4" />
+              <span className="text-sm">Connect wallet to create</span>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className={UI_CONSTANTS.spaceY}>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             {/* Primary Input: Ticker */}
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">$</span>
               <Input
                 placeholder="TICKER"
                 value={formData.symbol}
                 onChange={handleSymbolChange}
                 required
                 maxLength={20}
-                className="pl-7 font-mono uppercase text-lg h-12"
+                className="pl-9 font-mono uppercase text-lg h-14 w-full text-center input-sacred"
+                disabled={isLoading}
               />
             </div>
 
-            {/* Image URL Input (Optional) - Removed for now as metadata will be set later */}
-            {/* <div className="pt-2">
-              <label className="text-xs font-medium mb-1.5 block text-muted-foreground">Image URL (Optional)</label>
-              <Input
-                placeholder="ipfs://... or https://..."
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                className="h-10 text-sm"
-              />
-            </div> */}
-
-            <div className="flex justify-center pt-2">
-              <Button
-                type="submit"
-                className={`${GOLDEN_RATIO_WIDTH} h-12 text-base font-semibold gap-2 shadow-lg`}
-                disabled={isLoading || !formData.name || !formData.symbol}
-              >
-                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {/* Create Button */}
+            <Button
+              type="submit"
+              size="lg"
+              className="h-12 w-full text-base font-semibold gap-2 button-shimmer-effect active-press"
+              disabled={isLoading || !formData.name || !formData.symbol}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
                 <Plus className="h-5 w-5" />
-                {isPending ? 'Confirming...' : isConfirming ? 'Creating...' : 'Create'}
-              </Button>
-            </div>
+              )}
+              {isPending ? 'Confirm...' : isConfirming ? 'Creating...' : 'Create'}
+            </Button>
           </form>
         )}
       </DialogContent>

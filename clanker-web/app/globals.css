@@ -48,71 +48,133 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Sacred Geometry - Golden Ratio (φ = 1.618033988749895) */
+  --phi: 1.618033988749895;
+  --phi-inv: 0.618033988749895; /* 1/φ */
+  
+  /* Fibonacci spacing scale (in rem) */
+  --fib-1: 0.0625rem;   /* 1px */
+  --fib-2: 0.125rem;    /* 2px */
+  --fib-3: 0.1875rem;   /* 3px */
+  --fib-5: 0.3125rem;   /* 5px */
+  --fib-8: 0.5rem;      /* 8px */
+  --fib-13: 0.8125rem;  /* 13px */
+  --fib-21: 1.3125rem;  /* 21px */
+  --fib-34: 2.125rem;   /* 34px */
+  --fib-55: 3.4375rem;  /* 55px */
+  --fib-89: 5.5625rem;  /* 89px */
+  
+  /* Golden ratio timing (seconds) */
+  --timing-phi: 1.618s;
+  --timing-phi-2: 2.618s;  /* φ² */
+  --timing-phi-3: 4.236s;  /* φ³ */
+  --timing-phi-half: 0.809s; /* φ/2 */
+  
+  /* Sacred percentages */
+  --golden-major: 61.803%;
+  --golden-minor: 38.197%;
+  
+  /* ═══════════════════════════════════════════════════════════════
+     GOLDEN CABAL COLOR SYSTEM
+     Primary: Golden Amber (hue 45°) - The sacred fire
+     Secondary: Rose Gold (hue 25°) - φ relationship  
+     Accent: Bronze (hue 35°) - The bridge
+     ═══════════════════════════════════════════════════════════════ */
+  
+  /* Light Mode */
+  --background: oklch(0.99 0.005 85);
+  --foreground: oklch(0.15 0.02 45);
+  --card: oklch(0.98 0.008 60);
+  --card-foreground: oklch(0.15 0.02 45);
+  --popover: oklch(0.99 0.005 85);
+  --popover-foreground: oklch(0.15 0.02 45);
+  
+  /* Primary: Golden Amber - Luxurious, warm, powerful */
+  --primary: oklch(0.65 0.18 45);
+  --primary-foreground: oklch(0.99 0.01 85);
+  
+  /* Secondary: Soft cream with golden undertone */
+  --secondary: oklch(0.95 0.02 70);
+  --secondary-foreground: oklch(0.35 0.08 45);
+  
+  --muted: oklch(0.94 0.015 60);
+  --muted-foreground: oklch(0.45 0.03 45);
+  
+  /* Accent: Rose gold warmth */
+  --accent: oklch(0.92 0.04 35);
+  --accent-foreground: oklch(0.25 0.06 30);
+  
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0.88 0.025 55);
+  --input: oklch(0.92 0.02 60);
+  --ring: oklch(0.70 0.15 45);
+  
+  /* Chart colors - golden harmony */
+  --chart-1: oklch(0.70 0.18 45);  /* Golden amber */
+  --chart-2: oklch(0.65 0.15 25);  /* Rose gold */
+  --chart-3: oklch(0.60 0.12 70);  /* Honey */
+  --chart-4: oklch(0.75 0.10 90);  /* Champagne */
+  --chart-5: oklch(0.55 0.14 35);  /* Bronze */
+  
+  --sidebar: oklch(0.97 0.01 60);
+  --sidebar-foreground: oklch(0.15 0.02 45);
+  --sidebar-primary: oklch(0.65 0.18 45);
+  --sidebar-primary-foreground: oklch(0.99 0.01 85);
+  --sidebar-accent: oklch(0.92 0.04 35);
+  --sidebar-accent-foreground: oklch(0.25 0.06 30);
+  --sidebar-border: oklch(0.88 0.025 55);
+  --sidebar-ring: oklch(0.70 0.15 45);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* ═══════════════════════════════════════════════════════════════
+     DARK MODE - Deep Obsidian with Golden Fire
+     A luxurious dark canvas that makes the gold glow
+     ═══════════════════════════════════════════════════════════════ */
+  
+  --background: oklch(0.12 0.015 45);
+  --foreground: oklch(0.95 0.02 60);
+  --card: oklch(0.16 0.02 45);
+  --card-foreground: oklch(0.95 0.02 60);
+  --popover: oklch(0.14 0.018 45);
+  --popover-foreground: oklch(0.95 0.02 60);
+  
+  /* Primary: Luminous golden amber - glows in the dark */
+  --primary: oklch(0.75 0.18 50);
+  --primary-foreground: oklch(0.12 0.02 45);
+  
+  /* Secondary: Deep bronze */
+  --secondary: oklch(0.22 0.03 40);
+  --secondary-foreground: oklch(0.90 0.05 55);
+  
+  --muted: oklch(0.20 0.025 45);
+  --muted-foreground: oklch(0.65 0.04 50);
+  
+  /* Accent: Warm ember glow */
+  --accent: oklch(0.25 0.05 40);
+  --accent-foreground: oklch(0.92 0.06 55);
+  
+  --destructive: oklch(0.60 0.20 25);
+  --border: oklch(0.28 0.04 45);
+  --input: oklch(0.22 0.03 45);
+  --ring: oklch(0.70 0.16 48);
+  
+  /* Chart colors - golden fire in darkness */
+  --chart-1: oklch(0.75 0.18 50);  /* Bright gold */
+  --chart-2: oklch(0.65 0.16 35);  /* Rose gold */
+  --chart-3: oklch(0.70 0.14 65);  /* Honey amber */
+  --chart-4: oklch(0.60 0.12 80);  /* Champagne */
+  --chart-5: oklch(0.55 0.18 30);  /* Deep bronze */
+  
+  --sidebar: oklch(0.14 0.018 45);
+  --sidebar-foreground: oklch(0.95 0.02 60);
+  --sidebar-primary: oklch(0.75 0.18 50);
+  --sidebar-primary-foreground: oklch(0.12 0.02 45);
+  --sidebar-accent: oklch(0.25 0.05 40);
+  --sidebar-accent-foreground: oklch(0.92 0.06 55);
+  --sidebar-border: oklch(0.28 0.04 45);
+  --sidebar-ring: oklch(0.70 0.16 48);
 }
 
 @layer base {
@@ -170,6 +232,19 @@
       display: none;
     }
   }
+  
+  /* Sacred Geometry Utilities */
+  .w-golden { width: 61.803%; }
+  .w-golden-minor { width: 38.197%; }
+  .gap-fib-8 { gap: var(--fib-8); }
+  .gap-fib-13 { gap: var(--fib-13); }
+  .gap-fib-21 { gap: var(--fib-21); }
+  .p-fib-8 { padding: var(--fib-8); }
+  .p-fib-13 { padding: var(--fib-13); }
+  .p-fib-21 { padding: var(--fib-21); }
+  .rounded-fib-8 { border-radius: var(--fib-8); }
+  .rounded-fib-13 { border-radius: var(--fib-13); }
+  .rounded-fib-21 { border-radius: var(--fib-21); }
 }
 
 /* Button hover effects */
@@ -185,11 +260,11 @@
 .button-shimmer-effect {
   background: linear-gradient(
     90deg, 
-    var(--color-primary) 0%, 
-    var(--color-primary) 40%, 
-    oklch(from var(--color-primary) l c h / 0.8) 50%, 
-    var(--color-primary) 60%, 
-    var(--color-primary) 100%
+    oklch(0.70 0.18 48) 0%, 
+    oklch(0.70 0.18 48) 40%, 
+    oklch(0.80 0.14 52) 50%, 
+    oklch(0.70 0.18 48) 60%, 
+    oklch(0.70 0.18 48) 100%
   );
   background-size: 200% 100%;
   animation: button-shimmer 4s ease-in-out infinite;
@@ -198,11 +273,11 @@
 .dark .button-shimmer-effect {
   background: linear-gradient(
     90deg, 
-    var(--color-primary) 0%, 
-    var(--color-primary) 40%, 
-    oklch(from var(--color-primary) l c h / 0.8) 50%, 
-    var(--color-primary) 60%, 
-    var(--color-primary) 100%
+    oklch(0.75 0.18 50) 0%, 
+    oklch(0.75 0.18 50) 40%, 
+    oklch(0.85 0.14 55) 50%, 
+    oklch(0.75 0.18 50) 60%, 
+    oklch(0.75 0.18 50) 100%
   );
   background-size: 200% 100%;
 }
@@ -217,17 +292,17 @@
   animation: button-press 0.2s ease-in-out;
 }
 
-/* Smooth pulsing glow on dialog */
+/* Smooth pulsing golden glow on dialog */
 @keyframes dialog-glow-pulse {
   0%, 100% {
     box-shadow: 
-      0 0 30px rgba(255, 255, 255, 0.05),
-      0 0 60px rgba(255, 255, 255, 0.03);
+      0 0 30px oklch(0.75 0.12 50 / 0.15),
+      0 0 60px oklch(0.70 0.10 48 / 0.08);
   }
   50% {
     box-shadow: 
-      0 0 40px rgba(255, 255, 255, 0.08),
-      0 0 80px rgba(255, 255, 255, 0.05);
+      0 0 40px oklch(0.78 0.15 50 / 0.2),
+      0 0 80px oklch(0.72 0.12 48 / 0.12);
   }
 }
 
@@ -235,25 +310,35 @@
   animation: dialog-glow-pulse 3s ease-in-out infinite;
 }
 
+/* Modal overlay with subtle golden-tinted blur */
+.dialog-overlay-animated {
+  backdrop-filter: blur(3px);
+  background: linear-gradient(
+    180deg,
+    oklch(0 0 0 / 0.3) 0%,
+    oklch(0.12 0.02 45 / 0.5) 100%
+  );
+}
+
 /* Sacred geometry input - golden ratio timing (1.618s base) */
 @keyframes input-sacred-glow {
   0%, 100% {
     box-shadow: 
-      0 0 0 1px oklch(0.7 0.05 60 / 0.3),
-      0 0 20px oklch(0.8 0.1 50 / 0.1);
-    border-color: oklch(0.6 0.03 60 / 0.5);
+      0 0 0 1px oklch(0.70 0.10 48 / 0.3),
+      0 0 20px oklch(0.75 0.12 50 / 0.1);
+    border-color: oklch(0.65 0.08 48 / 0.5);
   }
   38.2% {
     box-shadow: 
-      0 0 0 1px oklch(0.75 0.08 55 / 0.5),
-      0 0 30px oklch(0.85 0.12 45 / 0.15);
-    border-color: oklch(0.7 0.06 50 / 0.7);
+      0 0 0 1px oklch(0.75 0.14 50 / 0.5),
+      0 0 30px oklch(0.78 0.15 52 / 0.15);
+    border-color: oklch(0.72 0.12 50 / 0.7);
   }
   61.8% {
     box-shadow: 
-      0 0 0 1px oklch(0.72 0.06 58 / 0.4),
-      0 0 25px oklch(0.82 0.1 48 / 0.12);
-    border-color: oklch(0.65 0.04 55 / 0.6);
+      0 0 0 1px oklch(0.72 0.12 49 / 0.4),
+      0 0 25px oklch(0.76 0.13 51 / 0.12);
+    border-color: oklch(0.68 0.10 49 / 0.6);
   }
 }
 
@@ -274,12 +359,340 @@
 .input-sacred:focus {
   animation: none;
   box-shadow: 
-    0 0 0 2px oklch(0.8 0.12 50 / 0.6),
-    0 0 40px oklch(0.9 0.15 45 / 0.2);
-  border-color: oklch(0.75 0.1 50 / 0.8);
+    0 0 0 2px oklch(0.75 0.16 50 / 0.6),
+    0 0 40px oklch(0.78 0.14 48 / 0.2);
+  border-color: oklch(0.72 0.15 50 / 0.8);
 }
 
 .input-sacred::placeholder {
   animation: placeholder-breathe 2.618s ease-in-out infinite; /* 1.618 * 1.618 */
   letter-spacing: 0.15em;
+}
+
+/* Sacred Card - subtle breathing golden border */
+@keyframes card-sacred-breathe {
+  0%, 100% {
+    border-color: oklch(0.70 0.06 48 / 0.2);
+    box-shadow: 0 1px 3px oklch(0.70 0.05 48 / 0.05);
+  }
+  61.8% {
+    border-color: oklch(0.75 0.10 50 / 0.3);
+    box-shadow: 0 2px 8px oklch(0.72 0.08 49 / 0.1);
+  }
+}
+
+.card-sacred {
+  animation: card-sacred-breathe 4.236s ease-in-out infinite; /* φ³ */
+}
+
+.card-sacred:hover {
+  animation-play-state: paused;
+  border-color: oklch(0.75 0.14 50 / 0.5);
+  box-shadow: 0 4px 20px oklch(0.72 0.10 48 / 0.15);
+}
+
+/* Sacred text shimmer for headings - golden glow */
+@keyframes text-sacred-shimmer {
+  0%, 100% {
+    background-position: 200% center;
+  }
+  50% {
+    background-position: -200% center;
+  }
+}
+
+.text-sacred {
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    currentColor 38.2%,
+    oklch(0.78 0.16 50) 50%,
+    currentColor 61.8%,
+    currentColor 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: text-sacred-shimmer 8.09s ease-in-out infinite; /* 5 * φ */
+}
+
+/* Sacred hover scale - uses golden ratio */
+.hover-sacred {
+  transition: transform 0.309s ease-out; /* φ/5 + φ/10 ≈ 0.309 */
+}
+
+.hover-sacred:hover {
+  transform: scale(1.0618); /* 1 + φ/10 */
+}
+
+/* Sacred fade in animation */
+@keyframes fade-in-sacred {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--fib-13));
+  }
+  61.8% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-sacred-in {
+  animation: fade-in-sacred 0.618s ease-out forwards;
+}
+
+/* Staggered sacred animations for lists */
+.stagger-sacred > *:nth-child(1) { animation-delay: 0s; }
+.stagger-sacred > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-sacred > *:nth-child(3) { animation-delay: 0.162s; } /* 0.1 * φ */
+.stagger-sacred > *:nth-child(4) { animation-delay: 0.262s; } /* 0.1 * φ² */
+.stagger-sacred > *:nth-child(5) { animation-delay: 0.424s; } /* 0.1 * φ³ */
+.stagger-sacred > *:nth-child(6) { animation-delay: 0.686s; } /* 0.1 * φ⁴ */
+
+/* Sacred spinner */
+@keyframes spin-sacred {
+  0% { transform: rotate(0deg); }
+  38.2% { transform: rotate(137.5deg); } /* Golden angle */
+  61.8% { transform: rotate(222.5deg); } /* 360 - golden angle */
+  100% { transform: rotate(360deg); }
+}
+
+.spin-sacred {
+  animation: spin-sacred 1.618s ease-in-out infinite;
+}
+
+/* Sacred pulse for notifications/badges */
+@keyframes pulse-sacred {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  38.2% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  61.8% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+.pulse-sacred {
+  animation: pulse-sacred 2.618s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM GOLDEN EFFECTS
+   Luxurious visual effects for a world-class experience
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Golden gradient text */
+.text-golden {
+  background: linear-gradient(
+    135deg,
+    oklch(0.75 0.18 50) 0%,
+    oklch(0.85 0.15 55) 38.2%,
+    oklch(0.70 0.20 45) 61.8%,
+    oklch(0.80 0.16 52) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Animated golden shimmer text */
+@keyframes golden-flow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.text-golden-animated {
+  background: linear-gradient(
+    90deg,
+    oklch(0.70 0.18 45) 0%,
+    oklch(0.85 0.12 55) 25%,
+    oklch(0.75 0.20 48) 50%,
+    oklch(0.90 0.10 60) 75%,
+    oklch(0.70 0.18 45) 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: golden-flow 4.236s ease-in-out infinite;
+}
+
+/* Golden glow effect */
+.glow-golden {
+  box-shadow: 
+    0 0 20px oklch(0.75 0.15 50 / 0.3),
+    0 0 40px oklch(0.70 0.12 48 / 0.2),
+    0 0 60px oklch(0.65 0.10 45 / 0.1);
+}
+
+.glow-golden-subtle {
+  box-shadow: 
+    0 0 15px oklch(0.75 0.12 50 / 0.15),
+    0 0 30px oklch(0.70 0.10 48 / 0.08);
+}
+
+/* Glassmorphism with golden tint */
+.glass-golden {
+  background: oklch(0.95 0.02 55 / 0.7);
+  backdrop-filter: blur(12px) saturate(1.5);
+  border: 1px solid oklch(0.80 0.08 50 / 0.3);
+}
+
+.dark .glass-golden {
+  background: oklch(0.18 0.03 45 / 0.8);
+  backdrop-filter: blur(12px) saturate(1.5);
+  border: 1px solid oklch(0.50 0.10 48 / 0.3);
+}
+
+/* Premium button with golden gradient */
+.btn-golden {
+  background: linear-gradient(
+    135deg,
+    oklch(0.70 0.18 48) 0%,
+    oklch(0.75 0.16 52) 50%,
+    oklch(0.68 0.19 45) 100%
+  );
+  box-shadow: 
+    0 4px 15px oklch(0.65 0.15 48 / 0.4),
+    inset 0 1px 0 oklch(0.90 0.08 55 / 0.4);
+  transition: all 0.309s ease-out;
+}
+
+.btn-golden:hover {
+  box-shadow: 
+    0 6px 25px oklch(0.65 0.18 48 / 0.5),
+    inset 0 1px 0 oklch(0.92 0.08 55 / 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-golden:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 2px 10px oklch(0.65 0.15 48 / 0.4),
+    inset 0 1px 0 oklch(0.85 0.08 55 / 0.3);
+}
+
+/* Golden border gradient */
+.border-golden {
+  border: 1px solid transparent;
+  background: 
+    linear-gradient(var(--background), var(--background)) padding-box,
+    linear-gradient(135deg, oklch(0.75 0.15 50), oklch(0.65 0.18 45), oklch(0.80 0.12 55)) border-box;
+}
+
+/* Luxury card with golden accent */
+.card-golden {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-golden::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    oklch(0.70 0.18 45) 0%,
+    oklch(0.80 0.14 55) 50%,
+    oklch(0.70 0.18 45) 100%
+  );
+}
+
+/* Animated golden border */
+@keyframes golden-border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.border-golden-animated {
+  border: 2px solid transparent;
+  background: 
+    linear-gradient(var(--background), var(--background)) padding-box,
+    linear-gradient(90deg, 
+      oklch(0.70 0.18 45), 
+      oklch(0.85 0.12 55), 
+      oklch(0.75 0.16 50), 
+      oklch(0.65 0.20 42),
+      oklch(0.70 0.18 45)
+    ) border-box;
+  background-size: 200% 100%;
+  animation: golden-border-flow 3s linear infinite;
+}
+
+/* Premium input with golden focus */
+.input-golden {
+  transition: all 0.309s ease-out;
+  border: 1px solid oklch(0.80 0.04 50 / 0.5);
+}
+
+.input-golden:focus {
+  border-color: oklch(0.70 0.15 48);
+  box-shadow: 
+    0 0 0 3px oklch(0.75 0.12 50 / 0.2),
+    0 0 20px oklch(0.70 0.10 48 / 0.15);
+  outline: none;
+}
+
+/* Golden divider */
+.divider-golden {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(0.75 0.12 50 / 0.5) 20%,
+    oklch(0.75 0.12 50 / 0.8) 50%,
+    oklch(0.75 0.12 50 / 0.5) 80%,
+    transparent 100%
+  );
+}
+
+/* Luxury shadow */
+.shadow-golden {
+  box-shadow: 
+    0 4px 6px oklch(0 0 0 / 0.05),
+    0 10px 15px oklch(0 0 0 / 0.1),
+    0 0 0 1px oklch(0.75 0.08 50 / 0.1);
+}
+
+.shadow-golden-lg {
+  box-shadow: 
+    0 10px 25px oklch(0 0 0 / 0.1),
+    0 20px 40px oklch(0 0 0 / 0.15),
+    0 0 0 1px oklch(0.75 0.08 50 / 0.15);
+}
+
+/* Radial golden glow background */
+.bg-golden-radial {
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    oklch(0.75 0.10 50 / 0.15) 0%,
+    transparent 50%
+  );
+}
+
+.dark .bg-golden-radial {
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    oklch(0.65 0.12 48 / 0.2) 0%,
+    transparent 50%
+  );
 }

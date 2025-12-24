@@ -104,7 +104,7 @@ export function HowItWorksModal() {
         </Button>
       </DialogTrigger>
       <DialogContent showCloseButton={false} className="sm:max-w-md">
-        <div className={`${UI_CONSTANTS.spaceY} overflow-y-auto max-h-[70vh]`}>
+        <div className={`${UI_CONSTANTS.spaceY} overflow-y-auto max-h-[70vh] no-scrollbar`}>
           {/* Title & Mode Toggle */}
           <div className="flex flex-col items-center gap-3">
             <h2 className="text-xl font-bold">How it works</h2>

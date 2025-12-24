@@ -20,8 +20,9 @@ export function PrimaryCTA({ children, onClick, disabled, className = '' }: Prim
         <Button
           onClick={onClick}
           disabled={disabled}
+          variant="golden"
           size="lg"
-          className={`${GOLDEN_RATIO_WIDTH} h-12 text-base font-semibold shadow-lg pointer-events-auto ${className}`}
+          className={`${GOLDEN_RATIO_WIDTH} h-12 text-base pointer-events-auto ${className}`}
         >
           {children}
         </Button>

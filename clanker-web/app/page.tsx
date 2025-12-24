@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { useReadContract, useReadContracts, useBalance } from "wagmi"
+import { useReadContract, useReadContracts, useBalance, useWatchContractEvent } from "wagmi"
+import { useQueryClient } from "@tanstack/react-query"
 import { erc20Abi } from "viem"
 import { WalletButton } from "@/components/wallet/WalletButton"
 import { SettingsModal } from "@/components/SettingsModal"
@@ -116,8 +117,8 @@ function CabalCard({
       : 0
 
   return (
-    <div onClick={() => onClick(cabalId)} role="button" tabIndex={0} className="block h-full">
-      <Card className="overflow-hidden hover:border-foreground/20 hover:shadow-lg transition-all duration-200 h-full group relative">
+    <div onClick={() => onClick(cabalId)} role="button" tabIndex={0} className="block h-full hover-sacred">
+      <Card className="overflow-hidden h-full group relative card-sacred">
         <CardContent className="p-3.5 space-y-3.5">
           <div className="flex justify-between items-center">
             <h3 className="font-mono font-bold text-lg tracking-tight group-hover:text-primary transition-colors">
@@ -184,12 +185,44 @@ export default function HomePage() {
   const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
+  const queryClient = useQueryClient()
 
   // Get all cabal IDs
   const { data: cabalIds, isLoading: isLoadingIds, refetch: refetchCabals } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getAllCabals",
+  })
+
+  // Watch for new cabals being created
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "CabalCreated",
+    onLogs() {
+      refetchCabals()
+    },
+  })
+
+  // Watch for cabals being finalized (presale -> active)
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "CabalFinalized",
+    onLogs() {
+      // Invalidate all cabal queries to refresh phase data
+      queryClient.invalidateQueries()
+    },
+  })
+
+  // Watch for contributions to update stats
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "Contributed",
+    onLogs() {
+      queryClient.invalidateQueries()
+    },
   })
 
   // Fetch all cabal data in parallel
@@ -285,11 +318,11 @@ export default function HomePage() {
 
   if (!CABAL_DIAMOND_ADDRESS) {
     return (
-      <div className="min-h-screen pb-[126px]">
-        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+      <div className="min-h-screen pb-[126px] bg-golden-radial">
+        <header className="sticky top-0 z-50 glass-golden border-b border-primary/10">
           <div className="page-container">
             <div className="flex items-center justify-between h-14">
-              <span className="text-xl font-bold tracking-tight">CABAL</span>
+              <span className="text-xl font-bold tracking-tight text-golden-animated">CABAL</span>
               <div className="flex items-center gap-3">
                 <WalletButton />
                 <SettingsModal />
@@ -318,14 +351,14 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen pb-[126px]">
+    <div className="min-h-screen pb-[126px] bg-golden-radial">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+      <header className="sticky top-0 z-50 glass-golden border-b border-primary/10">
         <div className="page-container">
           <div className="flex items-center justify-between h-14">
             <button 
               onClick={handleBack}
-              className="text-xl font-bold tracking-tight"
+              className="text-xl font-bold tracking-tight text-golden-animated"
             >
               CABAL
             </button>
@@ -421,9 +454,11 @@ export default function HomePage() {
                 <p className="text-muted-foreground">No {phaseFilter} cabals found</p>
               </div>
             ) : (
-              <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 stagger-sacred">
                 {filteredCabals.map(({ id, cabal }) => (
-                  <CabalCard key={id.toString()} cabalId={id} cabal={cabal!} onClick={setSelectedCabalId} />
+                  <div key={id.toString()} className="animate-sacred-in">
+                    <CabalCard cabalId={id} cabal={cabal!} onClick={setSelectedCabalId} />
+                  </div>
                 ))}
               </div>
             )}

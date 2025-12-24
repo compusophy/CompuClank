@@ -37,8 +37,11 @@ export default function CreateCabalPage() {
   // Automatically sync name with symbol (ticker) if not manually edited
   const handleSymbolChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toUpperCase();
-    // Clean up ticker: remove leading $ if present
-    const cleanSymbol = value.startsWith('$') ? value.slice(1) : value;
+    // Clean up ticker: remove $ prefix, spaces, and non-alphanumeric characters
+    const cleanSymbol = value
+      .replace(/^\$/, '') // Remove leading $
+      .replace(/[^A-Z0-9]/g, '') // Only allow letters and numbers
+      .slice(0, 20); // Max 20 characters for ticker
     
     setFormData(prev => ({
       ...prev,
@@ -124,12 +127,6 @@ export default function CreateCabalPage() {
           </Card>
         ) : (
           <Card>
-            <CardHeader className="pb-4">
-              <CardTitle>New CABAL</CardTitle>
-              <CardDescription>
-                Create a decentralized group wallet with its own governance token.
-              </CardDescription>
-            </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Primary Input: Ticker */}
@@ -141,7 +138,7 @@ export default function CreateCabalPage() {
                       value={formData.symbol}
                       onChange={handleSymbolChange}
                       required
-                      maxLength={10}
+                      maxLength={20}
                       className="pl-7 font-mono uppercase text-lg h-12"
                     />
                   </div>

@@ -2,6 +2,7 @@
 
 import { Briefcase, Bell, Search, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 
 export function Footer() {
   return (
@@ -13,10 +14,8 @@ export function Footer() {
             <Briefcase className="h-5 w-5" />
           </Button>
           
-          {/* Center - Search */}
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Search className="h-5 w-5" />
-          </Button>
+          {/* Center - How It Works */}
+          <HowItWorksModal />
           
           {/* Right side - Notifications & Profile */}
           <div className="flex items-center gap-1">

@@ -18,6 +18,7 @@ import { CABAL_ABI, CabalInfo } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { ArrowDownUp, Loader2 } from 'lucide-react';
 import { UI_CONSTANTS } from '@/lib/utils';
+import { GOLDEN_RATIO_WIDTH } from '@/components/layout/PrimaryCTA';
 
 type TradeTab = 'buy' | 'sell';
 
@@ -262,7 +263,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent blurBackground className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl">Trade ${cabal.symbol}</DialogTitle>
           <DialogDescription>
@@ -334,15 +335,17 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
         </div>
 
         {/* Action Button */}
-        <Button 
-          onClick={handleAction} 
-          disabled={isLoading || !amount || Number(amount) <= 0}
-          className="w-full h-12 text-base"
-          size="lg"
-        >
-          {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {getButtonText()}
-        </Button>
+        <div className="flex justify-center pt-2">
+          <Button 
+            onClick={handleAction} 
+            disabled={isLoading || !amount || Number(amount) <= 0}
+            className={`${GOLDEN_RATIO_WIDTH} h-12 text-base shadow-lg`}
+            size="lg"
+          >
+            {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {getButtonText()}
+          </Button>
+        </div>
 
       </DialogContent>
     </Dialog>

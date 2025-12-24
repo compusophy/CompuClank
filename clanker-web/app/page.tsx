@@ -262,13 +262,29 @@ export default function HomePage() {
   const handleBack = () => setSelectedCabalId(null)
 
   // Handle create success
-  const handleCreateSuccess = () => {
-    refetchCabals()
+  const handleCreateSuccess = async (newCabalId?: bigint) => {
+    // Refetch cabals
+    await refetchCabals();
+    
+    // If we have a specific ID from the creation event, use it
+    if (newCabalId !== undefined) {
+      setSelectedCabalId(newCabalId);
+    } 
+    // Fallback: if no ID provided (shouldn't happen with updated logic), try to guess the newest
+    // But this is risky as noted, so we prefer the explicit ID.
+    else {
+      // Leaving the old fallback logic just in case, but the explicit ID is much safer
+      const { data: newCabalIds } = await refetchCabals();
+      if (newCabalIds && newCabalIds.length > 0) {
+        const newestId = newCabalIds[newCabalIds.length - 1];
+        setSelectedCabalId(newestId);
+      }
+    }
   }
 
   if (!CABAL_DIAMOND_ADDRESS) {
     return (
-      <div className="min-h-screen pb-28">
+      <div className="min-h-screen pb-[126px]">
         <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
           <div className="page-container">
             <div className="flex items-center justify-between h-14">
@@ -301,7 +317,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen pb-28">
+    <div className="min-h-screen pb-[126px]">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="page-container">
@@ -418,7 +434,7 @@ export default function HomePage() {
       {!isViewingDetails ? (
         <PrimaryCTA onClick={() => setIsCreateModalOpen(true)}>
           <Plus className="h-5 w-5 mr-2" />
-          Create CABAL
+          Create
         </PrimaryCTA>
       ) : selectedCabal?.phase === CabalPhase.Active && (
         <PrimaryCTA onClick={() => setIsTradeModalOpen(true)}>

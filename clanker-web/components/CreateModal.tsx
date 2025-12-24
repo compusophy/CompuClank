@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/dialog";
 import { CABAL_ABI } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
-import { Settings2, ChevronDown, ChevronUp, Plus, Wallet, Loader2 } from 'lucide-react';
+import { Plus, Wallet, Loader2 } from 'lucide-react';
+import { GOLDEN_RATIO_WIDTH } from '@/components/layout/PrimaryCTA';
+import { UI_CONSTANTS } from '@/lib/utils';
 
 interface CreateModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (cabalId?: bigint) => void;
 }
 
 export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProps) {
@@ -35,17 +37,22 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
     proposalThreshold: '0',
   });
 
+  const [createdCabalId, setCreatedCabalId] = useState<bigint | null>(null);
+
   const { writeContract, data: hash, isPending, reset } = useWriteContract();
   
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
     hash,
   });
 
   // Automatically sync name with symbol (ticker) if not manually edited
   const handleSymbolChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toUpperCase();
-    // Clean up ticker: remove leading $ if present
-    const cleanSymbol = value.startsWith('$') ? value.slice(1) : value;
+    // Clean up ticker: remove $ prefix, spaces, and non-alphanumeric characters
+    const cleanSymbol = value
+      .replace(/^\$/, '') // Remove leading $
+      .replace(/[^A-Z0-9]/g, '') // Only allow letters and numbers
+      .slice(0, 20); // Max 20 characters for ticker
     
     setFormData(prev => ({
       ...prev,
@@ -90,44 +97,58 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
     toast.success('CABAL created successfully!');
     reset();
     onOpenChange(false);
-    onSuccess?.();
+    
+    // Pass the actual created ID if we found it
+    onSuccess?.(createdCabalId || undefined);
+    setCreatedCabalId(null);
   };
 
-  // Reset form when modal closes
+  // Extract ID from logs when receipt is available
   useEffect(() => {
-    if (!isOpen) {
-      setFormData({
-        name: '',
-        symbol: '',
-        image: '',
-        votingPeriod: '50400',
-        quorumPercent: '10',
-        majorityPercent: '51',
-        proposalThreshold: '0',
-      });
-      setShowAdvanced(false);
-    }
-  }, [isOpen]);
+    if (receipt && isSuccess) {
+      // Look for the CabalCreated event topic
+      // event CabalCreated(uint256 indexed cabalId, address indexed creator, string name, string symbol)
+      // The first indexed argument (topic[1]) is the cabalId
+      const cabalCreatedLog = receipt.logs.find(log => 
+        // We could check address or topic[0] but since we just called createCabal, 
+        // we can look for the log that has the right structure.
+        // For simplicity, let's look for logs from our diamond address
+        log.address.toLowerCase() === CABAL_DIAMOND_ADDRESS?.toLowerCase()
+      );
 
-  // Watch for transaction confirmation
+      if (cabalCreatedLog && cabalCreatedLog.topics[1]) {
+        try {
+          const id = BigInt(cabalCreatedLog.topics[1]);
+          setCreatedCabalId(id);
+        } catch (e) {
+          console.error('Failed to parse cabal ID from logs', e);
+        }
+      }
+    }
+  }, [receipt, isSuccess]);
+
+  // Watch for transaction confirmation and ID extraction
   useEffect(() => {
+    // Only trigger success once we have the ID (or if we failed to find it but transaction succeeded)
     if (isSuccess && hash) {
-      handleSuccess();
+      // Small delay to ensure state update for ID has processed if it was found
+      const timer = setTimeout(() => {
+        handleSuccess();
+      }, 500);
+      return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuccess, hash]);
+  }, [isSuccess, hash, createdCabalId]);
 
   const isLoading = isPending || isConfirming;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl">Create CABAL</DialogTitle>
-          <DialogDescription>
-            Create a decentralized group wallet with its own governance token.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent showCloseButton={false} blurBackground className="sm:max-w-md overflow-y-auto">
+        <DialogTitle className="sr-only">Create CABAL</DialogTitle>
+        <DialogDescription className="sr-only">
+          Create a decentralized group wallet with its own governance token.
+        </DialogDescription>
 
         {!isConnected ? (
           <div className="py-8 text-center space-y-4">
@@ -142,7 +163,7 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className={UI_CONSTANTS.spaceY}>
             {/* Primary Input: Ticker */}
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">$</span>
@@ -151,110 +172,33 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
                 value={formData.symbol}
                 onChange={handleSymbolChange}
                 required
-                maxLength={10}
+                maxLength={20}
                 className="pl-7 font-mono uppercase text-lg h-12"
               />
             </div>
 
-            {/* Advanced Settings Toggle */}
-            <div className="border-t pt-3">
+            {/* Image URL Input (Optional) - Removed for now as metadata will be set later */}
+            {/* <div className="pt-2">
+              <label className="text-xs font-medium mb-1.5 block text-muted-foreground">Image URL (Optional)</label>
+              <Input
+                placeholder="ipfs://... or https://..."
+                value={formData.image}
+                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                className="h-10 text-sm"
+              />
+            </div> */}
+
+            <div className="flex justify-center pt-2">
               <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="w-full flex justify-between items-center text-muted-foreground hover:text-foreground h-auto py-2"
+                type="submit"
+                className={`${GOLDEN_RATIO_WIDTH} h-12 text-base font-semibold gap-2 shadow-lg`}
+                disabled={isLoading || !formData.name || !formData.symbol}
               >
-                <span className="flex items-center gap-2 text-sm">
-                  <Settings2 className="h-4 w-4" />
-                  Advanced Settings
-                </span>
-                {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Plus className="h-5 w-5" />
+                {isPending ? 'Confirming...' : isConfirming ? 'Creating...' : 'Create'}
               </Button>
-
-              {/* Advanced Content */}
-              {showAdvanced && (
-                <div className="space-y-4 pt-3 animate-in slide-in-from-top-2 fade-in duration-200">
-                  {/* Name & Image */}
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block">Token Name</label>
-                      <Input
-                        placeholder="My CABAL"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1.5 block">Image URL (Optional)</label>
-                      <Input
-                        placeholder="ipfs://... or https://..."
-                        value={formData.image}
-                        onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Governance */}
-                  <div>
-                    <h3 className="font-semibold mb-3 text-sm">Governance</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Quorum %</label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="100"
-                          value={formData.quorumPercent}
-                          onChange={(e) => setFormData({ ...formData, quorumPercent: e.target.value })}
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Majority %</label>
-                        <Input
-                          type="number"
-                          min="50"
-                          max="100"
-                          value={formData.majorityPercent}
-                          onChange={(e) => setFormData({ ...formData, majorityPercent: e.target.value })}
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Voting Period</label>
-                        <Input
-                          type="number"
-                          min="100"
-                          value={formData.votingPeriod}
-                          onChange={(e) => setFormData({ ...formData, votingPeriod: e.target.value })}
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Prop. Threshold</label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={formData.proposalThreshold}
-                          onChange={(e) => setFormData({ ...formData, proposalThreshold: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-
-            <Button
-              type="submit"
-              className="w-full h-12 text-base font-semibold gap-2"
-              disabled={isLoading || !formData.name || !formData.symbol}
-            >
-              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Plus className="h-5 w-5" />
-              {isPending ? 'Confirming...' : isConfirming ? 'Creating...' : 'Create CABAL'}
-            </Button>
           </form>
         )}
       </DialogContent>

@@ -171,3 +171,26 @@
     }
   }
 }
+
+/* Modal overlay with subtle blur */
+.dialog-overlay-animated {
+  backdrop-filter: blur(2px);
+}
+
+/* Smooth pulsing glow on dialog */
+@keyframes dialog-glow-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 30px rgba(255, 255, 255, 0.05),
+      0 0 60px rgba(255, 255, 255, 0.03);
+  }
+  50% {
+    box-shadow: 
+      0 0 40px rgba(255, 255, 255, 0.08),
+      0 0 80px rgba(255, 255, 255, 0.05);
+  }
+}
+
+.dialog-glow-animated {
+  animation: dialog-glow-pulse 3s ease-in-out infinite;
+}

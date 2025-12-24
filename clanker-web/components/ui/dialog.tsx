@@ -5,11 +5,32 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { haptics } from "@/lib/haptics"
 
 function Dialog({
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const handleOpenChange = React.useCallback(
+    (open: boolean) => {
+      // Trigger sacred geometry haptics
+      if (open) {
+        haptics.modalOpen()
+      } else {
+        haptics.modalClose()
+      }
+      onOpenChange?.(open)
+    },
+    [onOpenChange]
+  )
+
+  return (
+    <DialogPrimitive.Root 
+      data-slot="dialog" 
+      onOpenChange={handleOpenChange}
+      {...props} 
+    />
+  )
 }
 
 function DialogTrigger({

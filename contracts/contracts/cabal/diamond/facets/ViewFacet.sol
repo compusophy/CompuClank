@@ -20,6 +20,8 @@ contract ViewFacet {
         address tbaAddress;
         address tokenAddress;
         CabalPhase phase;
+        uint256 createdAt;
+        uint256 launchedAt;
         uint256 totalRaised;
         uint256 totalTokensReceived;
         uint256 totalStaked;
@@ -44,6 +46,8 @@ contract ViewFacet {
             tbaAddress: cabal.tbaAddress,
             tokenAddress: cabal.tokenAddress,
             phase: cabal.phase,
+            createdAt: cabal.createdAt,
+            launchedAt: cabal.launchedAt,
             totalRaised: cabal.totalRaised,
             totalTokensReceived: cabal.totalTokensReceived,
             totalStaked: cabal.totalStaked,
@@ -64,6 +68,59 @@ contract ViewFacet {
      */
     function getTotalCabals() external view returns (uint256) {
         return LibAppStorage.appStorage().allCabalIds.length;
+    }
+
+    /**
+     * @notice Get paginated Cabals with full info (newest first)
+     * @param offset Number of cabals to skip from the newest
+     * @param limit Maximum number of cabals to return
+     * @return cabals Array of CabalInfo structs
+     * @return total Total number of cabals (for calculating hasMore on frontend)
+     */
+    function getCabalsPaginated(uint256 offset, uint256 limit) external view returns (
+        CabalInfo[] memory cabals,
+        uint256 total
+    ) {
+        uint256[] storage allIds = LibAppStorage.appStorage().allCabalIds;
+        total = allIds.length;
+        
+        // If offset is beyond total, return empty
+        if (offset >= total) {
+            return (new CabalInfo[](0), total);
+        }
+        
+        // Calculate how many we can actually return
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        
+        cabals = new CabalInfo[](count);
+        
+        // Iterate backwards (newest first)
+        // newest = allIds[total - 1], so with offset 0, start at total - 1
+        // with offset 5, start at total - 1 - 5 = total - 6
+        for (uint256 i = 0; i < count; i++) {
+            uint256 reverseIndex = total - 1 - offset - i;
+            uint256 cabalId = allIds[reverseIndex];
+            CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+            
+            cabals[i] = CabalInfo({
+                id: cabalId,
+                creator: cabal.creator,
+                name: cabal.name,
+                symbol: cabal.symbol,
+                image: cabal.image,
+                tbaAddress: cabal.tbaAddress,
+                tokenAddress: cabal.tokenAddress,
+                phase: cabal.phase,
+                createdAt: cabal.createdAt,
+                launchedAt: cabal.launchedAt,
+                totalRaised: cabal.totalRaised,
+                totalTokensReceived: cabal.totalTokensReceived,
+                totalStaked: cabal.totalStaked,
+                contributorCount: cabal.contributors.length,
+                settings: cabal.settings
+            });
+        }
     }
 
     /**
@@ -115,6 +172,8 @@ contract ViewFacet {
                 tbaAddress: cabal.tbaAddress,
                 tokenAddress: cabal.tokenAddress,
                 phase: cabal.phase,
+                createdAt: cabal.createdAt,
+                launchedAt: cabal.launchedAt,
                 totalRaised: cabal.totalRaised,
                 totalTokensReceived: cabal.totalTokensReceived,
                 totalStaked: cabal.totalStaked,

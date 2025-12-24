@@ -22,6 +22,7 @@ export function PrimaryCTA({ children, onClick, disabled, className = '' }: Prim
           disabled={disabled}
           variant="golden"
           size="lg"
+          haptic="golden"
           className={`${GOLDEN_RATIO_WIDTH} h-12 text-base pointer-events-auto ${className}`}
         >
           {children}

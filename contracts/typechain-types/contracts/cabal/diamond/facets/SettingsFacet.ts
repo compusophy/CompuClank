@@ -51,6 +51,7 @@ export interface SettingsFacetInterface extends Interface {
       | "initializeAddresses"
       | "initializeClankerAddresses"
       | "pauseCabal"
+      | "resetAllCabals"
       | "unpauseCabal"
       | "updateContractAddress"
       | "updateGovernanceSettings"
@@ -58,6 +59,7 @@ export interface SettingsFacetInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "AllCabalsReset"
       | "CabalPaused"
       | "CabalUnpaused"
       | "ContractAddressUpdated"
@@ -96,6 +98,10 @@ export interface SettingsFacetInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "resetAllCabals",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "unpauseCabal",
     values: [BigNumberish]
   ): string;
@@ -130,6 +136,10 @@ export interface SettingsFacetInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "pauseCabal", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "resetAllCabals",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "unpauseCabal",
     data: BytesLike
   ): Result;
@@ -141,6 +151,18 @@ export interface SettingsFacetInterface extends Interface {
     functionFragment: "updateGovernanceSettings",
     data: BytesLike
   ): Result;
+}
+
+export namespace AllCabalsResetEvent {
+  export type InputTuple = [previousCount: BigNumberish];
+  export type OutputTuple = [previousCount: bigint];
+  export interface OutputObject {
+    previousCount: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace CabalPausedEvent {
@@ -315,6 +337,8 @@ export interface SettingsFacet extends BaseContract {
     "nonpayable"
   >;
 
+  resetAllCabals: TypedContractMethod<[], [void], "nonpayable">;
+
   unpauseCabal: TypedContractMethod<
     [cabalId: BigNumberish],
     [void],
@@ -404,6 +428,9 @@ export interface SettingsFacet extends BaseContract {
     nameOrSignature: "pauseCabal"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "resetAllCabals"
+  ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "unpauseCabal"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
   getFunction(
@@ -421,6 +448,13 @@ export interface SettingsFacet extends BaseContract {
     "nonpayable"
   >;
 
+  getEvent(
+    key: "AllCabalsReset"
+  ): TypedContractEvent<
+    AllCabalsResetEvent.InputTuple,
+    AllCabalsResetEvent.OutputTuple,
+    AllCabalsResetEvent.OutputObject
+  >;
   getEvent(
     key: "CabalPaused"
   ): TypedContractEvent<
@@ -451,6 +485,17 @@ export interface SettingsFacet extends BaseContract {
   >;
 
   filters: {
+    "AllCabalsReset(uint256)": TypedContractEvent<
+      AllCabalsResetEvent.InputTuple,
+      AllCabalsResetEvent.OutputTuple,
+      AllCabalsResetEvent.OutputObject
+    >;
+    AllCabalsReset: TypedContractEvent<
+      AllCabalsResetEvent.InputTuple,
+      AllCabalsResetEvent.OutputTuple,
+      AllCabalsResetEvent.OutputObject
+    >;
+
     "CabalPaused(uint256)": TypedContractEvent<
       CabalPausedEvent.InputTuple,
       CabalPausedEvent.OutputTuple,

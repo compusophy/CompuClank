@@ -20,6 +20,7 @@ import { TokenAmount } from '@/components/TokenAmount';
 import { CABAL_ABI, CabalInfo } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { Loader2, TrendingUp } from 'lucide-react';
+import { haptics } from '@/lib/haptics';
 
 interface StakeModalProps {
   isOpen: boolean;
@@ -59,6 +60,7 @@ export function StakeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess }: 
   // Handle stake success
   useEffect(() => {
     if (stakeSuccess && stakeHash) {
+      haptics.success(); // Success haptic
       toast.success('Staked!', {
         action: {
           label: 'View',
@@ -136,15 +138,17 @@ export function StakeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess }: 
         functionName: 'stakeWithPermit', 
         args: [cabalId, stakeAmount, deadline, Number(v), r, s] 
       }, {
-        onError: (e) => { 
-          toast.error(e.message); 
-          setIsSigning(false); 
+        onError: (e) => {
+          haptics.error(); // Error haptic
+          toast.error(e.message);
+          setIsSigning(false);
         },
         onSuccess: () => { 
           setIsSigning(false); 
         }
       });
     } catch (e) {
+      haptics.error(); // Error haptic
       toast.error(e instanceof Error ? e.message : 'Failed to sign');
       setIsSigning(false);
     }

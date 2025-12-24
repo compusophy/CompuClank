@@ -1,8 +1,13 @@
+"use client"
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { haptics } from "@/lib/haptics"
+
+type HapticType = 'light' | 'medium' | 'heavy' | 'golden' | 'none'
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-300 cursor-pointer disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97]",
@@ -42,12 +47,42 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  haptic = "light",
+  onClick,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /** Haptic feedback intensity: 'light', 'medium', 'heavy', 'golden', or 'none' */
+    haptic?: HapticType
   }) {
   const Comp = asChild ? Slot : "button"
+
+  const handleClick = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      // Trigger haptic feedback based on type
+      if (haptic !== 'none') {
+        switch (haptic) {
+          case 'golden':
+            haptics.goldenPulse()
+            break
+          case 'heavy':
+            haptics.heavyAction()
+            break
+          case 'medium':
+            haptics.cardTap()
+            break
+          case 'light':
+          default:
+            haptics.buttonPress()
+            break
+        }
+      }
+      // Call original onClick handler
+      onClick?.(e)
+    },
+    [haptic, onClick]
+  )
 
   return (
     <Comp
@@ -55,6 +90,7 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={handleClick}
       {...props}
     />
   )

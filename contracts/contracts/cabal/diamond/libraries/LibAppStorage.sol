@@ -43,7 +43,7 @@ struct Proposal {
 }
 
 struct CabalData {
-    // Metadata
+    // Metadata (DO NOT REORDER - storage layout must be stable)
     address creator;
     string name;
     string symbol;
@@ -52,15 +52,19 @@ struct CabalData {
     address tokenAddress;
     CabalPhase phase;
     
-    // Presale
+    // Presale (DO NOT REORDER)
     uint256 totalRaised;
     uint256 totalTokensReceived;
     address[] contributors;
     
-    // Governance
+    // Governance (DO NOT REORDER)
     GovernanceSettings settings;
     uint256 nextProposalId;
     uint256 totalStaked;
+    
+    // Timestamps (ADDED AT END to preserve storage layout)
+    uint256 createdAt;      // block.timestamp when presale created
+    uint256 launchedAt;     // block.timestamp when finalized to Active (0 if still presale)
 }
 
 struct AppStorage {

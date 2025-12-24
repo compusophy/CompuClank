@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useReadContract, useReadContracts, useBalance, useWatchContractEvent } from "wagmi"
-import { useQueryClient } from "@tanstack/react-query"
+import { useState, useMemo, useCallback } from "react"
+import { useBalance, useReadContract, useWatchContractEvent } from "wagmi"
 import { erc20Abi } from "viem"
 import { WalletButton } from "@/components/wallet/WalletButton"
 import { SettingsModal } from "@/components/SettingsModal"
@@ -11,13 +10,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { TokenAmount } from "@/components/TokenAmount"
-import { Plus, Users, Coins, TrendingUp, Wallet } from "lucide-react"
+import { Plus, Users, Coins, TrendingUp, Wallet, Loader2 } from "lucide-react"
 import { CabalDetailsContent } from "@/components/CabalDetailsContent"
 import { Footer } from "@/components/layout/Footer"
 import { PrimaryCTA } from "@/components/layout/PrimaryCTA"
 import { InlineCreateCTA } from "@/components/layout/InlineCreateCTA"
 import { CreateModal } from "@/components/CreateModal"
 import { TradeModal } from "@/components/TradeModal"
+import { haptics } from "@/lib/haptics"
+import { useInfiniteCabals } from "@/hooks/useInfiniteCabals"
 
 type PhaseFilter = "all" | "active" | "presale"
 type SortOrder = "newest" | "oldest"
@@ -28,7 +29,7 @@ function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`
 }
 
-// Filter pill button component
+// Filter pill button component with golden ratio haptics
 function FilterPill({
   active,
   onClick,
@@ -40,9 +41,14 @@ function FilterPill({
   children: React.ReactNode
   count?: number
 }) {
+  const handleClick = useCallback(() => {
+    haptics.selection() // Sacred geometry selection haptic
+    onClick()
+  }, [onClick])
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
         active
           ? "bg-foreground text-background"
@@ -116,8 +122,13 @@ function CabalCard({
       ? Number((cabal.totalStaked * 10000n) / totalSupply) / 100
       : 0
 
+  const handleClick = useCallback(() => {
+    haptics.cardTap() // Golden ratio card haptic
+    onClick(cabalId)
+  }, [onClick, cabalId])
+
   return (
-    <div onClick={() => onClick(cabalId)} role="button" tabIndex={0} className="block h-full hover-sacred">
+    <div onClick={handleClick} role="button" tabIndex={0} className="block h-full hover-sacred">
       <Card className="overflow-hidden h-full group relative card-sacred">
         <CardContent className="p-3.5 space-y-3.5">
           <div className="flex justify-between items-center">
@@ -185,22 +196,26 @@ export default function HomePage() {
   const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
-  const queryClient = useQueryClient()
 
-  // Get all cabal IDs
-  const { data: cabalIds, isLoading: isLoadingIds, refetch: refetchCabals } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    functionName: "getAllCabals",
-  })
+  // Infinite scroll cabals - loads in batches of 12, newest first
+  const { 
+    cabals, 
+    isLoading, 
+    isLoadingMore, 
+    hasMore, 
+    total, 
+    refresh, 
+    sentinelRef 
+  } = useInfiniteCabals()
 
-  // Watch for new cabals being created
+  // Watch for new cabals being created (polls every 30 seconds)
   useWatchContractEvent({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     eventName: "CabalCreated",
+    pollingInterval: 30_000,
     onLogs() {
-      refetchCabals()
+      refresh()
     },
   })
 
@@ -208,85 +223,48 @@ export default function HomePage() {
   useWatchContractEvent({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
-    eventName: "CabalFinalized",
+    eventName: "CabalFinalized", 
+    pollingInterval: 30_000,
     onLogs() {
-      // Invalidate all cabal queries to refresh phase data
-      queryClient.invalidateQueries()
+      refresh()
     },
   })
 
-  // Watch for contributions to update stats
-  useWatchContractEvent({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    eventName: "Contributed",
-    onLogs() {
-      queryClient.invalidateQueries()
-    },
-  })
-
-  // Fetch all cabal data in parallel
-  const { data: cabalResults, isLoading: isLoadingCabals } = useReadContracts({
-    contracts:
-      cabalIds?.map((id) => ({
-        address: CABAL_DIAMOND_ADDRESS!,
-        abi: CABAL_ABI,
-        functionName: "getCabal",
-        args: [id],
-      })) ?? [],
-    query: {
-      enabled: !!cabalIds && cabalIds.length > 0,
-    },
-  })
-
-  // Process and filter cabals
+  // Process and filter cabals (client-side on loaded items)
   const { filteredCabals, counts, cabalMap } = useMemo(() => {
-    if (!cabalIds || !cabalResults) {
+    if (!cabals || cabals.length === 0) {
       return { filteredCabals: [], counts: { all: 0, active: 0, presale: 0 }, cabalMap: new Map() }
     }
 
-    // Pair IDs with cabal data
-    const cabalsWithIds = cabalIds
-      .map((id, index) => ({
-        id,
-        cabal: cabalResults[index]?.result as CabalInfo | undefined,
-      }))
-      .filter((item) => item.cabal !== undefined)
-    
     // Create a map for quick lookup
     const map = new Map<bigint, CabalInfo>()
-    cabalsWithIds.forEach(({ id, cabal }) => {
-      if (cabal) map.set(id, cabal)
+    cabals.forEach((cabal) => {
+      map.set(cabal.id, cabal)
     })
 
-    // Count by phase
+    // Count by phase (of loaded cabals)
     const counts = {
-      all: cabalsWithIds.length,
-      active: cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Active).length,
-      presale: cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Presale).length,
+      all: cabals.length,
+      active: cabals.filter((c) => c.phase === CabalPhase.Active).length,
+      presale: cabals.filter((c) => c.phase === CabalPhase.Presale).length,
     }
 
     // Filter by phase
-    let filtered = cabalsWithIds
+    let filtered = [...cabals]
     if (phaseFilter === "active") {
-      filtered = cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Active)
+      filtered = cabals.filter((c) => c.phase === CabalPhase.Active)
     } else if (phaseFilter === "presale") {
-      filtered = cabalsWithIds.filter((c) => c.cabal?.phase === CabalPhase.Presale)
+      filtered = cabals.filter((c) => c.phase === CabalPhase.Presale)
     }
 
-    // Sort by ID (which correlates with creation order)
-    filtered.sort((a, b) => {
-      if (sortOrder === "newest") {
-        return Number(b.id - a.id)
-      } else {
-        return Number(a.id - b.id)
-      }
-    })
+    // Sort: "newest" keeps natural order (already newest-first from contract)
+    // "oldest" reverses the loaded items
+    if (sortOrder === "oldest") {
+      filtered.reverse()
+    }
 
     return { filteredCabals: filtered, counts, cabalMap: map }
-  }, [cabalIds, cabalResults, phaseFilter, sortOrder])
-
-  const isLoading = isLoadingIds || isLoadingCabals
+  }, [cabals, phaseFilter, sortOrder])
 
   // Get selected cabal data
   const selectedCabal = selectedCabalId !== null ? cabalMap.get(selectedCabalId) : undefined
@@ -297,28 +275,18 @@ export default function HomePage() {
 
   // Handle create success
   const handleCreateSuccess = async (newCabalId?: bigint) => {
-    // Refetch cabals
-    await refetchCabals();
+    // Refresh to get the new cabal
+    refresh();
     
     // If we have a specific ID from the creation event, use it
     if (newCabalId !== undefined) {
       setSelectedCabalId(newCabalId);
-    } 
-    // Fallback: if no ID provided (shouldn't happen with updated logic), try to guess the newest
-    // But this is risky as noted, so we prefer the explicit ID.
-    else {
-      // Leaving the old fallback logic just in case, but the explicit ID is much safer
-      const { data: newCabalIds } = await refetchCabals();
-      if (newCabalIds && newCabalIds.length > 0) {
-        const newestId = newCabalIds[newCabalIds.length - 1];
-        setSelectedCabalId(newestId);
-      }
     }
   }
 
   if (!CABAL_DIAMOND_ADDRESS) {
     return (
-      <div className="min-h-screen pb-[126px] bg-golden-radial">
+      <div className="min-h-screen pb-[160px] bg-golden-radial">
         <header className="sticky top-0 z-50 glass-golden border-b border-primary/10">
           <div className="page-container">
             <div className="flex items-center justify-between h-14">
@@ -351,7 +319,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen pb-[126px] bg-golden-radial">
+    <div className="min-h-screen pb-[180px] bg-golden-radial">
       {/* Header */}
       <header className="sticky top-0 z-50 glass-golden border-b border-primary/10">
         <div className="page-container">
@@ -398,7 +366,7 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-        ) : !cabalIds || cabalIds.length === 0 ? (
+        ) : cabals.length === 0 && !isLoading ? (
           <Card className="p-3.5 text-center max-w-lg mx-auto border-dashed">
             <div className="space-y-3.5 py-3.5">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
@@ -454,13 +422,33 @@ export default function HomePage() {
                 <p className="text-muted-foreground">No {phaseFilter} cabals found</p>
               </div>
             ) : (
-              <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 stagger-sacred">
-                {filteredCabals.map(({ id, cabal }) => (
-                  <div key={id.toString()} className="animate-sacred-in">
-                    <CabalCard cabalId={id} cabal={cabal!} onClick={setSelectedCabalId} />
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="grid gap-3.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 stagger-sacred">
+                  {filteredCabals.map((cabal) => (
+                    <div key={cabal.id.toString()} className="animate-sacred-in">
+                      <CabalCard cabalId={cabal.id} cabal={cabal} onClick={setSelectedCabalId} />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Infinite scroll sentinel & loading indicator */}
+                <div 
+                  ref={sentinelRef as React.RefObject<HTMLDivElement>}
+                  className="flex items-center justify-center py-8"
+                >
+                  {isLoadingMore && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Loading more...</span>
+                    </div>
+                  )}
+                  {!hasMore && cabals.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Showing all {total} cabals
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -493,7 +481,7 @@ export default function HomePage() {
           onOpenChange={setIsTradeModalOpen}
           cabalId={selectedCabalId!}
           cabal={selectedCabal}
-          onSuccess={refetchCabals}
+          onSuccess={refresh}
           initialTab="buy"
         />
       )}

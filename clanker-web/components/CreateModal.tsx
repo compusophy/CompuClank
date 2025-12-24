@@ -14,6 +14,7 @@ import {
 import { CABAL_ABI } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { Plus, Wallet, Loader2 } from 'lucide-react';
+import { haptics } from '@/lib/haptics';
 
 interface CreateModalProps {
   isOpen: boolean;
@@ -83,6 +84,7 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
         toast.success('CABAL created! Waiting for confirmation...');
       },
       onError: (error) => {
+        haptics.error(); // Error haptic feedback
         toast.error(error.message || 'Failed to create CABAL');
       },
     });
@@ -90,10 +92,12 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
 
   // Handle success via callback in writeContract
   const handleSuccess = () => {
+    // Sacred geometry success celebration haptic
+    haptics.sacredRhythm();
     toast.success('CABAL created successfully!');
     reset();
     onOpenChange(false);
-    
+
     // Pass the actual created ID if we found it
     onSuccess?.(createdCabalId || undefined);
     setCreatedCabalId(null);
@@ -159,7 +163,7 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">$</span>
               <Input
-                placeholder="TICKER"
+                placeholder="CABAL"
                 value={formData.symbol}
                 onChange={handleSymbolChange}
                 required

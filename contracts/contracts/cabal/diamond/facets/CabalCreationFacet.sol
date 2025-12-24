@@ -120,6 +120,7 @@ contract CabalCreationFacet {
         cabal.image = image;
         cabal.tbaAddress = tbaAddress;
         cabal.phase = CabalPhase.Presale;
+        cabal.createdAt = block.timestamp;
         cabal.settings = settings;
         
         // Track in indexes
@@ -211,6 +212,7 @@ contract CabalCreationFacet {
         cabal.tokenAddress = tokenAddress;
         cabal.totalTokensReceived = tokensReceived;
         cabal.phase = CabalPhase.Active;
+        cabal.launchedAt = block.timestamp;
         
         emit CabalFinalized(cabalId, tokenAddress, totalRaised, titheAmount, devBuyAmount);
     }

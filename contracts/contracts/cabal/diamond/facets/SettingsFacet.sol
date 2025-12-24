@@ -23,6 +23,7 @@ contract SettingsFacet {
     event CabalUnpaused(uint256 indexed cabalId);
     
     event ContractAddressUpdated(string indexed name, address newAddress);
+    event AllCabalsReset(uint256 previousCount);
 
     // ============ Errors ============
     
@@ -177,6 +178,26 @@ contract SettingsFacet {
         }
         
         emit ContractAddressUpdated(name, newAddress);
+    }
+
+    /**
+     * @notice Reset all cabals - clears the tracking arrays
+     * @dev Only callable by Diamond owner. Old cabal data stays in storage but is orphaned.
+     */
+    function resetAllCabals() external {
+        LibDiamond.enforceIsContractOwner();
+        
+        AppStorage storage s = LibAppStorage.appStorage();
+        
+        uint256 previousCount = s.allCabalIds.length;
+        
+        // Clear the cabal IDs array
+        delete s.allCabalIds;
+        
+        // Reset the counter to start fresh
+        s.nextCabalId = 0;
+        
+        emit AllCabalsReset(previousCount);
     }
 
     /**

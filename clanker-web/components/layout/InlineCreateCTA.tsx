@@ -9,6 +9,7 @@ import { CABAL_ABI } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { Plus, Loader2, Wallet } from 'lucide-react';
 import { WalletButton } from '@/components/wallet/WalletButton';
+import { haptics } from '@/lib/haptics';
 
 interface InlineCreateCTAProps {
   onSuccess?: (cabalId?: bigint) => void;
@@ -64,6 +65,7 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
         toast.success('CABAL created! Waiting for confirmation...');
       },
       onError: (error) => {
+        haptics.error(); // Error haptic
         toast.error(error.message || 'Failed to create CABAL');
       },
     });
@@ -91,6 +93,7 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
   useEffect(() => {
     if (isSuccess && hash) {
       const timer = setTimeout(() => {
+        haptics.sacredRhythm(); // Sacred geometry success celebration
         toast.success('CABAL created successfully!');
         reset();
         setSymbol('');
@@ -123,7 +126,7 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">$</span>
                 <Input
-                  placeholder="TICKER"
+                  placeholder="CABAL"
                   value={symbol}
                   onChange={handleSymbolChange}
                   maxLength={20}
@@ -136,6 +139,7 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
               <Button
                 type="submit"
                 size="lg"
+                haptic="golden"
                 className="h-12 w-full text-base font-semibold gap-2 button-shimmer-effect active-press"
                 disabled={isLoading || !symbol}
               >

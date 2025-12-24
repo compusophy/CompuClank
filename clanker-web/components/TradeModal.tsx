@@ -19,6 +19,7 @@ import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { ArrowDownUp, Loader2 } from 'lucide-react';
 import { UI_CONSTANTS } from '@/lib/utils';
 import { GOLDEN_RATIO_WIDTH } from '@/components/layout/PrimaryCTA';
+import { haptics } from '@/lib/haptics';
 
 type TradeTab = 'buy' | 'sell';
 
@@ -32,6 +33,7 @@ interface TradeModalProps {
 }
 
 function showTransactionToast(hash: string, message: string) {
+  haptics.success(); // Golden ratio success haptic
   toast.success(message, {
     action: {
       label: 'View',
@@ -156,8 +158,9 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
     }, {
       onError: (e) => {
         console.error('Sell error:', e);
-        toast.error(e.message.includes('execution reverted') 
-          ? 'Sell failed - try a smaller amount' 
+        haptics.error(); // Error haptic
+        toast.error(e.message.includes('execution reverted')
+          ? 'Sell failed - try a smaller amount'
           : e.message
         );
       },
@@ -179,8 +182,9 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
     }, {
       onError: (e) => {
         console.error('Buy error:', e);
-        toast.error(e.message.includes('execution reverted') 
-          ? 'Buy failed - try a smaller amount or check slippage' 
+        haptics.error(); // Error haptic
+        toast.error(e.message.includes('execution reverted')
+          ? 'Buy failed - try a smaller amount or check slippage'
           : e.message
         );
       },
@@ -206,6 +210,7 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
       }, {
         onError: (e) => {
           console.error('Approve error:', e);
+          haptics.error(); // Error haptic
           toast.error('Failed to approve tokens');
           setIsApproving(false);
         },

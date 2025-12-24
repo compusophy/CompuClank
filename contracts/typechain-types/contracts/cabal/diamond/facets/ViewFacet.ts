@@ -50,6 +50,8 @@ export declare namespace ViewFacet {
     tbaAddress: AddressLike;
     tokenAddress: AddressLike;
     phase: BigNumberish;
+    createdAt: BigNumberish;
+    launchedAt: BigNumberish;
     totalRaised: BigNumberish;
     totalTokensReceived: BigNumberish;
     totalStaked: BigNumberish;
@@ -66,6 +68,8 @@ export declare namespace ViewFacet {
     tbaAddress: string,
     tokenAddress: string,
     phase: bigint,
+    createdAt: bigint,
+    launchedAt: bigint,
     totalRaised: bigint,
     totalTokensReceived: bigint,
     totalStaked: bigint,
@@ -80,6 +84,8 @@ export declare namespace ViewFacet {
     tbaAddress: string;
     tokenAddress: string;
     phase: bigint;
+    createdAt: bigint;
+    launchedAt: bigint;
     totalRaised: bigint;
     totalTokensReceived: bigint;
     totalStaked: bigint;
@@ -96,6 +102,7 @@ export interface ViewFacetInterface extends Interface {
       | "getCabals"
       | "getCabalsByCreator"
       | "getCabalsByStaker"
+      | "getCabalsPaginated"
       | "getContribution"
       | "getTotalCabals"
       | "getUserPositions"
@@ -121,6 +128,10 @@ export interface ViewFacetInterface extends Interface {
   encodeFunctionData(
     functionFragment: "getCabalsByStaker",
     values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getCabalsPaginated",
+    values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "getContribution",
@@ -151,6 +162,10 @@ export interface ViewFacetInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "getCabalsByStaker",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getCabalsPaginated",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -237,6 +252,17 @@ export interface ViewFacet extends BaseContract {
     "view"
   >;
 
+  getCabalsPaginated: TypedContractMethod<
+    [offset: BigNumberish, limit: BigNumberish],
+    [
+      [ViewFacet.CabalInfoStructOutput[], bigint] & {
+        cabals: ViewFacet.CabalInfoStructOutput[];
+        total: bigint;
+      }
+    ],
+    "view"
+  >;
+
   getContribution: TypedContractMethod<
     [cabalId: BigNumberish, user: AddressLike],
     [bigint],
@@ -291,6 +317,18 @@ export interface ViewFacet extends BaseContract {
   getFunction(
     nameOrSignature: "getCabalsByStaker"
   ): TypedContractMethod<[staker: AddressLike], [bigint[]], "view">;
+  getFunction(
+    nameOrSignature: "getCabalsPaginated"
+  ): TypedContractMethod<
+    [offset: BigNumberish, limit: BigNumberish],
+    [
+      [ViewFacet.CabalInfoStructOutput[], bigint] & {
+        cabals: ViewFacet.CabalInfoStructOutput[];
+        total: bigint;
+      }
+    ],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "getContribution"
   ): TypedContractMethod<

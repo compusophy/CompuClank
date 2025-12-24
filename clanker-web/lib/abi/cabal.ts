@@ -166,6 +166,8 @@ export const CABAL_ABI = [
           { name: "tbaAddress", type: "address" },
           { name: "tokenAddress", type: "address" },
           { name: "phase", type: "uint8" },
+          { name: "createdAt", type: "uint256" },
+          { name: "launchedAt", type: "uint256" },
           { name: "totalRaised", type: "uint256" },
           { name: "totalTokensReceived", type: "uint256" },
           { name: "totalStaked", type: "uint256" },
@@ -197,6 +199,48 @@ export const CABAL_ABI = [
     inputs: [],
     name: "getTotalCabals",
     outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "offset", type: "uint256" },
+      { name: "limit", type: "uint256" },
+    ],
+    name: "getCabalsPaginated",
+    outputs: [
+      {
+        name: "cabals",
+        type: "tuple[]",
+        components: [
+          { name: "id", type: "uint256" },
+          { name: "creator", type: "address" },
+          { name: "name", type: "string" },
+          { name: "symbol", type: "string" },
+          { name: "image", type: "string" },
+          { name: "tbaAddress", type: "address" },
+          { name: "tokenAddress", type: "address" },
+          { name: "phase", type: "uint8" },
+          { name: "createdAt", type: "uint256" },
+          { name: "launchedAt", type: "uint256" },
+          { name: "totalRaised", type: "uint256" },
+          { name: "totalTokensReceived", type: "uint256" },
+          { name: "totalStaked", type: "uint256" },
+          { name: "contributorCount", type: "uint256" },
+          {
+            name: "settings",
+            type: "tuple",
+            components: [
+              { name: "votingPeriod", type: "uint256" },
+              { name: "quorumBps", type: "uint256" },
+              { name: "majorityBps", type: "uint256" },
+              { name: "proposalThreshold", type: "uint256" },
+            ],
+          },
+        ],
+      },
+      { name: "total", type: "uint256" },
+    ],
     stateMutability: "view",
     type: "function",
   },
@@ -309,6 +353,13 @@ export const CABAL_ABI = [
       { name: "weth", type: "address" },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "resetAllCabals",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
 
@@ -456,6 +507,14 @@ export const CABAL_ABI = [
     name: "TokensSold",
     type: "event",
   },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, name: "previousCount", type: "uint256" },
+    ],
+    name: "AllCabalsReset",
+    type: "event",
+  },
 ] as const;
 
 // Cabal phase enum
@@ -482,6 +541,8 @@ export interface CabalInfo {
   tbaAddress: `0x${string}`;
   tokenAddress: `0x${string}`;
   phase: CabalPhase;
+  createdAt: bigint;
+  launchedAt: bigint;
   totalRaised: bigint;
   totalTokensReceived: bigint;
   totalStaked: bigint;

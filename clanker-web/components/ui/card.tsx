@@ -1,8 +1,29 @@
+"use client"
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { haptics } from "@/lib/haptics"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({ 
+  className, 
+  onClick,
+  haptic = false,
+  ...props 
+}: React.ComponentProps<"div"> & {
+  /** Enable haptic feedback on tap */
+  haptic?: boolean
+}) {
+  const handleClick = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (haptic) {
+        haptics.cardTap()
+      }
+      onClick?.(e)
+    },
+    [haptic, onClick]
+  )
+
   return (
     <div
       data-slot="card"
@@ -10,6 +31,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
         "bg-card text-card-foreground flex flex-col rounded-xl border shadow-golden transition-all duration-300 hover:shadow-golden-lg",
         className
       )}
+      onClick={handleClick}
       {...props}
     />
   )

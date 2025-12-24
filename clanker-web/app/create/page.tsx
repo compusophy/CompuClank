@@ -134,7 +134,7 @@ export default function CreateCabalPage() {
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">$</span>
                     <Input
-                      placeholder="TICKER"
+                      placeholder="CABAL"
                       value={formData.symbol}
                       onChange={handleSymbolChange}
                       required

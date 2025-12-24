@@ -172,9 +172,49 @@
   }
 }
 
-/* Modal overlay with subtle blur */
-.dialog-overlay-animated {
-  backdrop-filter: blur(2px);
+/* Button hover effects */
+@keyframes button-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.button-shimmer-effect {
+  background: linear-gradient(
+    90deg, 
+    var(--color-primary) 0%, 
+    var(--color-primary) 40%, 
+    oklch(from var(--color-primary) l c h / 0.8) 50%, 
+    var(--color-primary) 60%, 
+    var(--color-primary) 100%
+  );
+  background-size: 200% 100%;
+  animation: button-shimmer 4s ease-in-out infinite;
+}
+
+.dark .button-shimmer-effect {
+  background: linear-gradient(
+    90deg, 
+    var(--color-primary) 0%, 
+    var(--color-primary) 40%, 
+    oklch(from var(--color-primary) l c h / 0.8) 50%, 
+    var(--color-primary) 60%, 
+    var(--color-primary) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes button-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+.active-press:active {
+  animation: button-press 0.2s ease-in-out;
 }
 
 /* Smooth pulsing glow on dialog */
@@ -193,4 +233,53 @@
 
 .dialog-glow-animated {
   animation: dialog-glow-pulse 3s ease-in-out infinite;
+}
+
+/* Sacred geometry input - golden ratio timing (1.618s base) */
+@keyframes input-sacred-glow {
+  0%, 100% {
+    box-shadow: 
+      0 0 0 1px oklch(0.7 0.05 60 / 0.3),
+      0 0 20px oklch(0.8 0.1 50 / 0.1);
+    border-color: oklch(0.6 0.03 60 / 0.5);
+  }
+  38.2% {
+    box-shadow: 
+      0 0 0 1px oklch(0.75 0.08 55 / 0.5),
+      0 0 30px oklch(0.85 0.12 45 / 0.15);
+    border-color: oklch(0.7 0.06 50 / 0.7);
+  }
+  61.8% {
+    box-shadow: 
+      0 0 0 1px oklch(0.72 0.06 58 / 0.4),
+      0 0 25px oklch(0.82 0.1 48 / 0.12);
+    border-color: oklch(0.65 0.04 55 / 0.6);
+  }
+}
+
+@keyframes placeholder-breathe {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.input-sacred {
+  animation: input-sacred-glow 4.854s ease-in-out infinite; /* 3 * 1.618 */
+  transition: all 0.3s ease;
+}
+
+.input-sacred:focus {
+  animation: none;
+  box-shadow: 
+    0 0 0 2px oklch(0.8 0.12 50 / 0.6),
+    0 0 40px oklch(0.9 0.15 45 / 0.2);
+  border-color: oklch(0.75 0.1 50 / 0.8);
+}
+
+.input-sacred::placeholder {
+  animation: placeholder-breathe 2.618s ease-in-out infinite; /* 1.618 * 1.618 */
+  letter-spacing: 0.15em;
 }

@@ -7,7 +7,7 @@ import {
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { HelpCircle, Users, Rocket, Vote, TrendingUp, Wallet, ArrowDown, Code, Sparkles } from 'lucide-react';
+import { Info, Users, Rocket, Vote, TrendingUp, Wallet, ArrowDown, Code, Sparkles } from 'lucide-react';
 import { UI_CONSTANTS } from '@/lib/utils';
 
 interface StepProps {
@@ -100,13 +100,14 @@ export function HowItWorksModal() {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full">
-          <HelpCircle className="h-5 w-5" />
+          <Info className="h-5 w-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent blurBackground showCloseButton={false} className="sm:max-w-md overflow-hidden">
-        <div className={`${UI_CONSTANTS.spaceY} overflow-y-auto max-h-[75vh] min-h-[600px]`}>
-          {/* Mode Toggle */}
-          <div className="flex justify-center">
+      <DialogContent showCloseButton={false} className="sm:max-w-md">
+        <div className={`${UI_CONSTANTS.spaceY} overflow-y-auto max-h-[70vh]`}>
+          {/* Title & Mode Toggle */}
+          <div className="flex flex-col items-center gap-3">
+            <h2 className="text-xl font-bold">How it works</h2>
             <ModeToggle isTechnical={isTechnical} onToggle={() => setIsTechnical(!isTechnical)} />
           </div>
 

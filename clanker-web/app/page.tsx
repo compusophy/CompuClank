@@ -14,6 +14,7 @@ import { Plus, Users, Coins, TrendingUp, Wallet } from "lucide-react"
 import { CabalDetailsContent } from "@/components/CabalDetailsContent"
 import { Footer } from "@/components/layout/Footer"
 import { PrimaryCTA } from "@/components/layout/PrimaryCTA"
+import { InlineCreateCTA } from "@/components/layout/InlineCreateCTA"
 import { CreateModal } from "@/components/CreateModal"
 import { TradeModal } from "@/components/TradeModal"
 
@@ -329,9 +330,9 @@ export default function HomePage() {
               CABAL
             </button>
             <div className="flex items-center gap-3">
-              {/* Only show Create button in header when viewing cabal details */}
+              {/* Show Create button in header when viewing cabal details */}
               {isViewingDetails && (
-                <Button size="sm" className="gap-1.5 shadow-sm" onClick={() => setIsCreateModalOpen(true)}>
+                <Button size="sm" className="gap-1.5" onClick={() => setIsCreateModalOpen(true)}>
                   <Plus className="h-4 w-4" />
                   <span>Create</span>
                 </Button>
@@ -430,12 +431,9 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Primary CTA - different button based on context */}
+      {/* Primary CTA - Inline create on homepage, Trade button on active cabal details */}
       {!isViewingDetails ? (
-        <PrimaryCTA onClick={() => setIsCreateModalOpen(true)}>
-          <Plus className="h-5 w-5 mr-2" />
-          Create
-        </PrimaryCTA>
+        <InlineCreateCTA onSuccess={handleCreateSuccess} />
       ) : selectedCabal?.phase === CabalPhase.Active && (
         <PrimaryCTA onClick={() => setIsTradeModalOpen(true)}>
           <TrendingUp className="h-5 w-5 mr-2" />
@@ -446,7 +444,7 @@ export default function HomePage() {
       {/* Footer */}
       <Footer />
 
-      {/* Create Modal */}
+      {/* Create Modal (for header button when viewing details) */}
       <CreateModal 
         isOpen={isCreateModalOpen} 
         onOpenChange={setIsCreateModalOpen}

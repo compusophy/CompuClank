@@ -126,21 +126,21 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
               <label className="flex items-center justify-center h-14 rounded-md border border-input bg-background input-sacred cursor-text w-full">
                 <div className="relative inline-flex items-center justify-center min-w-[min-content]">
                   {/* Ghost element to force width */}
-                  <span className="opacity-0 pointer-events-none font-mono text-lg font-bold uppercase whitespace-pre border border-transparent px-1" aria-hidden="true">
+                  <span className="opacity-0 pointer-events-none font-mono text-lg font-bold uppercase whitespace-pre border border-transparent" aria-hidden="true">
                     ${symbol || "CABAL"}
                   </span>
                   
                   {/* Visible input group */}
                   <div className="absolute inset-0 flex items-center justify-center w-full">
-                    <span className="text-muted-foreground font-bold text-lg select-none mr-0.5">$</span>
-                    <input
-                      placeholder="CABAL"
-                      value={symbol}
-                      onChange={handleSymbolChange}
-                      maxLength={20}
-                      className="font-mono uppercase text-lg bg-transparent border-none outline-none placeholder:text-muted-foreground focus:ring-0 p-0 w-full"
-                      disabled={isLoading}
-                    />
+                  <span className={`font-mono font-bold text-lg select-none ${symbol ? "" : "text-muted-foreground"}`}>$</span>
+                  <input
+                    placeholder="CABAL"
+                    value={symbol}
+                    onChange={handleSymbolChange}
+                    maxLength={20}
+                    className="w-full min-w-0 font-mono font-bold uppercase text-lg text-left bg-transparent border-none outline-none placeholder:text-muted-foreground focus:ring-0 p-0"
+                    disabled={isLoading}
+                  />
                   </div>
                 </div>
               </label>

@@ -333,9 +333,14 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               {/* Show Create button in header when viewing cabal details */}
               {isViewingDetails && (
-                <Button size="sm" className="gap-1.5" onClick={() => setIsCreateModalOpen(true)}>
+                <Button 
+                  size="sm" 
+                  className="gap-1.5 button-shimmer-effect active-press font-semibold" 
+                  onClick={() => setIsCreateModalOpen(true)}
+                  haptic="golden"
+                >
                   <Plus className="h-4 w-4" />
-                  <span>Create</span>
+                  <span>CREATE</span>
                 </Button>
               )}
               <WalletButton />
@@ -442,11 +447,7 @@ export default function HomePage() {
                       <span className="text-sm">Loading more...</span>
                     </div>
                   )}
-                  {!hasMore && cabals.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Showing all {total} cabals
-                    </p>
-                  )}
+                  {!hasMore && cabals.length > 0 && null}
                 </div>
               </>
             )}

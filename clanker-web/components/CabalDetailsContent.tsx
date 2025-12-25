@@ -22,6 +22,7 @@ import {
 import { TokenAmount } from "@/components/TokenAmount"
 import { TradeModal } from "@/components/TradeModal"
 import { StakeModal } from "@/components/StakeModal"
+import { ContributeCTA } from "@/components/layout/ContributeCTA"
 import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 
@@ -42,80 +43,6 @@ function formatPercent(value: number): string {
 }
 
 // PRESALE COMPONENTS
-
-function ContributeSection({
-  cabalId,
-  onSuccess,
-  userAddress,
-}: {
-  cabalId: bigint
-  onSuccess: () => void
-  userAddress: string
-}) {
-  const [amount, setAmount] = useState("0.00001")
-  const { writeContract, data: hash, isPending, reset } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
-
-  const { data: contribution, refetch: refetchContribution } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    functionName: "getContribution",
-    args: [cabalId, userAddress as `0x${string}`],
-  })
-
-  useEffect(() => {
-    if (isSuccess && hash) {
-      showTransactionToast(hash, `Contributed ${amount} ETH`)
-      onSuccess()
-      refetchContribution()
-      reset()
-      setAmount("0.00001")
-    }
-  }, [isSuccess, hash, amount, onSuccess, reset, refetchContribution])
-
-  const handleContribute = () => {
-    if (!CABAL_DIAMOND_ADDRESS) return
-    writeContract(
-      {
-        address: CABAL_DIAMOND_ADDRESS,
-        abi: CABAL_ABI,
-        functionName: "contribute",
-        args: [cabalId],
-        value: parseEther(amount),
-      },
-      {
-        onError: (e) => toast.error(e.message),
-      }
-    )
-  }
-
-  const contributionAmount = contribution as bigint | undefined
-
-  return (
-    <div className="space-y-4">
-      {!!contributionAmount && contributionAmount > 0n && (
-        <div className="p-3 bg-muted rounded-lg flex justify-between items-center text-sm">
-          <span className="text-muted-foreground">Your Contribution</span>
-          <TokenAmount amount={contributionAmount} symbol="ETH" className="font-mono font-semibold" />
-        </div>
-      )}
-      <div className="flex gap-2">
-        <Input
-          type="number"
-          step="0.001"
-          min="0"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="ETH amount"
-          className="font-mono"
-        />
-        <Button onClick={handleContribute} disabled={isPending || isConfirming}>
-          {isPending || isConfirming ? "Confirming..." : "Contribute"}
-        </Button>
-      </div>
-    </div>
-  )
-}
 
 function LaunchSection({
   cabalId,
@@ -786,6 +713,15 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
     args: [cabalId],
   })
 
+  // Read user contribution for presale display
+  const { data: userContribution, refetch: refetchContribution } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "getContribution",
+    args: address ? [cabalId, address] : undefined,
+    query: { enabled: !!address },
+  })
+
   // Get total supply for staked percentage calculation
   const { data: totalSupply } = useReadContract({
     address: cabal?.tokenAddress,
@@ -797,6 +733,7 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
   const handleSuccess = () => {
     refetch()
     refetchEthBalance()
+    refetchContribution()
     queryClient.invalidateQueries()
   }
 
@@ -894,18 +831,29 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
 
       {/* Presale Content */}
       {isConnected && address && cabal.phase === CabalPhase.Presale && (
-        <div className="grid gap-3.5 md:grid-cols-2">
-          <Card>
-            <CardHeader className="p-3.5 pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Coins className="h-5 w-5 text-muted-foreground" />
-                Contribute
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3.5 pt-0">
-              <ContributeSection cabalId={cabalId} onSuccess={handleSuccess} userAddress={address} />
-            </CardContent>
-          </Card>
+        <div className="space-y-3.5">
+          {/* Contribution Card (if user has contributed) */}
+          {userContribution && (userContribution as bigint) > 0n && (
+            <Card className="bg-muted/50">
+              <CardContent className="py-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Your Contribution</p>
+                    <p className="text-lg font-mono font-bold">
+                      <TokenAmount amount={userContribution as bigint} symbol="ETH" />
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Ownership</p>
+                    <p className="text-lg font-mono font-bold">
+                      {formatPercent(Number(((userContribution as bigint) * 10000n) / (cabal.totalRaised > 0n ? cabal.totalRaised : 1n)) / 100)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="p-3.5 pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -923,6 +871,11 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
       {/* Active Content */}
       {isConnected && address && cabal.phase === CabalPhase.Active && (
         <ActiveSection cabalId={cabalId} cabal={cabal} userAddress={address} onSuccess={handleSuccess} onOpenTradeModal={onOpenTradeModal} />
+      )}
+
+      {/* Contribute CTA (Fixed Bottom) */}
+      {cabal.phase === CabalPhase.Presale && (
+        <ContributeCTA cabalId={cabalId} onSuccess={handleSuccess} />
       )}
     </div>
   )

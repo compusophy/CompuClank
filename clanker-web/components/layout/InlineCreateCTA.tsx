@@ -123,17 +123,27 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               {/* Ticker Input */}
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">$</span>
-                <Input
-                  placeholder="CABAL"
-                  value={symbol}
-                  onChange={handleSymbolChange}
-                  maxLength={20}
-                  className="pl-9 font-mono uppercase text-lg h-14 w-full text-center input-sacred"
-                  disabled={isLoading}
-                />
-              </div>
+              <label className="flex items-center justify-center h-14 rounded-md border border-input bg-background input-sacred cursor-text w-full">
+                <div className="relative inline-flex items-center justify-center min-w-[min-content]">
+                  {/* Ghost element to force width */}
+                  <span className="opacity-0 pointer-events-none font-mono text-lg font-bold uppercase whitespace-pre border border-transparent px-1" aria-hidden="true">
+                    ${symbol || "CABAL"}
+                  </span>
+                  
+                  {/* Visible input group */}
+                  <div className="absolute inset-0 flex items-center justify-center w-full">
+                    <span className="text-muted-foreground font-bold text-lg select-none mr-0.5">$</span>
+                    <input
+                      placeholder="CABAL"
+                      value={symbol}
+                      onChange={handleSymbolChange}
+                      maxLength={20}
+                      className="font-mono uppercase text-lg bg-transparent border-none outline-none placeholder:text-muted-foreground focus:ring-0 p-0 w-full"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+              </label>
 
               {/* Create Button */}
               <Button
@@ -148,7 +158,7 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
                 ) : (
                   <Plus className="h-5 w-5" />
                 )}
-                {isPending ? 'Confirm...' : isConfirming ? 'Creating...' : 'Create'}
+                {isPending ? 'CONFIRM...' : isConfirming ? 'CREATING...' : 'CREATE'}
               </Button>
             </form>
           )}

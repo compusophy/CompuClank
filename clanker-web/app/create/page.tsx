@@ -131,17 +131,27 @@ export default function CreateCabalPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Primary Input: Ticker */}
                 <div className="space-y-4">
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">$</span>
-                    <Input
-                      placeholder="CABAL"
-                      value={formData.symbol}
-                      onChange={handleSymbolChange}
-                      required
-                      maxLength={20}
-                      className="pl-7 font-mono uppercase text-lg h-12"
-                    />
-                  </div>
+                  <label className="flex items-center justify-center h-12 rounded-md border border-input bg-background cursor-text w-full">
+                    <div className="relative inline-flex items-center justify-center min-w-[min-content]">
+                      {/* Ghost element to force width */}
+                      <span className="opacity-0 pointer-events-none font-mono text-lg font-bold uppercase whitespace-pre border border-transparent px-1" aria-hidden="true">
+                        ${formData.symbol || "CABAL"}
+                      </span>
+                      
+                      {/* Visible input group */}
+                      <div className="absolute inset-0 flex items-center justify-center w-full">
+                        <span className="text-muted-foreground font-bold text-lg select-none mr-0.5">$</span>
+                        <input
+                          placeholder="CABAL"
+                          value={formData.symbol}
+                          onChange={handleSymbolChange}
+                          required
+                          maxLength={20}
+                          className="font-mono uppercase text-lg bg-transparent border-none outline-none placeholder:text-muted-foreground focus:ring-0 p-0 w-full"
+                        />
+                      </div>
+                    </div>
+                  </label>
                 </div>
 
                 {/* Advanced Settings Toggle */}
@@ -240,7 +250,7 @@ export default function CreateCabalPage() {
                   disabled={isPending || isConfirming || !formData.name || !formData.symbol}
                 >
                   <Plus className="h-5 w-5" />
-                  {isPending ? 'Confirming...' : isConfirming ? 'Creating...' : 'Create'}
+                  {isPending ? 'CONFIRM...' : isConfirming ? 'CREATING...' : 'CREATE'}
                 </Button>
               </form>
             </CardContent>

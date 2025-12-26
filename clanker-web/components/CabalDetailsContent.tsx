@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { TokenAmount } from "@/components/TokenAmount"
+import { Ticker } from "@/components/Ticker"
 import { TradeModal } from "@/components/TradeModal"
 import { StakeModal } from "@/components/StakeModal"
 import { ContributeCTA } from "@/components/layout/ContributeCTA"
@@ -300,8 +301,8 @@ function ActiveSection({
       ? (contributionAmount * cabal.totalTokensReceived) / cabal.totalRaised
       : 0n
 
-  // Show card if user contributed, regardless of claim status
-  const showClaimCard = !!contributionAmount && contributionAmount > 0n && totalClaimAmount > 0n
+  // Show card only if user contributed AND hasn't claimed yet
+  const showClaimCard = !!contributionAmount && contributionAmount > 0n && totalClaimAmount > 0n && !hasClaimedStatus
 
   // Calculate voting power percentage (user staked / total staked)
   const userStaked = stakedBalance as bigint | undefined
@@ -474,13 +475,21 @@ function ActiveSection({
             </div>
           </div>
           {!!contributionAmount && contributionAmount > 0n && (
-            <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Your Contribution</span>
                 <span className="font-mono font-semibold">
                   <TokenAmount amount={contributionAmount} symbol="ETH" />
                 </span>
               </div>
+              {hasClaimedStatus && totalClaimAmount > 0n && (
+                <div className="flex justify-between items-center pt-2 border-t border-primary/10">
+                  <span className="text-sm text-muted-foreground">Claimed from presale</span>
+                  <span className="font-mono font-semibold">
+                    <TokenAmount amount={totalClaimAmount} symbol={cabal.symbol} />
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -767,7 +776,7 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
         <div className="p-3.5">
           <div className="flex justify-between items-start gap-3.5 mb-3.5">
             <div className="flex flex-col gap-1.5">
-              <span className="font-mono font-bold text-xl">${cabal.symbol}</span>
+              <Ticker symbol={cabal.symbol} size="xl" />
               {cabal.phase === CabalPhase.Active && (
                 <a
                   href={`https://basescan.org/address/${cabal.tokenAddress}`}
@@ -833,7 +842,7 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
       {isConnected && address && cabal.phase === CabalPhase.Presale && (
         <div className="space-y-3.5">
           {/* Contribution Card (if user has contributed) */}
-          {userContribution && (userContribution as bigint) > 0n && (
+          {!!userContribution && (userContribution as bigint) > 0n && (
             <Card className="bg-muted/50">
               <CardContent className="py-4">
                 <div className="flex justify-between items-center">

@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Info, Users, Rocket, Vote, TrendingUp, Wallet, ArrowDown, Code, Sparkles } from 'lucide-react';
+import { Info, Users, Rocket, Vote, TrendingUp, Wallet, ArrowDown, Code, Sparkles, Gift, Coins } from 'lucide-react';
 import { UI_CONSTANTS } from '@/lib/utils';
 
 interface StepProps {
@@ -104,6 +105,7 @@ export function HowItWorksModal() {
         </Button>
       </DialogTrigger>
       <DialogContent showCloseButton={false} className="sm:max-w-md">
+        <DialogTitle className="sr-only">How CABAL Works</DialogTitle>
         <div className={`${UI_CONSTANTS.spaceY} overflow-y-auto max-h-[70vh] no-scrollbar`}>
           {/* Title & Mode Toggle */}
           <div className="flex flex-col items-center gap-3">
@@ -114,8 +116,8 @@ export function HowItWorksModal() {
           {/* Intro */}
           <p className="text-sm text-muted-foreground">
             {isTechnical 
-              ? "CABALs use EIP-2535 Diamond Pattern for upgradeable smart contracts with ERC-6551 Token Bound Accounts as treasuries."
-              : "CABALs are decentralized group wallets with governance tokens. Here's the lifecycle:"
+              ? "CABALs use EIP-2535 Diamond Pattern for upgradeable contracts with ERC-6551 Token Bound Accounts as treasuries. Clanker deploys tokens and creates Uniswap V4 pools."
+              : "Communities raise ETH, launch tokens fairly, and govern a shared treasury. Here's the lifecycle:"
             }
           </p>
 
@@ -135,25 +137,25 @@ export function HowItWorksModal() {
                 <div className="space-y-1">
                   <p className="font-medium">Diamond Facets</p>
                   <ul className="text-muted-foreground space-y-0.5 font-mono text-[11px]">
-                    <li>• GovernanceFacet</li>
+                    <li>• CabalCreationFacet</li>
                     <li>• StakingFacet</li>
-                    <li>• TreasuryFacet</li>
                     <li>• SwapFacet</li>
+                    <li>• GovernanceFacet</li>
                   </ul>
                 </div>
                 <div className="space-y-1">
                   <p className="font-medium">Frontend</p>
                   <ul className="text-muted-foreground space-y-0.5 font-mono text-[11px]">
-                    <li>• Next.js 14</li>
+                    <li>• Next.js 15</li>
                     <li>• wagmi + viem</li>
-                    <li>• TailwindCSS</li>
+                    <li>• Tailwind CSS</li>
                   </ul>
                 </div>
                 <div className="space-y-1">
                   <p className="font-medium">Integrations</p>
                   <ul className="text-muted-foreground space-y-0.5 font-mono text-[11px]">
                     <li>• Clanker Factory</li>
-                    <li>• Uniswap V4 Hooks</li>
+                    <li>• Uniswap V4 Pools</li>
                     <li>• Universal Router</li>
                   </ul>
                 </div>
@@ -166,16 +168,16 @@ export function HowItWorksModal() {
             <Step
               icon={<Users className="h-5 w-5" />}
               title="Create CABAL"
-              description="Anyone can create a CABAL by choosing a ticker symbol and governance settings."
-              technicalDetails="CabalCreationFacet.createCabal() → mints ERC-721 NFT → deploys ERC-6551 TBA via Registry"
+              description="Anyone can create a CABAL by choosing a ticker symbol."
+              technicalDetails="createCabal() → mints CabalNFT (ERC-721) → creates TBA via ERC-6551 Registry"
               isTechnical={isTechnical}
             />
             
             <Step
               icon={<Wallet className="h-5 w-5 text-yellow-500" />}
               title="Presale Phase"
-              description="Contributors send ETH to the CABAL. Each contributor's share is tracked for token distribution."
-              technicalDetails="TreasuryFacet.contribute() → LibAppStorage tracks shares → ETH held in Diamond"
+              description="Contributors send ETH to the CABAL. Each contribution is tracked for proportional token distribution later."
+              technicalDetails="contribute() → ETH forwarded to TBA → contribution tracked in LibAppStorage"
               isTechnical={isTechnical}
               status="presale"
             />
@@ -183,25 +185,42 @@ export function HowItWorksModal() {
             <Step
               icon={<Rocket className="h-5 w-5" />}
               title="Finalize & Launch"
-              description="Once ready, anyone can finalize. This deploys the token via Clanker and creates a Uniswap V4 pool."
-              technicalDetails="CabalCreationFacet.finalize() → IClankerFactory.deploy() → V4 pool with hook → LP to TBA"
+              description="The creator finalizes the presale. 10% stays in treasury, 90% buys tokens via Clanker which deploys the token and creates the Uniswap V4 pool."
+              technicalDetails="finalizeCabal() → TBA calls Clanker.deployToken() → token + V4 pool created → devBuy tokens sent to TBA"
+              isTechnical={isTechnical}
+            />
+            
+            <Step
+              icon={<Gift className="h-5 w-5" />}
+              title="Claim Tokens"
+              description="Contributors claim their proportional share of tokens based on how much ETH they contributed."
+              technicalDetails="claimTokens() → (contribution / totalRaised) × tokensReceived → TBA transfers tokens to claimant"
               isTechnical={isTechnical}
             />
             
             <Step
               icon={<TrendingUp className="h-5 w-5 text-green-500" />}
               title="Active Trading"
-              description="Token holders can buy, sell, and trade. The CABAL treasury collects trading fees."
-              technicalDetails="SwapFacet wraps Uniswap Universal Router → PERMIT2 for approvals → fees to TBA"
+              description="Anyone can buy and sell tokens. LP fees from Uniswap V4 are collected by the CABAL treasury."
+              technicalDetails="SwapFacet wraps Universal Router → LP fees routed to TBA via Clanker's locker"
+              isTechnical={isTechnical}
+              status="active"
+            />
+            
+            <Step
+              icon={<Coins className="h-5 w-5" />}
+              title="Stake for Rewards"
+              description="Stake tokens to earn a share of the trading fees that flow to the treasury."
+              technicalDetails="StakingFacet.stake() → tracks staked balance → rewards distributed proportionally"
               isTechnical={isTechnical}
               status="active"
             />
             
             <Step
               icon={<Vote className="h-5 w-5" />}
-              title="Stake & Govern"
-              description="Stake tokens to gain voting power. Propose and vote on treasury actions."
-              technicalDetails="StakingFacet.stake() → voting power in GovernanceFacet → TBA executes via IERC6551Executable"
+              title="Govern Treasury"
+              description="Staked token holders can vote on proposals and delegate voting power to others."
+              technicalDetails="GovernanceFacet → DelegationFacet → TBA executes via IERC6551Executable"
               isTechnical={isTechnical}
               status="active"
               isLast
@@ -212,7 +231,7 @@ export function HowItWorksModal() {
           <div className="text-center pt-2 border-t">
             <p className="text-xs text-muted-foreground">
               {isTechnical 
-                ? "Deployed on Base L2 • Solidity 0.8.x • Hardhat • TypeChain"
+                ? "Base L2 • Solidity 0.8.20 • Hardhat • Clanker SDK"
                 : "Built on Base with Clanker & Uniswap V4"
               }
             </p>

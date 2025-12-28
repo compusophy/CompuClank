@@ -12,6 +12,7 @@ import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { TokenAmount } from "@/components/TokenAmount"
 import { Plus, Users, Coins, TrendingUp, Wallet, Loader2 } from "lucide-react"
 import { CabalDetailsContent } from "@/components/CabalDetailsContent"
+import { Ticker } from "@/components/Ticker"
 import { Footer } from "@/components/layout/Footer"
 import { PrimaryCTA } from "@/components/layout/PrimaryCTA"
 import { InlineCreateCTA } from "@/components/layout/InlineCreateCTA"
@@ -132,8 +133,8 @@ function CabalCard({
       <Card className="overflow-hidden h-full group relative card-sacred">
         <CardContent className="p-3.5 space-y-3.5">
           <div className="flex justify-between items-center">
-            <h3 className="font-mono font-bold text-lg tracking-tight group-hover:text-primary transition-colors">
-              ${cabal.symbol}
+            <h3 className="group-hover:text-primary transition-colors">
+              <Ticker symbol={cabal.symbol} size="lg" />
             </h3>
             <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${phaseStyles}`}>
               {phaseLabel}
@@ -461,7 +462,7 @@ export default function HomePage() {
       ) : selectedCabal?.phase === CabalPhase.Active && (
         <PrimaryCTA onClick={() => setIsTradeModalOpen(true)}>
           <TrendingUp className="h-5 w-5 mr-2" />
-          Trade ${selectedCabal.symbol}
+          Trade
         </PrimaryCTA>
       )}
 

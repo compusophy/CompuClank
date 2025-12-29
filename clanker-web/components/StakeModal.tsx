@@ -139,8 +139,13 @@ export function StakeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess }: 
         args: [cabalId, stakeAmount, deadline, Number(v), r, s] 
       }, {
         onError: (e) => {
-          haptics.error(); // Error haptic
-          toast.error(e.message);
+          haptics.error();
+          if (e.message.includes('User rejected') || e.message.includes('rejected the request')) {
+            toast.info('Transaction rejected');
+          } else {
+            const message = e.message.length > 100 ? `${e.message.substring(0, 100)}...` : e.message;
+            toast.error(message);
+          }
           setIsSigning(false);
         },
         onSuccess: () => { 
@@ -148,8 +153,14 @@ export function StakeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess }: 
         }
       });
     } catch (e) {
-      haptics.error(); // Error haptic
-      toast.error(e instanceof Error ? e.message : 'Failed to sign');
+      haptics.error();
+      const error = e instanceof Error ? e : new Error('Failed to sign');
+      if (error.message.includes('User rejected') || error.message.includes('rejected the request')) {
+        toast.info('Transaction rejected');
+      } else {
+        const message = error.message.length > 100 ? `${error.message.substring(0, 100)}...` : error.message;
+        toast.error(message);
+      }
       setIsSigning(false);
     }
   };

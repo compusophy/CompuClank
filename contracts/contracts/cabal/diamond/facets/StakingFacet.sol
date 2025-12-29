@@ -188,19 +188,28 @@ contract StakingFacet {
     }
 
     /**
-     * @notice Get voting power for a user (own stake + delegated power - delegated away)
+     * @notice Get voting power for a user (auto-staked + manual stake + delegated power)
      */
     function getVotingPower(uint256 cabalId, address user) external view returns (uint256) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        
+        // Auto-staked tokens from presale (if not yet claimed)
+        uint256 autoStaked = 0;
+        if (!LibAppStorage.hasClaimed(cabalId, user) && cabal.totalRaised > 0) {
+            uint256 contribution = LibAppStorage.getContribution(cabalId, user);
+            autoStaked = (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
+        }
+        
         uint256 ownStake = LibAppStorage.getStakedBalance(cabalId, user);
         uint256 delegatedToMe = LibAppStorage.getDelegatedPower(cabalId, user);
-        
+
         // If user has delegated, they lose their own stake as voting power
         address delegatee = LibAppStorage.getDelegatee(cabalId, user);
         if (delegatee != address(0)) {
             return delegatedToMe; // Only delegated power, not own stake
         }
-        
-        return ownStake + delegatedToMe;
+
+        return autoStaked + ownStake + delegatedToMe;
     }
 
     /**

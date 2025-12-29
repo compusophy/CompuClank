@@ -66,11 +66,11 @@ function LaunchSection({
     args: [cabalId],
   })
   
-  // Check if user has voted
-  const { data: hasVoted, refetch: refetchHasVoted } = useReadContract({
+  // Get user's current vote direction: 0 = not voted, 1 = YES, 2 = NO
+  const { data: userVote, refetch: refetchUserVote } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
-    functionName: "hasVotedLaunch",
+    functionName: "getLaunchVote",
     args: [cabalId, userAddress as `0x${string}`],
   })
   
@@ -82,29 +82,20 @@ function LaunchSection({
     args: [cabalId, userAddress as `0x${string}`],
   })
 
-  // Vote transaction
+  // Vote transaction - auto-launches when thresholds met
   const { writeContract: voteWrite, data: voteHash, isPending: isVoting } = useWriteContract()
   const { isLoading: isVoteConfirming, isSuccess: voteSuccess } = useWaitForTransactionReceipt({ hash: voteHash })
-
-  // Finalize transaction
-  const { writeContract: finalizeWrite, data: finalizeHash, isPending: isFinalizing } = useWriteContract()
-  const { isLoading: isFinalizeConfirming, isSuccess: finalizeSuccess } = useWaitForTransactionReceipt({ hash: finalizeHash })
 
   useEffect(() => {
     if (voteSuccess && voteHash) {
       showTransactionToast(voteHash, "Vote cast!")
       refetchVoteStatus()
-      refetchHasVoted()
+      refetchUserVote()
       queryClient.invalidateQueries()
-    }
-  }, [voteSuccess, voteHash, refetchVoteStatus, refetchHasVoted, queryClient])
-
-  useEffect(() => {
-    if (finalizeSuccess && finalizeHash) {
-      showTransactionToast(finalizeHash, "Token deployed!")
+      // Check if the vote triggered auto-launch (phase will change)
       onSuccess()
     }
-  }, [finalizeSuccess, finalizeHash, onSuccess])
+  }, [voteSuccess, voteHash, refetchVoteStatus, refetchUserVote, queryClient, onSuccess])
 
   const handleVote = (support: boolean) => {
     if (!CABAL_DIAMOND_ADDRESS) return
@@ -121,79 +112,87 @@ function LaunchSection({
     )
   }
 
-  const handleFinalize = () => {
-    if (!CABAL_DIAMOND_ADDRESS) return
-    finalizeWrite(
-      {
-        address: CABAL_DIAMOND_ADDRESS,
-        abi: CABAL_ABI,
-        functionName: "finalizeCabal",
-        args: [cabalId],
-      },
-      {
-        onError: (e) => toast.error(e.message),
-      }
-    )
-  }
-
   const votesFor = voteStatus?.[0] ?? 0n
   const votesAgainst = voteStatus?.[1] ?? 0n
-  const quorumRequired = voteStatus?.[2] ?? 0n
-  const quorumMet = voteStatus?.[3] ?? false
+  const totalRaised = voteStatus?.[2] ?? 0n
+  const majorityRequired = voteStatus?.[3] ?? 0n
   const majorityMet = voteStatus?.[4] ?? false
+  const launchApprovedAt = voteStatus?.[5] ?? 0n
+  const launchableAt = voteStatus?.[6] ?? 0n
   const totalVotes = votesFor + votesAgainst
-  const canLaunch = quorumMet && majorityMet
   const hasContributed = !!userContribution && userContribution > 0n
-  const hasUserVoted = hasVoted ?? false
+  
+  // Vote direction: 0 = not voted, 1 = voted YES, 2 = voted NO
+  const currentVote = userVote ?? 0n
+  const hasUserVoted = currentVote !== 0n
+  const userVotedYes = currentVote === 1n
+  const userVotedNo = currentVote === 2n
+  
+  // Launch timer status
+  const isLaunchApproved = launchApprovedAt > 0n
+  const isLaunchable = launchableAt > 0n && BigInt(Math.floor(Date.now() / 1000)) >= launchableAt
 
-  // Calculate percentages for display
-  const quorumPercent = cabal.totalRaised > 0n ? Number((totalVotes * 10000n) / cabal.totalRaised) / 100 : 0
-  const yesPercent = totalVotes > 0n ? Number((votesFor * 10000n) / totalVotes) / 100 : 0
+  // Calculate percentages for display (absolute majority system)
+  // votesFor as percentage of totalRaised (not of totalVotes)
+  const yesPercentOfTotal = totalRaised > 0n ? Number((votesFor * 10000n) / totalRaised) / 100 : 0
+  const noPercentOfTotal = totalRaised > 0n ? Number((votesAgainst * 10000n) / totalRaised) / 100 : 0
+  const unvotedPercent = 100 - yesPercentOfTotal - noPercentOfTotal
 
   const isVoteLoading = isVoting || isVoteConfirming
-  const isFinalizeLoading = isFinalizing || isFinalizeConfirming
 
   return (
     <div className="space-y-4">
-      {/* Split Preview */}
+      {/* 1/33/33/33 Split Preview */}
       <div className="text-sm space-y-2 p-3 bg-muted rounded-lg">
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Treasury (50%)</span>
-          <TokenAmount amount={cabal.totalRaised / 2n} symbol="ETH" className="font-mono font-medium" />
+          <span className="text-muted-foreground">Protocol Fee (1%)</span>
+          <TokenAmount amount={cabal.totalRaised / 100n} symbol="ETH" className="font-mono font-medium text-muted-foreground" />
         </div>
         <div className="flex justify-between">
-          <span className="text-muted-foreground">DevBuy (50%)</span>
-          <TokenAmount amount={cabal.totalRaised / 2n} symbol="ETH" className="font-mono font-medium" />
+          <span className="text-muted-foreground">Treasury ETH (33%)</span>
+          <TokenAmount amount={(cabal.totalRaised * 33n) / 100n} symbol="ETH" className="font-mono font-medium" />
         </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Treasury Tokens (33%)</span>
+          <TokenAmount amount={(cabal.totalRaised * 33n) / 100n} symbol="ETH" className="font-mono font-medium text-muted-foreground" />
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Your Tokens (33%)</span>
+          <TokenAmount amount={(cabal.totalRaised * 33n) / 100n} symbol="ETH" className="font-mono font-medium" />
+        </div>
+        <p className="text-[10px] text-muted-foreground pt-1">
+          Your tokens are auto-staked for voting power. Claim to unstake & withdraw.
+        </p>
       </div>
 
-      {/* Vote Status */}
+      {/* Vote Status - Absolute Majority System */}
       <div className="space-y-3">
-        {/* Quorum Progress */}
+        {/* Launch Progress - Yes votes must reach 51% of total raised */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Quorum (33% required)</span>
-            <span className={quorumMet ? "text-green-500 font-medium" : ""}>{quorumPercent.toFixed(1)}%</span>
+            <span className="text-muted-foreground">Launch approval (51% required)</span>
+            <span className={majorityMet ? "text-green-500 font-medium" : ""}>{yesPercentOfTotal.toFixed(1)}%</span>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all ${quorumMet ? "bg-green-500" : "bg-primary"}`}
-              style={{ width: `${Math.min(quorumPercent / 33 * 100, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Yes/No Split */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Yes votes (66% required)</span>
-            <span className={majorityMet ? "text-green-500 font-medium" : ""}>{yesPercent.toFixed(1)}%</span>
-          </div>
-          <div className="h-2 bg-red-500/20 rounded-full overflow-hidden">
+          {/* Stacked bar showing Yes / No / Unvoted */}
+          <div className="h-3 bg-muted rounded-full overflow-hidden flex relative">
+            {/* 51% threshold marker */}
+            <div className="absolute top-0 bottom-0 w-0.5 bg-foreground/50 z-10" style={{ left: "51%" }} />
+            {/* Yes votes */}
             <div
               className={`h-full transition-all ${majorityMet ? "bg-green-500" : "bg-green-500/70"}`}
-              style={{ width: `${yesPercent}%` }}
+              style={{ width: `${yesPercentOfTotal}%` }}
             />
+            {/* No votes */}
+            <div
+              className="h-full transition-all bg-red-500/70"
+              style={{ width: `${noPercentOfTotal}%` }}
+            />
+            {/* Unvoted portion is just the remaining bg-muted */}
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>Yes: {yesPercentOfTotal.toFixed(1)}%</span>
+            <span>No: {noPercentOfTotal.toFixed(1)}%</span>
+            <span>Unvoted: {unvotedPercent.toFixed(1)}%</span>
           </div>
         </div>
 
@@ -208,44 +207,60 @@ function LaunchSection({
         </div>
       </div>
 
-      {/* Vote Buttons or Status */}
+      {/* Launch Timer Status */}
+      {isLaunchApproved ? (
+        <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-center space-y-1">
+          <p className="text-sm font-medium text-green-600">
+            ✓ Launch Approved!
+          </p>
+          {isLaunchable ? (
+            <p className="text-xs text-green-600">Ready! First claim will launch the token.</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Launchable at {new Date(Number(launchableAt) * 1000).toLocaleString()}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground text-center">
+          When 51% votes YES, a 24-hour timer starts before launch
+        </p>
+      )}
+
+      {/* Vote Buttons */}
       {!hasContributed ? (
         <p className="text-sm text-muted-foreground text-center py-2">
           Contribute to vote on launch
         </p>
-      ) : hasUserVoted ? (
-        <p className="text-sm text-muted-foreground text-center py-2">
-          You have voted ✓
-        </p>
-      ) : (
-        <div className="flex gap-2">
-          <Button
-            onClick={() => handleVote(true)}
-            disabled={isVoteLoading}
-            className="flex-1 bg-green-600 hover:bg-green-700"
-          >
-            {isVoteLoading ? "Voting..." : "Vote Yes"}
-          </Button>
-          <Button
-            onClick={() => handleVote(false)}
-            disabled={isVoteLoading}
-            variant="outline"
-            className="flex-1"
-          >
-            {isVoteLoading ? "Voting..." : "Vote No"}
-          </Button>
+      ) : !isLaunchApproved ? (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Button
+              onClick={() => handleVote(true)}
+              disabled={isVoteLoading || userVotedYes}
+              variant="outline"
+              className={`flex-1 ${userVotedYes ? "ring-2 ring-primary border-primary" : ""}`}
+              size="lg"
+            >
+              {isVoteLoading ? "Voting..." : userVotedYes ? "Voted Yes ✓" : "Vote Yes"}
+            </Button>
+            <Button
+              onClick={() => handleVote(false)}
+              disabled={isVoteLoading || userVotedNo}
+              variant="outline"
+              className={`flex-1 ${userVotedNo ? "ring-2 ring-red-400 border-red-400" : ""}`}
+              size="lg"
+            >
+              {isVoteLoading ? "Voting..." : userVotedNo ? "Voted No ✓" : "Vote No"}
+            </Button>
+          </div>
+          {hasUserVoted && (
+            <p className="text-xs text-muted-foreground text-center">
+              Tap the other button to change your vote
+            </p>
+          )}
         </div>
-      )}
-
-      {/* Launch Button */}
-      <Button
-        onClick={handleFinalize}
-        disabled={!canLaunch || isFinalizeLoading}
-        className="w-full"
-        size="lg"
-      >
-        {isFinalizeLoading ? "Deploying..." : canLaunch ? "Launch Token" : "Waiting for votes..."}
-      </Button>
+      ) : null}
     </div>
   )
 }
@@ -785,10 +800,13 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
   }) as { data: CabalInfo | undefined; isLoading: boolean; refetch: () => void }
 
   // Watch for CabalFinalized events to update UI when presale -> active
+  // Only watch during presale phase, poll every 30 seconds to reduce RPC calls
   useWatchContractEvent({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     eventName: "CabalFinalized",
+    enabled: cabal?.phase === CabalPhase.Presale,
+    pollingInterval: 30_000,
     onLogs(logs) {
       // Check if any log is for the current cabal
       const relevantLog = logs.find((log) => {
@@ -805,10 +823,13 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
   })
 
   // Watch for contribution events to update stats
+  // Only watch during presale phase, poll every 30 seconds
   useWatchContractEvent({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     eventName: "Contributed",
+    enabled: cabal?.phase === CabalPhase.Presale,
+    pollingInterval: 30_000,
     onLogs(logs) {
       const relevantLog = logs.find((log) => {
         const args = log.args as { cabalId?: bigint }
@@ -821,10 +842,13 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
   })
 
   // Watch for trade events to keep balances in sync
+  // Only watch when active (trading enabled), poll every 30 seconds
   useWatchContractEvent({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     eventName: "TokensBought",
+    enabled: cabal?.phase === CabalPhase.Active,
+    pollingInterval: 30_000,
     onLogs(logs) {
       const relevantLog = logs.find((log) => {
         const args = log.args as { cabalId?: bigint }
@@ -840,6 +864,8 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     eventName: "TokensSold",
+    enabled: cabal?.phase === CabalPhase.Active,
+    pollingInterval: 30_000,
     onLogs(logs) {
       const relevantLog = logs.find((log) => {
         const args = log.args as { cabalId?: bigint }

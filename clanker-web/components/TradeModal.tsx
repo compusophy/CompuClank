@@ -158,11 +158,20 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
     }, {
       onError: (e) => {
         console.error('Sell error:', e);
-        haptics.error(); // Error haptic
-        toast.error(e.message.includes('execution reverted')
-          ? 'Sell failed - try a smaller amount'
-          : e.message
-        );
+        haptics.error();
+        
+        if (e.message.includes('User rejected') || e.message.includes('rejected the request')) {
+          toast.info('Transaction rejected');
+          return;
+        }
+
+        if (e.message.includes('execution reverted')) {
+          toast.error('Sell failed - try a smaller amount');
+          return;
+        }
+
+        const message = e.message.length > 100 ? `${e.message.substring(0, 100)}...` : e.message;
+        toast.error(message);
       },
     });
   };
@@ -182,11 +191,20 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
     }, {
       onError: (e) => {
         console.error('Buy error:', e);
-        haptics.error(); // Error haptic
-        toast.error(e.message.includes('execution reverted')
-          ? 'Buy failed - try a smaller amount or check slippage'
-          : e.message
-        );
+        haptics.error();
+        
+        if (e.message.includes('User rejected') || e.message.includes('rejected the request')) {
+          toast.info('Transaction rejected');
+          return;
+        }
+
+        if (e.message.includes('execution reverted')) {
+          toast.error('Buy failed - try a smaller amount or check slippage');
+          return;
+        }
+
+        const message = e.message.length > 100 ? `${e.message.substring(0, 100)}...` : e.message;
+        toast.error(message);
       },
     });
   };
@@ -208,12 +226,17 @@ export function TradeModal({ isOpen, onOpenChange, cabalId, cabal, onSuccess, in
         functionName: 'approve',
         args: [CABAL_DIAMOND_ADDRESS, tokenAmount],
       }, {
-        onError: (e) => {
-          console.error('Approve error:', e);
-          haptics.error(); // Error haptic
+      onError: (e) => {
+        console.error('Approve error:', e);
+        haptics.error();
+        
+        if (e.message.includes('User rejected') || e.message.includes('rejected the request')) {
+          toast.info('Transaction rejected');
+        } else {
           toast.error('Failed to approve tokens');
-          setIsApproving(false);
-        },
+        }
+        setIsApproving(false);
+      },
       });
       return;
     }

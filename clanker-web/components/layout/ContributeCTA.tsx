@@ -36,6 +36,27 @@ export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
     query: { enabled: !!address },
   });
 
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Allow empty string for clearing input, otherwise block non-numeric/negative
+    if (val === '') {
+      setAmount('');
+      return;
+    }
+    
+    // Prevent negative numbers
+    if (parseFloat(val) < 0) return;
+    
+    setAmount(val);
+  };
+
+  const handleBlur = () => {
+    if (!amount || parseFloat(amount) < parseFloat(MIN_CONTRIBUTION)) {
+      setAmount(MIN_CONTRIBUTION);
+      toast.info(`Minimum contribution is ${MIN_CONTRIBUTION} ETH`);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -117,7 +138,8 @@ export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
                       min={MIN_CONTRIBUTION}
                       placeholder="0.0"
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
+                      onChange={handleAmountChange}
+                      onBlur={handleBlur}
                       required
                       className="font-mono text-lg bg-transparent border-none outline-none placeholder:text-muted-foreground focus:ring-0 p-0 text-right min-w-[1ch] no-spinner"
                       disabled={isLoading}

@@ -11,6 +11,7 @@ contract GovernanceFacet {
     // ============ Constants ============
     
     uint256 constant BPS_DENOMINATOR = 10000;
+    uint256 constant PROPOSAL_COOLDOWN = 24 hours; // Time after launch before proposals can be created
 
     // ============ Events ============
     
@@ -47,6 +48,7 @@ contract GovernanceFacet {
     // ============ Errors ============
     
     error CabalNotActive();
+    error ProposalCooldownNotElapsed();
     error InsufficientVotingPower();
     error ProposalNotActive();
     error AlreadyVoted();
@@ -80,6 +82,9 @@ contract GovernanceFacet {
         
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        
+        // Check proposal cooldown has elapsed (24 hours after launch)
+        if (block.timestamp < cabal.launchedAt + PROPOSAL_COOLDOWN) revert ProposalCooldownNotElapsed();
         
         // Check proposer has enough voting power
         uint256 votingPower = _getVotingPower(cabalId, msg.sender);
@@ -269,14 +274,27 @@ contract GovernanceFacet {
     }
 
     function _getVotingPower(uint256 cabalId, address user) internal view returns (uint256) {
-        uint256 ownStake = LibAppStorage.getStakedBalance(cabalId, user);
-        uint256 delegatedToMe = LibAppStorage.getDelegatedPower(cabalId, user);
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         
+        // Auto-staked tokens from presale (if not yet claimed)
+        uint256 autoStaked = 0;
+        if (!LibAppStorage.hasClaimed(cabalId, user) && cabal.totalRaised > 0) {
+            uint256 contribution = LibAppStorage.getContribution(cabalId, user);
+            autoStaked = (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
+        }
+        
+        // Manually staked tokens
+        uint256 ownStake = LibAppStorage.getStakedBalance(cabalId, user);
+        
+        // Delegated power from others
+        uint256 delegatedToMe = LibAppStorage.getDelegatedPower(cabalId, user);
+
+        // If user has delegated their power, they only have delegated power from others
         address delegatee = LibAppStorage.getDelegatee(cabalId, user);
         if (delegatee != address(0)) {
             return delegatedToMe;
         }
-        
-        return ownStake + delegatedToMe;
+
+        return autoStaked + ownStake + delegatedToMe;
     }
 }

@@ -12,7 +12,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -52,7 +52,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -91,7 +91,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -136,7 +136,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -173,7 +173,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -201,6 +201,45 @@
         "IERC721"
       ]
     },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol": {
+      "lastModificationDate": 1766407564176,
+      "contentHash": "bcc76f4747d56c28c40ae272ef3470a6",
+      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.4"
+      ],
+      "artifacts": [
+        "IERC1155Errors",
+        "IERC20Errors",
+        "IERC721Errors"
+      ]
+    },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Strings.sol": {
       "lastModificationDate": 1766407564405,
       "contentHash": "70eb1117ac47dfca9e957f3252c08297",
@@ -212,7 +251,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -243,45 +282,6 @@
         "Strings"
       ]
     },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\interfaces\\draft-IERC6093.sol": {
-      "lastModificationDate": 1766407564176,
-      "contentHash": "bcc76f4747d56c28c40ae272ef3470a6",
-      "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.8.4"
-      ],
-      "artifacts": [
-        "IERC1155Errors",
-        "IERC20Errors",
-        "IERC721Errors"
-      ]
-    },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\introspection\\ERC165.sol": {
       "lastModificationDate": 1766407564206,
       "contentHash": "0906d06dca25210d4696dcef6dad2909",
@@ -293,7 +293,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -321,6 +321,45 @@
         "ERC165"
       ]
     },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC721\\extensions\\IERC721Metadata.sol": {
+      "lastModificationDate": 1766407564347,
+      "contentHash": "136c64eca25bcb8a68f43ac6605559f9",
+      "sourceName": "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../IERC721.sol"
+      ],
+      "versionPragmas": [
+        ">=0.6.2"
+      ],
+      "artifacts": [
+        "IERC721Metadata"
+      ]
+    },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC721\\utils\\ERC721Utils.sol": {
       "lastModificationDate": 1766407564241,
       "contentHash": "eaad77accc6e32b20dfbbbe9813e1dce",
@@ -332,7 +371,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -361,45 +400,6 @@
         "ERC721Utils"
       ]
     },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC721\\extensions\\IERC721Metadata.sol": {
-      "lastModificationDate": 1766407564347,
-      "contentHash": "136c64eca25bcb8a68f43ac6605559f9",
-      "sourceName": "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../IERC721.sol"
-      ],
-      "versionPragmas": [
-        ">=0.6.2"
-      ],
-      "artifacts": [
-        "IERC721Metadata"
-      ]
-    },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\introspection\\IERC165.sol": {
       "lastModificationDate": 1766407564326,
       "contentHash": "7074c93b1ea0a122063f26ddd1db1032",
@@ -411,7 +411,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -437,10 +437,10 @@
         "IERC165"
       ]
     },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\math\\SafeCast.sol": {
-      "lastModificationDate": 1766407564391,
-      "contentHash": "2adca1150f58fc6f3d1f0a0f22ee7cca",
-      "sourceName": "@openzeppelin/contracts/utils/math/SafeCast.sol",
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Bytes.sol": {
+      "lastModificationDate": 1766407564151,
+      "contentHash": "ff5bd902d98c21844556193d0a7b335e",
+      "sourceName": "@openzeppelin/contracts/utils/Bytes.sol",
       "solcConfig": {
         "version": "0.8.26",
         "settings": {
@@ -448,7 +448,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -466,12 +466,14 @@
           }
         }
       },
-      "imports": [],
+      "imports": [
+        "./math/Math.sol"
+      ],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.24"
       ],
       "artifacts": [
-        "SafeCast"
+        "Bytes"
       ]
     },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\math\\Math.sol": {
@@ -485,7 +487,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -525,7 +527,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -553,6 +555,43 @@
         "SignedMath"
       ]
     },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\math\\SafeCast.sol": {
+      "lastModificationDate": 1766407564391,
+      "contentHash": "2adca1150f58fc6f3d1f0a0f22ee7cca",
+      "sourceName": "@openzeppelin/contracts/utils/math/SafeCast.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "SafeCast"
+      ]
+    },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Panic.sol": {
       "lastModificationDate": 1766407564377,
       "contentHash": "2133dc13536b4a6a98131e431fac59e1",
@@ -564,7 +603,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -601,7 +640,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -628,8 +667,8 @@
       ]
     },
     "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\CabalCreationFacet.sol": {
-      "lastModificationDate": 1766576239046,
-      "contentHash": "b26b68af0742b65934c25f37aab2340c",
+      "lastModificationDate": 1767012241830,
+      "contentHash": "c035e2307cd6e8b63b545018473db40b",
       "sourceName": "contracts/cabal/diamond/facets/CabalCreationFacet.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -638,7 +677,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -673,8 +712,8 @@
       ]
     },
     "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\libraries\\LibAppStorage.sol": {
-      "lastModificationDate": 1766577063677,
-      "contentHash": "cc9c52ad53385b255829708040e7a8e4",
+      "lastModificationDate": 1767011373101,
+      "contentHash": "894d94465a101c8d9706609fab4ad08c",
       "sourceName": "contracts/cabal/diamond/libraries/LibAppStorage.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -683,7 +722,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -720,7 +759,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -759,7 +798,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -803,7 +842,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -840,7 +879,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -877,7 +916,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -914,7 +953,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -951,7 +990,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -990,7 +1029,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -1021,8 +1060,8 @@
       ]
     },
     "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\ViewFacet.sol": {
-      "lastModificationDate": 1766579089778,
-      "contentHash": "88864c87bcc9fdbb0bd9c3bd0c817177",
+      "lastModificationDate": 1767011479268,
+      "contentHash": "d365343592044812f062eb246c43eced",
       "sourceName": "contracts/cabal/diamond/facets/ViewFacet.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -1031,7 +1070,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -1070,7 +1109,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -1108,1545 +1147,6 @@
         "SwapFacet"
       ]
     },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\StorageRepairFacet.sol": {
-      "lastModificationDate": 1766217894827,
-      "contentHash": "f40e514cf10685ecaeeb6358db384e2b",
-      "sourceName": "contracts/cabal/diamond/facets/StorageRepairFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/LibAppStorage.sol",
-        "../libraries/LibDiamond.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "StorageRepairFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\DiamondCutFacet.sol": {
-      "lastModificationDate": 1766208995683,
-      "contentHash": "b578eafc141a57cde2b0a96b30aa8c79",
-      "sourceName": "contracts/cabal/diamond/facets/DiamondCutFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/IDiamondCut.sol",
-        "../libraries/LibDiamond.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "DiamondCutFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\Diamond.sol": {
-      "lastModificationDate": 1766208995683,
-      "contentHash": "0b3ebbda4b962811cfb23f4e57070043",
-      "sourceName": "contracts/cabal/diamond/Diamond.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./libraries/LibDiamond.sol",
-        "./interfaces/IDiamondCut.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Diamond"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\SettingsFacet.sol": {
-      "lastModificationDate": 1766577385933,
-      "contentHash": "41fa2d04f2a9dcf8bf537b255378982f",
-      "sourceName": "contracts/cabal/diamond/facets/SettingsFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/LibAppStorage.sol",
-        "../libraries/LibDiamond.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "SettingsFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\OwnershipFacet.sol": {
-      "lastModificationDate": 1766208995685,
-      "contentHash": "d5f407b6a8487bb52dcf23be360be847",
-      "sourceName": "contracts/cabal/diamond/facets/OwnershipFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/LibDiamond.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IERC173",
-        "OwnershipFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\DiamondLoupeFacet.sol": {
-      "lastModificationDate": 1766208995685,
-      "contentHash": "4ecbded51757bd4ec06d726c931e553f",
-      "sourceName": "contracts/cabal/diamond/facets/DiamondLoupeFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/LibDiamond.sol",
-        "../interfaces/IDiamondLoupe.sol",
-        "../interfaces/IERC165.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "DiamondLoupeFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\interfaces\\IDiamondLoupe.sol": {
-      "lastModificationDate": 1766208995680,
-      "contentHash": "9a93af91411fb59d04555a2e3b6f9d3b",
-      "sourceName": "contracts/cabal/diamond/interfaces/IDiamondLoupe.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IDiamondLoupe"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\interfaces\\IERC165.sol": {
-      "lastModificationDate": 1766208995682,
-      "contentHash": "9f18505a48c33b34e07a3f5431a57934",
-      "sourceName": "contracts/cabal/diamond/interfaces/IERC165.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IERC165"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\StakingFacet.sol": {
-      "lastModificationDate": 1766238600516,
-      "contentHash": "675910be2580aa430095b6636afcea37",
-      "sourceName": "contracts/cabal/diamond/facets/StakingFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/LibAppStorage.sol",
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "StakingFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Permit.sol": {
-      "lastModificationDate": 1766407564326,
-      "contentHash": "274b0eacbd66ff78b8f749cd8105bab0",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IERC20Permit"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\GovernanceFacet.sol": {
-      "lastModificationDate": 1766208995685,
-      "contentHash": "c49dbf067d32b5b018ccd75bcca4f9b5",
-      "sourceName": "contracts/cabal/diamond/facets/GovernanceFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/LibAppStorage.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "GovernanceFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\DelegationFacet.sol": {
-      "lastModificationDate": 1766208995685,
-      "contentHash": "cef0bdd2d8edb1f9698b1464fdd63113",
-      "sourceName": "contracts/cabal/diamond/facets/DelegationFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/LibAppStorage.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "DelegationFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\ReceiverFacet.sol": {
-      "lastModificationDate": 1766215603325,
-      "contentHash": "ded5442e79a92c2add9932178d4fca2e",
-      "sourceName": "contracts/cabal/diamond/facets/ReceiverFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol",
-        "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ReceiverFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\ClankerIndex.sol": {
-      "lastModificationDate": 1766200341433,
-      "contentHash": "a95e48301692fddef352278dc27f9cf7",
-      "sourceName": "contracts/ClankerIndex.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/access/Ownable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ClankerIndex",
-        "IClankerFactory"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\interfaces\\ISwapFacet.sol": {
-      "lastModificationDate": 1766407838815,
-      "contentHash": "2528a3c90684a930f31f6949fa362804",
-      "sourceName": "contracts/cabal/diamond/interfaces/ISwapFacet.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ISwapFacet"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\libraries\\ClankerAddresses.sol": {
-      "lastModificationDate": 1766217010541,
-      "contentHash": "58dbbb09398e9911e93d0ff8ee66aa75",
-      "sourceName": "contracts/cabal/libraries/ClankerAddresses.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ClankerAddresses"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\utils\\Bytes.sol": {
-      "lastModificationDate": 1766407564151,
-      "contentHash": "ff5bd902d98c21844556193d0a7b335e",
-      "sourceName": "@openzeppelin/contracts/utils/Bytes.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./math/Math.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "Bytes"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\hooks\\Counter.sol": {
-      "lastModificationDate": 1766407509449,
-      "contentHash": "a420246740da25aaf84bea7b13c1af53",
-      "sourceName": "contracts/hooks/Counter.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/uniswap-hooks/src/base/BaseHook.sol",
-        "@uniswap/v4-core/src/libraries/Hooks.sol",
-        "@uniswap/v4-core/src/interfaces/IPoolManager.sol",
-        "@uniswap/v4-core/src/types/PoolKey.sol",
-        "@uniswap/v4-core/src/types/PoolId.sol",
-        "@uniswap/v4-core/src/types/BalanceDelta.sol",
-        "@uniswap/v4-core/src/types/BeforeSwapDelta.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.26"
-      ],
-      "artifacts": [
-        "Counter"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\uniswap-hooks\\src\\base\\BaseHook.sol": {
-      "lastModificationDate": 1766407564097,
-      "contentHash": "9d42714b85ccb9680b2fbfb6baf94202",
-      "sourceName": "@openzeppelin/uniswap-hooks/src/base/BaseHook.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@uniswap/v4-core/src/interfaces/IHooks.sol",
-        "@uniswap/v4-core/src/types/BalanceDelta.sol",
-        "@uniswap/v4-core/src/libraries/Hooks.sol",
-        "@uniswap/v4-core/src/types/PoolKey.sol",
-        "@uniswap/v4-core/src/interfaces/IPoolManager.sol",
-        "@uniswap/v4-core/src/types/BeforeSwapDelta.sol",
-        "@uniswap/v4-core/src/types/PoolOperation.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "BaseHook"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\PoolKey.sol": {
-      "lastModificationDate": 1766407543980,
-      "contentHash": "398fad21745911bc900a2554be64c61a",
-      "sourceName": "@uniswap/v4-core/src/types/PoolKey.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./Currency.sol",
-        "../interfaces/IHooks.sol",
-        "./PoolId.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": []
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IPoolManager.sol": {
-      "lastModificationDate": 1766407543927,
-      "contentHash": "4d5b4ead1c29e3ae8ccfa5e195e655f2",
-      "sourceName": "@uniswap/v4-core/src/interfaces/IPoolManager.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../types/Currency.sol",
-        "../types/PoolKey.sol",
-        "./IHooks.sol",
-        "./external/IERC6909Claims.sol",
-        "./IProtocolFees.sol",
-        "../types/BalanceDelta.sol",
-        "../types/PoolId.sol",
-        "./IExtsload.sol",
-        "./IExttload.sol",
-        "../types/PoolOperation.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "IPoolManager"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\PoolId.sol": {
-      "lastModificationDate": 1766407543980,
-      "contentHash": "a6e85b945451c582bcf7de3452c782cb",
-      "sourceName": "@uniswap/v4-core/src/types/PoolId.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./PoolKey.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "PoolIdLibrary"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\Hooks.sol": {
-      "lastModificationDate": 1766407543869,
-      "contentHash": "f52b4bee451bfa37d8d0a245c44adf85",
-      "sourceName": "@uniswap/v4-core/src/libraries/Hooks.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../types/PoolKey.sol",
-        "../interfaces/IHooks.sol",
-        "./SafeCast.sol",
-        "./LPFeeLibrary.sol",
-        "../types/BalanceDelta.sol",
-        "../types/BeforeSwapDelta.sol",
-        "../interfaces/IPoolManager.sol",
-        "../types/PoolOperation.sol",
-        "./ParseBytes.sol",
-        "./CustomRevert.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "Hooks"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\BeforeSwapDelta.sol": {
-      "lastModificationDate": 1766407543707,
-      "contentHash": "ae7541dc512b8b3131e5ef904f047a72",
-      "sourceName": "@uniswap/v4-core/src/types/BeforeSwapDelta.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "BeforeSwapDeltaLibrary"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\BalanceDelta.sol": {
-      "lastModificationDate": 1766407543702,
-      "contentHash": "dec730cf97f8429624545ffff69e7909",
-      "sourceName": "@uniswap/v4-core/src/types/BalanceDelta.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../libraries/SafeCast.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "BalanceDeltaLibrary"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IHooks.sol": {
-      "lastModificationDate": 1766407543922,
-      "contentHash": "f1e10e0c258b5b05da2f768b7a60abc0",
-      "sourceName": "@uniswap/v4-core/src/interfaces/IHooks.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../types/PoolKey.sol",
-        "../types/BalanceDelta.sol",
-        "../types/PoolOperation.sol",
-        "../types/BeforeSwapDelta.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IHooks"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\PoolOperation.sol": {
-      "lastModificationDate": 1766407543991,
-      "contentHash": "4bbbbf40d91eae968af7db2c70578c7c",
-      "sourceName": "@uniswap/v4-core/src/types/PoolOperation.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../types/PoolKey.sol",
-        "../types/BalanceDelta.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": []
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\SafeCast.sol": {
-      "lastModificationDate": 1766407544012,
-      "contentHash": "7efd56acc85f88254a521ab4e32f1247",
-      "sourceName": "@uniswap/v4-core/src/libraries/SafeCast.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./CustomRevert.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "SafeCast"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\CustomRevert.sol": {
-      "lastModificationDate": 1766407543750,
-      "contentHash": "7c5352bf0b75f406d539e91f39d86627",
-      "sourceName": "@uniswap/v4-core/src/libraries/CustomRevert.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "CustomRevert"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\LPFeeLibrary.sol": {
-      "lastModificationDate": 1766407543937,
-      "contentHash": "9c43170b9172c58fc7e369ef622a3f52",
-      "sourceName": "@uniswap/v4-core/src/libraries/LPFeeLibrary.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./CustomRevert.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "LPFeeLibrary"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\ParseBytes.sol": {
-      "lastModificationDate": 1766407543977,
-      "contentHash": "4c3500fba937fb3c35ceffdd9da1181a",
-      "sourceName": "@uniswap/v4-core/src/libraries/ParseBytes.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "ParseBytes"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\Currency.sol": {
-      "lastModificationDate": 1766407543737,
-      "contentHash": "291e0c95e9368cfc77d3f730d602131e",
-      "sourceName": "@uniswap/v4-core/src/types/Currency.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/external/IERC20Minimal.sol",
-        "../libraries/CustomRevert.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "CurrencyLibrary"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\external\\IERC20Minimal.sol": {
-      "lastModificationDate": 1766407543897,
-      "contentHash": "673e0abee46eec8a1fe8b7fd9670aeb6",
-      "sourceName": "@uniswap/v4-core/src/interfaces/external/IERC20Minimal.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC20Minimal"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IExtsload.sol": {
-      "lastModificationDate": 1766407543917,
-      "contentHash": "d6736ed46cbb3b677519964ffea3ce9c",
-      "sourceName": "@uniswap/v4-core/src/interfaces/IExtsload.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IExtsload"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IProtocolFees.sol": {
-      "lastModificationDate": 1766407543927,
-      "contentHash": "0c0f37b4a5a4e73b58020f6af846b977",
-      "sourceName": "@uniswap/v4-core/src/interfaces/IProtocolFees.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../types/Currency.sol",
-        "../types/PoolId.sol",
-        "../types/PoolKey.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IProtocolFees"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IExttload.sol": {
-      "lastModificationDate": 1766407543917,
-      "contentHash": "c565abf89714dff14e9d67c9d72d028b",
-      "sourceName": "@uniswap/v4-core/src/interfaces/IExttload.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "IExttload"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\external\\IERC6909Claims.sol": {
-      "lastModificationDate": 1766407543907,
-      "contentHash": "4fc5d7c51f35f6a84ebffdfb9015a66d",
-      "sourceName": "@uniswap/v4-core/src/interfaces/external/IERC6909Claims.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC6909Claims"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\test\\EncodeTest.sol": {
-      "lastModificationDate": 1766408760080,
-      "contentHash": "1749f68a7171e3956eb869a88e9d6a27",
-      "sourceName": "contracts/test/EncodeTest.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "EncodeTest"
-      ]
-    },
-    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-periphery\\src\\libraries\\Actions.sol": {
-      "lastModificationDate": 1766407565857,
-      "contentHash": "1820f782dc9eab7f8d9b7b36c0aff2c0",
-      "sourceName": "@uniswap/v4-periphery/src/libraries/Actions.sol",
-      "solcConfig": {
-        "version": "0.8.26",
-        "settings": {
-          "evmVersion": "cancun",
-          "viaIR": true,
-          "optimizer": {
-            "enabled": true,
-            "runs": 1000
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "Actions"
-      ]
-    },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\universal-router\\contracts\\libraries\\Commands.sol": {
       "lastModificationDate": 1766410297641,
       "contentHash": "d289110884fa4711322ed7cce0d7818d",
@@ -2658,7 +1158,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -2695,7 +1195,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -2726,6 +1226,164 @@
         "IV4Router"
       ]
     },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\Currency.sol": {
+      "lastModificationDate": 1766407543737,
+      "contentHash": "291e0c95e9368cfc77d3f730d602131e",
+      "sourceName": "@uniswap/v4-core/src/types/Currency.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../interfaces/external/IERC20Minimal.sol",
+        "../libraries/CustomRevert.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "CurrencyLibrary"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\PoolKey.sol": {
+      "lastModificationDate": 1766407543980,
+      "contentHash": "398fad21745911bc900a2554be64c61a",
+      "sourceName": "@uniswap/v4-core/src/types/PoolKey.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./Currency.sol",
+        "../interfaces/IHooks.sol",
+        "./PoolId.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": []
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IHooks.sol": {
+      "lastModificationDate": 1766407543922,
+      "contentHash": "f1e10e0c258b5b05da2f768b7a60abc0",
+      "sourceName": "@uniswap/v4-core/src/interfaces/IHooks.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../types/PoolKey.sol",
+        "../types/BalanceDelta.sol",
+        "../types/PoolOperation.sol",
+        "../types/BeforeSwapDelta.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IHooks"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-periphery\\src\\libraries\\Actions.sol": {
+      "lastModificationDate": 1766407565857,
+      "contentHash": "1820f782dc9eab7f8d9b7b36c0aff2c0",
+      "sourceName": "@uniswap/v4-periphery/src/libraries/Actions.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Actions"
+      ]
+    },
     "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-periphery\\src\\libraries\\PathKey.sol": {
       "lastModificationDate": 1766407566636,
       "contentHash": "387d28b3026f18523fd70d1e06f12ecf",
@@ -2737,7 +1395,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -2778,7 +1436,7 @@
           "viaIR": true,
           "optimizer": {
             "enabled": true,
-            "runs": 1000
+            "runs": 500
           },
           "outputSelection": {
             "*": {
@@ -2804,6 +1462,1348 @@
       ],
       "artifacts": [
         "IImmutableState"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\PoolId.sol": {
+      "lastModificationDate": 1766407543980,
+      "contentHash": "a6e85b945451c582bcf7de3452c782cb",
+      "sourceName": "@uniswap/v4-core/src/types/PoolId.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./PoolKey.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "PoolIdLibrary"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\CustomRevert.sol": {
+      "lastModificationDate": 1766407543750,
+      "contentHash": "7c5352bf0b75f406d539e91f39d86627",
+      "sourceName": "@uniswap/v4-core/src/libraries/CustomRevert.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "CustomRevert"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\external\\IERC20Minimal.sol": {
+      "lastModificationDate": 1766407543897,
+      "contentHash": "673e0abee46eec8a1fe8b7fd9670aeb6",
+      "sourceName": "@uniswap/v4-core/src/interfaces/external/IERC20Minimal.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC20Minimal"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\BalanceDelta.sol": {
+      "lastModificationDate": 1766407543702,
+      "contentHash": "dec730cf97f8429624545ffff69e7909",
+      "sourceName": "@uniswap/v4-core/src/types/BalanceDelta.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/SafeCast.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "BalanceDeltaLibrary"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\PoolOperation.sol": {
+      "lastModificationDate": 1766407543991,
+      "contentHash": "4bbbbf40d91eae968af7db2c70578c7c",
+      "sourceName": "@uniswap/v4-core/src/types/PoolOperation.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../types/PoolKey.sol",
+        "../types/BalanceDelta.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": []
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\types\\BeforeSwapDelta.sol": {
+      "lastModificationDate": 1766407543707,
+      "contentHash": "ae7541dc512b8b3131e5ef904f047a72",
+      "sourceName": "@uniswap/v4-core/src/types/BeforeSwapDelta.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "BeforeSwapDeltaLibrary"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\SafeCast.sol": {
+      "lastModificationDate": 1766407544012,
+      "contentHash": "7efd56acc85f88254a521ab4e32f1247",
+      "sourceName": "@uniswap/v4-core/src/libraries/SafeCast.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./CustomRevert.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "SafeCast"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IPoolManager.sol": {
+      "lastModificationDate": 1766407543927,
+      "contentHash": "4d5b4ead1c29e3ae8ccfa5e195e655f2",
+      "sourceName": "@uniswap/v4-core/src/interfaces/IPoolManager.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../types/Currency.sol",
+        "../types/PoolKey.sol",
+        "./IHooks.sol",
+        "./external/IERC6909Claims.sol",
+        "./IProtocolFees.sol",
+        "../types/BalanceDelta.sol",
+        "../types/PoolId.sol",
+        "./IExtsload.sol",
+        "./IExttload.sol",
+        "../types/PoolOperation.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "IPoolManager"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IProtocolFees.sol": {
+      "lastModificationDate": 1766407543927,
+      "contentHash": "0c0f37b4a5a4e73b58020f6af846b977",
+      "sourceName": "@uniswap/v4-core/src/interfaces/IProtocolFees.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../types/Currency.sol",
+        "../types/PoolId.sol",
+        "../types/PoolKey.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IProtocolFees"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IExttload.sol": {
+      "lastModificationDate": 1766407543917,
+      "contentHash": "c565abf89714dff14e9d67c9d72d028b",
+      "sourceName": "@uniswap/v4-core/src/interfaces/IExttload.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "IExttload"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\IExtsload.sol": {
+      "lastModificationDate": 1766407543917,
+      "contentHash": "d6736ed46cbb3b677519964ffea3ce9c",
+      "sourceName": "@uniswap/v4-core/src/interfaces/IExtsload.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IExtsload"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\interfaces\\external\\IERC6909Claims.sol": {
+      "lastModificationDate": 1766407543907,
+      "contentHash": "4fc5d7c51f35f6a84ebffdfb9015a66d",
+      "sourceName": "@uniswap/v4-core/src/interfaces/external/IERC6909Claims.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC6909Claims"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\LPFeeLibrary.sol": {
+      "lastModificationDate": 1766407543937,
+      "contentHash": "9c43170b9172c58fc7e369ef622a3f52",
+      "sourceName": "@uniswap/v4-core/src/libraries/LPFeeLibrary.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./CustomRevert.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "LPFeeLibrary"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\Hooks.sol": {
+      "lastModificationDate": 1766407543869,
+      "contentHash": "f52b4bee451bfa37d8d0a245c44adf85",
+      "sourceName": "@uniswap/v4-core/src/libraries/Hooks.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../types/PoolKey.sol",
+        "../interfaces/IHooks.sol",
+        "./SafeCast.sol",
+        "./LPFeeLibrary.sol",
+        "../types/BalanceDelta.sol",
+        "../types/BeforeSwapDelta.sol",
+        "../interfaces/IPoolManager.sol",
+        "../types/PoolOperation.sol",
+        "./ParseBytes.sol",
+        "./CustomRevert.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Hooks"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@uniswap\\v4-core\\src\\libraries\\ParseBytes.sol": {
+      "lastModificationDate": 1766407543977,
+      "contentHash": "4c3500fba937fb3c35ceffdd9da1181a",
+      "sourceName": "@uniswap/v4-core/src/libraries/ParseBytes.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ParseBytes"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\uniswap-hooks\\src\\base\\BaseHook.sol": {
+      "lastModificationDate": 1766407564097,
+      "contentHash": "9d42714b85ccb9680b2fbfb6baf94202",
+      "sourceName": "@openzeppelin/uniswap-hooks/src/base/BaseHook.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@uniswap/v4-core/src/interfaces/IHooks.sol",
+        "@uniswap/v4-core/src/types/BalanceDelta.sol",
+        "@uniswap/v4-core/src/libraries/Hooks.sol",
+        "@uniswap/v4-core/src/types/PoolKey.sol",
+        "@uniswap/v4-core/src/interfaces/IPoolManager.sol",
+        "@uniswap/v4-core/src/types/BeforeSwapDelta.sol",
+        "@uniswap/v4-core/src/types/PoolOperation.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "BaseHook"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\hooks\\Counter.sol": {
+      "lastModificationDate": 1766407509449,
+      "contentHash": "a420246740da25aaf84bea7b13c1af53",
+      "sourceName": "contracts/hooks/Counter.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/uniswap-hooks/src/base/BaseHook.sol",
+        "@uniswap/v4-core/src/libraries/Hooks.sol",
+        "@uniswap/v4-core/src/interfaces/IPoolManager.sol",
+        "@uniswap/v4-core/src/types/PoolKey.sol",
+        "@uniswap/v4-core/src/types/PoolId.sol",
+        "@uniswap/v4-core/src/types/BalanceDelta.sol",
+        "@uniswap/v4-core/src/types/BeforeSwapDelta.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.26"
+      ],
+      "artifacts": [
+        "Counter"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\StorageRepairFacet.sol": {
+      "lastModificationDate": 1766217894827,
+      "contentHash": "f40e514cf10685ecaeeb6358db384e2b",
+      "sourceName": "contracts/cabal/diamond/facets/StorageRepairFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/LibAppStorage.sol",
+        "../libraries/LibDiamond.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "StorageRepairFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\DiamondCutFacet.sol": {
+      "lastModificationDate": 1766208995683,
+      "contentHash": "b578eafc141a57cde2b0a96b30aa8c79",
+      "sourceName": "contracts/cabal/diamond/facets/DiamondCutFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../interfaces/IDiamondCut.sol",
+        "../libraries/LibDiamond.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "DiamondCutFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\Diamond.sol": {
+      "lastModificationDate": 1766208995683,
+      "contentHash": "0b3ebbda4b962811cfb23f4e57070043",
+      "sourceName": "contracts/cabal/diamond/Diamond.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./libraries/LibDiamond.sol",
+        "./interfaces/IDiamondCut.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Diamond"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\SettingsFacet.sol": {
+      "lastModificationDate": 1766577385933,
+      "contentHash": "41fa2d04f2a9dcf8bf537b255378982f",
+      "sourceName": "contracts/cabal/diamond/facets/SettingsFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/LibAppStorage.sol",
+        "../libraries/LibDiamond.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "SettingsFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\OwnershipFacet.sol": {
+      "lastModificationDate": 1766208995685,
+      "contentHash": "d5f407b6a8487bb52dcf23be360be847",
+      "sourceName": "contracts/cabal/diamond/facets/OwnershipFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/LibDiamond.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC173",
+        "OwnershipFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\DiamondLoupeFacet.sol": {
+      "lastModificationDate": 1766208995685,
+      "contentHash": "4ecbded51757bd4ec06d726c931e553f",
+      "sourceName": "contracts/cabal/diamond/facets/DiamondLoupeFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/LibDiamond.sol",
+        "../interfaces/IDiamondLoupe.sol",
+        "../interfaces/IERC165.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "DiamondLoupeFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\interfaces\\IDiamondLoupe.sol": {
+      "lastModificationDate": 1766208995680,
+      "contentHash": "9a93af91411fb59d04555a2e3b6f9d3b",
+      "sourceName": "contracts/cabal/diamond/interfaces/IDiamondLoupe.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IDiamondLoupe"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\interfaces\\IERC165.sol": {
+      "lastModificationDate": 1766208995682,
+      "contentHash": "9f18505a48c33b34e07a3f5431a57934",
+      "sourceName": "contracts/cabal/diamond/interfaces/IERC165.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IERC165"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\StakingFacet.sol": {
+      "lastModificationDate": 1767011468087,
+      "contentHash": "eac0376e481ca039339ef4c6707115fd",
+      "sourceName": "contracts/cabal/diamond/facets/StakingFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/LibAppStorage.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "StakingFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\node_modules\\@openzeppelin\\contracts\\token\\ERC20\\extensions\\IERC20Permit.sol": {
+      "lastModificationDate": 1766407564326,
+      "contentHash": "274b0eacbd66ff78b8f749cd8105bab0",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.16"
+      ],
+      "artifacts": [
+        "IERC20Permit"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\GovernanceFacet.sol": {
+      "lastModificationDate": 1767011441707,
+      "contentHash": "933152fc82a1c1e689b3ae042171910f",
+      "sourceName": "contracts/cabal/diamond/facets/GovernanceFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/LibAppStorage.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "GovernanceFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\DelegationFacet.sol": {
+      "lastModificationDate": 1766208995685,
+      "contentHash": "cef0bdd2d8edb1f9698b1464fdd63113",
+      "sourceName": "contracts/cabal/diamond/facets/DelegationFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../libraries/LibAppStorage.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "DelegationFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\ReceiverFacet.sol": {
+      "lastModificationDate": 1766215603325,
+      "contentHash": "ded5442e79a92c2add9932178d4fca2e",
+      "sourceName": "contracts/cabal/diamond/facets/ReceiverFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol",
+        "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ReceiverFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\ClankerIndex.sol": {
+      "lastModificationDate": 1766200341433,
+      "contentHash": "a95e48301692fddef352278dc27f9cf7",
+      "sourceName": "contracts/ClankerIndex.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ClankerIndex",
+        "IClankerFactory"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\interfaces\\ISwapFacet.sol": {
+      "lastModificationDate": 1766407838815,
+      "contentHash": "2528a3c90684a930f31f6949fa362804",
+      "sourceName": "contracts/cabal/diamond/interfaces/ISwapFacet.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ISwapFacet"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\libraries\\ClankerAddresses.sol": {
+      "lastModificationDate": 1766217010541,
+      "contentHash": "58dbbb09398e9911e93d0ff8ee66aa75",
+      "sourceName": "contracts/cabal/libraries/ClankerAddresses.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ClankerAddresses"
+      ]
+    },
+    "C:\\25\\dec-25\\csdk\\contracts\\contracts\\test\\EncodeTest.sol": {
+      "lastModificationDate": 1766408760080,
+      "contentHash": "1749f68a7171e3956eb869a88e9d6a27",
+      "sourceName": "contracts/test/EncodeTest.sol",
+      "solcConfig": {
+        "version": "0.8.26",
+        "settings": {
+          "evmVersion": "cancun",
+          "viaIR": true,
+          "optimizer": {
+            "enabled": true,
+            "runs": 500
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "EncodeTest"
       ]
     }
   }

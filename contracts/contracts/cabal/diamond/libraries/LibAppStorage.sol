@@ -69,6 +69,9 @@ struct CabalData {
     // Launch voting (ADDED AT END to preserve storage layout)
     uint256 launchVotesFor;     // ETH-weighted votes for launch
     uint256 launchVotesAgainst; // ETH-weighted votes against launch
+    
+    // Launch timer (ADDED AT END to preserve storage layout)
+    uint256 launchApprovedAt;   // block.timestamp when launch vote threshold was met (0 if not yet)
 }
 
 struct AppStorage {
@@ -273,20 +276,26 @@ library LibAppStorage {
     }
 
     // ============ Launch Voting ============
+    // Vote values: 0 = not voted, 1 = voted YES, 2 = voted NO
     
-    function hasVotedLaunch(uint256 cabalId, address user) internal view returns (bool) {
+    function getLaunchVote(uint256 cabalId, address user) internal view returns (uint256) {
         bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
         uint256 value;
         assembly {
             value := sload(position)
         }
-        return value == 1;
+        return value;
     }
 
-    function setVotedLaunch(uint256 cabalId, address user) internal {
+    function hasVotedLaunch(uint256 cabalId, address user) internal view returns (bool) {
+        return getLaunchVote(cabalId, user) != 0;
+    }
+
+    function setLaunchVote(uint256 cabalId, address user, bool support) internal {
         bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
+        uint256 value = support ? 1 : 2; // 1 = YES, 2 = NO
         assembly {
-            sstore(position, 1)
+            sstore(position, value)
         }
     }
 }

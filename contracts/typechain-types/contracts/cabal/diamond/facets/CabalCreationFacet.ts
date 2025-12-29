@@ -51,6 +51,10 @@ export interface CabalCreationFacetInterface extends Interface {
       | "finalizeCabal"
       | "getClaimable"
       | "getContributors"
+      | "getLaunchVote"
+      | "getLaunchVoteStatus"
+      | "hasVotedLaunch"
+      | "voteLaunch"
   ): FunctionFragment;
 
   getEvent(
@@ -58,6 +62,9 @@ export interface CabalCreationFacetInterface extends Interface {
       | "CabalCreated"
       | "CabalFinalized"
       | "Contributed"
+      | "LaunchApproved"
+      | "LaunchVoteCast"
+      | "ProtocolFeeCollected"
       | "TokensClaimed"
   ): EventFragment;
 
@@ -85,6 +92,22 @@ export interface CabalCreationFacetInterface extends Interface {
     functionFragment: "getContributors",
     values: [BigNumberish]
   ): string;
+  encodeFunctionData(
+    functionFragment: "getLaunchVote",
+    values: [BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getLaunchVoteStatus",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "hasVotedLaunch",
+    values: [BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "voteLaunch",
+    values: [BigNumberish, boolean]
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "claimTokens",
@@ -107,6 +130,19 @@ export interface CabalCreationFacetInterface extends Interface {
     functionFragment: "getContributors",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "getLaunchVote",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getLaunchVoteStatus",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "hasVotedLaunch",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "voteLaunch", data: BytesLike): Result;
 }
 
 export namespace CabalCreatedEvent {
@@ -183,6 +219,57 @@ export namespace ContributedEvent {
     contributor: string;
     amount: bigint;
     totalRaised: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace LaunchApprovedEvent {
+  export type InputTuple = [cabalId: BigNumberish, launchableAt: BigNumberish];
+  export type OutputTuple = [cabalId: bigint, launchableAt: bigint];
+  export interface OutputObject {
+    cabalId: bigint;
+    launchableAt: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace LaunchVoteCastEvent {
+  export type InputTuple = [
+    cabalId: BigNumberish,
+    voter: AddressLike,
+    support: boolean,
+    weight: BigNumberish
+  ];
+  export type OutputTuple = [
+    cabalId: bigint,
+    voter: string,
+    support: boolean,
+    weight: bigint
+  ];
+  export interface OutputObject {
+    cabalId: bigint;
+    voter: string;
+    support: boolean;
+    weight: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace ProtocolFeeCollectedEvent {
+  export type InputTuple = [cabalId: BigNumberish, amount: BigNumberish];
+  export type OutputTuple = [cabalId: bigint, amount: bigint];
+  export interface OutputObject {
+    cabalId: bigint;
+    amount: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -267,7 +354,7 @@ export interface CabalCreationFacet extends BaseContract {
       settings: GovernanceSettingsStruct
     ],
     [bigint],
-    "nonpayable"
+    "payable"
   >;
 
   finalizeCabal: TypedContractMethod<
@@ -286,6 +373,40 @@ export interface CabalCreationFacet extends BaseContract {
     [cabalId: BigNumberish],
     [string[]],
     "view"
+  >;
+
+  getLaunchVote: TypedContractMethod<
+    [cabalId: BigNumberish, user: AddressLike],
+    [bigint],
+    "view"
+  >;
+
+  getLaunchVoteStatus: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [
+      [bigint, bigint, bigint, bigint, boolean, bigint, bigint] & {
+        votesFor: bigint;
+        votesAgainst: bigint;
+        totalRaised: bigint;
+        majorityRequired: bigint;
+        majorityMet: boolean;
+        launchApprovedAt: bigint;
+        launchableAt: bigint;
+      }
+    ],
+    "view"
+  >;
+
+  hasVotedLaunch: TypedContractMethod<
+    [cabalId: BigNumberish, user: AddressLike],
+    [boolean],
+    "view"
+  >;
+
+  voteLaunch: TypedContractMethod<
+    [cabalId: BigNumberish, support: boolean],
+    [void],
+    "nonpayable"
   >;
 
   getFunction<T extends ContractMethod = ContractMethod>(
@@ -308,7 +429,7 @@ export interface CabalCreationFacet extends BaseContract {
       settings: GovernanceSettingsStruct
     ],
     [bigint],
-    "nonpayable"
+    "payable"
   >;
   getFunction(
     nameOrSignature: "finalizeCabal"
@@ -323,6 +444,44 @@ export interface CabalCreationFacet extends BaseContract {
   getFunction(
     nameOrSignature: "getContributors"
   ): TypedContractMethod<[cabalId: BigNumberish], [string[]], "view">;
+  getFunction(
+    nameOrSignature: "getLaunchVote"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, user: AddressLike],
+    [bigint],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "getLaunchVoteStatus"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish],
+    [
+      [bigint, bigint, bigint, bigint, boolean, bigint, bigint] & {
+        votesFor: bigint;
+        votesAgainst: bigint;
+        totalRaised: bigint;
+        majorityRequired: bigint;
+        majorityMet: boolean;
+        launchApprovedAt: bigint;
+        launchableAt: bigint;
+      }
+    ],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "hasVotedLaunch"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, user: AddressLike],
+    [boolean],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "voteLaunch"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, support: boolean],
+    [void],
+    "nonpayable"
+  >;
 
   getEvent(
     key: "CabalCreated"
@@ -344,6 +503,27 @@ export interface CabalCreationFacet extends BaseContract {
     ContributedEvent.InputTuple,
     ContributedEvent.OutputTuple,
     ContributedEvent.OutputObject
+  >;
+  getEvent(
+    key: "LaunchApproved"
+  ): TypedContractEvent<
+    LaunchApprovedEvent.InputTuple,
+    LaunchApprovedEvent.OutputTuple,
+    LaunchApprovedEvent.OutputObject
+  >;
+  getEvent(
+    key: "LaunchVoteCast"
+  ): TypedContractEvent<
+    LaunchVoteCastEvent.InputTuple,
+    LaunchVoteCastEvent.OutputTuple,
+    LaunchVoteCastEvent.OutputObject
+  >;
+  getEvent(
+    key: "ProtocolFeeCollected"
+  ): TypedContractEvent<
+    ProtocolFeeCollectedEvent.InputTuple,
+    ProtocolFeeCollectedEvent.OutputTuple,
+    ProtocolFeeCollectedEvent.OutputObject
   >;
   getEvent(
     key: "TokensClaimed"
@@ -385,6 +565,39 @@ export interface CabalCreationFacet extends BaseContract {
       ContributedEvent.InputTuple,
       ContributedEvent.OutputTuple,
       ContributedEvent.OutputObject
+    >;
+
+    "LaunchApproved(uint256,uint256)": TypedContractEvent<
+      LaunchApprovedEvent.InputTuple,
+      LaunchApprovedEvent.OutputTuple,
+      LaunchApprovedEvent.OutputObject
+    >;
+    LaunchApproved: TypedContractEvent<
+      LaunchApprovedEvent.InputTuple,
+      LaunchApprovedEvent.OutputTuple,
+      LaunchApprovedEvent.OutputObject
+    >;
+
+    "LaunchVoteCast(uint256,address,bool,uint256)": TypedContractEvent<
+      LaunchVoteCastEvent.InputTuple,
+      LaunchVoteCastEvent.OutputTuple,
+      LaunchVoteCastEvent.OutputObject
+    >;
+    LaunchVoteCast: TypedContractEvent<
+      LaunchVoteCastEvent.InputTuple,
+      LaunchVoteCastEvent.OutputTuple,
+      LaunchVoteCastEvent.OutputObject
+    >;
+
+    "ProtocolFeeCollected(uint256,uint256)": TypedContractEvent<
+      ProtocolFeeCollectedEvent.InputTuple,
+      ProtocolFeeCollectedEvent.OutputTuple,
+      ProtocolFeeCollectedEvent.OutputObject
+    >;
+    ProtocolFeeCollected: TypedContractEvent<
+      ProtocolFeeCollectedEvent.InputTuple,
+      ProtocolFeeCollectedEvent.OutputTuple,
+      ProtocolFeeCollectedEvent.OutputObject
     >;
 
     "TokensClaimed(uint256,address,uint256)": TypedContractEvent<

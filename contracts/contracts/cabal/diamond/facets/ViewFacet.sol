@@ -201,15 +201,22 @@ contract ViewFacet {
         
         for (uint256 i = 0; i < cabalIds.length; i++) {
             uint256 cabalId = cabalIds[i];
+            CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+            
             contributions[i] = LibAppStorage.getContribution(cabalId, user);
             stakedBalances[i] = LibAppStorage.getStakedBalance(cabalId, user);
+            claimed[i] = LibAppStorage.hasClaimed(cabalId, user);
+
+            // Auto-staked tokens from presale (if not yet claimed)
+            uint256 autoStaked = 0;
+            if (!claimed[i] && cabal.totalRaised > 0) {
+                autoStaked = (contributions[i] * cabal.totalTokensReceived) / cabal.totalRaised;
+            }
             
             uint256 ownStake = stakedBalances[i];
             uint256 delegatedToMe = LibAppStorage.getDelegatedPower(cabalId, user);
             address delegatee = LibAppStorage.getDelegatee(cabalId, user);
-            votingPowers[i] = delegatee != address(0) ? delegatedToMe : ownStake + delegatedToMe;
-            
-            claimed[i] = LibAppStorage.hasClaimed(cabalId, user);
+            votingPowers[i] = delegatee != address(0) ? delegatedToMe : autoStaked + ownStake + delegatedToMe;
         }
     }
 }

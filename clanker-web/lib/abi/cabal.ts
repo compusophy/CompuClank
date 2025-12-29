@@ -21,7 +21,7 @@ export const CABAL_ABI = [
     ],
     name: "createCabal",
     outputs: [{ name: "cabalId", type: "uint256" }],
-    stateMutability: "nonpayable",
+    stateMutability: "payable",
     type: "function",
   },
   {
@@ -43,6 +43,39 @@ export const CABAL_ABI = [
     name: "claimTokens",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "support", type: "bool" },
+    ],
+    name: "voteLaunch",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getLaunchVoteStatus",
+    outputs: [
+      { name: "votesFor", type: "uint256" },
+      { name: "votesAgainst", type: "uint256" },
+      { name: "quorumRequired", type: "uint256" },
+      { name: "quorumMet", type: "bool" },
+      { name: "majorityMet", type: "bool" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "hasVotedLaunch",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
     type: "function",
   },
 
@@ -471,6 +504,17 @@ export const CABAL_ABI = [
       { indexed: false, name: "totalRaised", type: "uint256" },
     ],
     name: "Contributed",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "voter", type: "address" },
+      { indexed: false, name: "support", type: "bool" },
+      { indexed: false, name: "weight", type: "uint256" },
+    ],
+    name: "LaunchVoteCast",
     type: "event",
   },
   {

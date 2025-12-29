@@ -10,6 +10,9 @@ import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { Plus, Loader2, Wallet } from 'lucide-react';
 import { WalletButton } from '@/components/wallet/WalletButton';
 import { haptics } from '@/lib/haptics';
+import { parseEther } from 'viem';
+
+const MIN_CREATION_FEE = '0.001'; // Must match contract MIN_CREATION_FEE
 
 interface InlineCreateCTAProps {
   onSuccess?: (cabalId?: bigint) => void;
@@ -60,13 +63,24 @@ export function InlineCreateCTA({ onSuccess }: InlineCreateCTAProps) {
       abi: CABAL_ABI,
       functionName: 'createCabal',
       args: [symbol, symbol, '', settings],
+      value: parseEther(MIN_CREATION_FEE),
     }, {
       onSuccess: () => {
         toast.success('CABAL created! Waiting for confirmation...');
       },
-      onError: (error) => {
-        haptics.error(); // Error haptic
-        toast.error(error.message || 'Failed to create CABAL');
+      onError: (error: Error) => {
+        haptics.error();
+        if (error.message.includes('User rejected') || error.message.includes('rejected the request')) {
+          toast.info('Transaction rejected');
+          return;
+        }
+
+        // Truncate long error messages to prevent UI issues
+        const message = error.message.length > 100 
+          ? `${error.message.substring(0, 100)}...` 
+          : error.message;
+
+        toast.error(message || 'Failed to create CABAL');
       },
     });
   };

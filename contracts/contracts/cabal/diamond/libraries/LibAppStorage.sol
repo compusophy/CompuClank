@@ -65,6 +65,10 @@ struct CabalData {
     // Timestamps (ADDED AT END to preserve storage layout)
     uint256 createdAt;      // block.timestamp when presale created
     uint256 launchedAt;     // block.timestamp when finalized to Active (0 if still presale)
+    
+    // Launch voting (ADDED AT END to preserve storage layout)
+    uint256 launchVotesFor;     // ETH-weighted votes for launch
+    uint256 launchVotesAgainst; // ETH-weighted votes against launch
 }
 
 struct AppStorage {
@@ -106,6 +110,7 @@ library LibAppStorage {
     bytes32 constant HAS_VOTED_POSITION = keccak256("cabal.has.voted.mapping");
     bytes32 constant CREATOR_CABALS_POSITION = keccak256("cabal.creator.cabals.mapping");
     bytes32 constant USER_STAKED_CABALS_POSITION = keccak256("cabal.user.staked.cabals.mapping");
+    bytes32 constant LAUNCH_VOTED_POSITION = keccak256("cabal.launch.voted.mapping");
 
     function appStorage() internal pure returns (AppStorage storage s) {
         bytes32 position = APP_STORAGE_POSITION;
@@ -265,5 +270,23 @@ library LibAppStorage {
             arr.slot := position
         }
         return arr;
+    }
+
+    // ============ Launch Voting ============
+    
+    function hasVotedLaunch(uint256 cabalId, address user) internal view returns (bool) {
+        bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value == 1;
+    }
+
+    function setVotedLaunch(uint256 cabalId, address user) internal {
+        bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
+        assembly {
+            sstore(position, 1)
+        }
     }
 }

@@ -13,6 +13,9 @@ import { Input } from '@/components/ui/input';
 import { CABAL_ABI } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Plus, Wallet } from 'lucide-react';
+import { parseEther } from 'viem';
+
+const MIN_CREATION_FEE = '0.001'; // Must match contract MIN_CREATION_FEE
 
 export default function CreateCabalPage() {
   const router = useRouter();
@@ -71,12 +74,23 @@ export default function CreateCabalPage() {
       abi: CABAL_ABI,
       functionName: 'createCabal',
       args: [formData.name, formData.symbol, formData.image, settings],
+      value: parseEther(MIN_CREATION_FEE),
     }, {
       onSuccess: () => {
         toast.success('CABAL created! Waiting for confirmation...');
       },
-      onError: (error) => {
-        toast.error(error.message || 'Failed to create CABAL');
+      onError: (error: Error) => {
+        if (error.message.includes('User rejected') || error.message.includes('rejected the request')) {
+          toast.info('Transaction rejected');
+          return;
+        }
+
+        // Truncate long error messages to prevent UI issues
+        const message = error.message.length > 100 
+          ? `${error.message.substring(0, 100)}...` 
+          : error.message;
+
+        toast.error(message || 'Failed to create CABAL');
       },
     });
   };

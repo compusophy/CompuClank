@@ -15,6 +15,9 @@ import { CABAL_ABI } from '@/lib/abi/cabal';
 import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { Plus, Wallet, Loader2 } from 'lucide-react';
 import { haptics } from '@/lib/haptics';
+import { parseEther } from 'viem';
+
+const MIN_CREATION_FEE = '0.001'; // Must match contract MIN_CREATION_FEE
 
 interface CreateModalProps {
   isOpen: boolean;
@@ -79,13 +82,24 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
       abi: CABAL_ABI,
       functionName: 'createCabal',
       args: [formData.name, formData.symbol, formData.image, settings],
+      value: parseEther(MIN_CREATION_FEE),
     }, {
       onSuccess: () => {
         toast.success('CABAL created! Waiting for confirmation...');
       },
-      onError: (error) => {
-        haptics.error(); // Error haptic feedback
-        toast.error(error.message || 'Failed to create CABAL');
+      onError: (error: Error) => {
+        haptics.error();
+        if (error.message.includes('User rejected') || error.message.includes('rejected the request')) {
+          toast.info('Transaction rejected');
+          return;
+        }
+        
+        // Truncate long error messages to prevent UI issues
+        const message = error.message.length > 100 
+          ? `${error.message.substring(0, 100)}...` 
+          : error.message;
+          
+        toast.error(message || 'Failed to create CABAL');
       },
     });
   };

@@ -32,9 +32,17 @@ struct Univ4EthDevBuyExtensionData {
 contract CabalCreationFacet {
     // ============ Constants ============
     
-    uint256 constant TITHE_BPS = 1000; // 10% stays in treasury
+    uint256 constant TITHE_BPS = 5000; // 50% stays in treasury
     uint256 constant BPS_DENOMINATOR = 10000;
     bytes32 constant TBA_SALT = bytes32(0);
+    
+    // Minimum amounts to prevent spam
+    uint256 constant MIN_CREATION_FEE = 0.001 ether;
+    uint256 constant MIN_CONTRIBUTION = 0.001 ether;
+    
+    // Launch voting thresholds
+    uint256 constant LAUNCH_QUORUM_BPS = 3300;    // 33% of contributors must vote
+    uint256 constant LAUNCH_MAJORITY_BPS = 6600;  // 66% of votes must be YES
     
     // Default pool config (standard Clanker settings)
     int24 constant DEFAULT_TICK = -230400; // ~10 ETH market cap
@@ -70,15 +78,25 @@ contract CabalCreationFacet {
         address indexed claimant,
         uint256 amount
     );
+    
+    event LaunchVoteCast(
+        uint256 indexed cabalId,
+        address indexed voter,
+        bool support,
+        uint256 weight
+    );
 
     // ============ Errors ============
     
     error CabalNotInPresale();
     error CabalNotActive();
-    error NotCabalCreator();
     error AlreadyClaimed();
     error NoContribution();
-    error ZeroContribution();
+    error InsufficientCreationFee();
+    error InsufficientContribution();
+    error AlreadyVotedLaunch();
+    error LaunchQuorumNotMet();
+    error LaunchMajorityNotMet();
     error TransferFailed();
     error DeploymentFailed();
 
@@ -91,13 +109,16 @@ contract CabalCreationFacet {
      * @param image Token image URI
      * @param settings Initial governance settings
      * @return cabalId The ID of the new Cabal
+     * @dev Requires minimum 0.001 ETH which becomes the creator's initial contribution
      */
     function createCabal(
         string calldata name,
         string calldata symbol,
         string calldata image,
         GovernanceSettings calldata settings
-    ) external returns (uint256 cabalId) {
+    ) external payable returns (uint256 cabalId) {
+        if (msg.value < MIN_CREATION_FEE) revert InsufficientCreationFee();
+        
         AppStorage storage s = LibAppStorage.appStorage();
         
         // Mint NFT to Diamond (this contract)
@@ -128,15 +149,26 @@ contract CabalCreationFacet {
         s.allCabalIds.push(cabalId);
         LibAppStorage.getCreatorCabals(msg.sender).push(cabalId);
         
+        // Auto-contribute the creation fee (creator becomes first contributor)
+        cabal.contributors.push(msg.sender);
+        LibAppStorage.setContribution(cabalId, msg.sender, msg.value);
+        cabal.totalRaised = msg.value;
+        
+        // Forward ETH to TBA
+        (bool success, ) = tbaAddress.call{value: msg.value}("");
+        if (!success) revert TransferFailed();
+        
         emit CabalCreated(cabalId, msg.sender, name, symbol, tbaAddress);
+        emit Contributed(cabalId, msg.sender, msg.value, msg.value);
     }
 
     /**
      * @notice Contribute ETH to a Cabal presale
      * @param cabalId The Cabal to contribute to
+     * @dev Requires minimum 0.001 ETH per contribution
      */
     function contribute(uint256 cabalId) external payable {
-        if (msg.value == 0) revert ZeroContribution();
+        if (msg.value < MIN_CONTRIBUTION) revert InsufficientContribution();
         
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Presale) revert CabalNotInPresale();
@@ -157,16 +189,51 @@ contract CabalCreationFacet {
     }
 
     /**
+     * @notice Vote on whether to launch the token
+     * @param cabalId The Cabal to vote on
+     * @param support True to vote YES for launch, false to vote NO
+     * @dev Voting power is based on ETH contribution amount
+     */
+    function voteLaunch(uint256 cabalId, bool support) external {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Presale) revert CabalNotInPresale();
+        if (LibAppStorage.hasVotedLaunch(cabalId, msg.sender)) revert AlreadyVotedLaunch();
+        
+        uint256 contribution = LibAppStorage.getContribution(cabalId, msg.sender);
+        if (contribution == 0) revert NoContribution();
+        
+        // Mark as voted
+        LibAppStorage.setVotedLaunch(cabalId, msg.sender);
+        
+        // Record vote weighted by contribution
+        if (support) {
+            cabal.launchVotesFor += contribution;
+        } else {
+            cabal.launchVotesAgainst += contribution;
+        }
+        
+        emit LaunchVoteCast(cabalId, msg.sender, support, contribution);
+    }
+
+    /**
      * @notice Finalize a Cabal presale - deploy token via Clanker
      * @param cabalId The Cabal to finalize
-     * @dev Only callable by the Cabal creator
-     *      10% of raised ETH stays as tithe, 90% goes to devBuy
+     * @dev Anyone can finalize once launch vote passes (33% quorum, 66% majority)
+     *      50% of raised ETH stays in treasury, 50% goes to devBuy
      *      TBA is set as reward recipient for LP fees
      */
     function finalizeCabal(uint256 cabalId) external {
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Presale) revert CabalNotInPresale();
-        if (msg.sender != cabal.creator) revert NotCabalCreator();
+        
+        // Check launch vote passed
+        uint256 totalVotes = cabal.launchVotesFor + cabal.launchVotesAgainst;
+        uint256 quorumRequired = (cabal.totalRaised * LAUNCH_QUORUM_BPS) / BPS_DENOMINATOR;
+        
+        if (totalVotes < quorumRequired) revert LaunchQuorumNotMet();
+        
+        uint256 majorityRequired = (totalVotes * LAUNCH_MAJORITY_BPS) / BPS_DENOMINATOR;
+        if (cabal.launchVotesFor < majorityRequired) revert LaunchMajorityNotMet();
         
         AppStorage storage s = LibAppStorage.appStorage();
         
@@ -273,6 +340,49 @@ contract CabalCreationFacet {
      */
     function getContributors(uint256 cabalId) external view returns (address[] memory) {
         return LibAppStorage.getCabalData(cabalId).contributors;
+    }
+
+    /**
+     * @notice Get the current status of launch voting
+     * @param cabalId The Cabal to check
+     * @return votesFor ETH-weighted votes for launch
+     * @return votesAgainst ETH-weighted votes against launch
+     * @return quorumRequired Minimum total votes needed (33% of totalRaised)
+     * @return quorumMet Whether quorum has been reached
+     * @return majorityMet Whether 66% majority for YES has been reached
+     */
+    function getLaunchVoteStatus(uint256 cabalId) external view returns (
+        uint256 votesFor,
+        uint256 votesAgainst,
+        uint256 quorumRequired,
+        bool quorumMet,
+        bool majorityMet
+    ) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        
+        votesFor = cabal.launchVotesFor;
+        votesAgainst = cabal.launchVotesAgainst;
+        
+        uint256 totalVotes = votesFor + votesAgainst;
+        quorumRequired = (cabal.totalRaised * LAUNCH_QUORUM_BPS) / BPS_DENOMINATOR;
+        quorumMet = totalVotes >= quorumRequired;
+        
+        if (totalVotes > 0) {
+            uint256 majorityRequired = (totalVotes * LAUNCH_MAJORITY_BPS) / BPS_DENOMINATOR;
+            majorityMet = votesFor >= majorityRequired;
+        } else {
+            majorityMet = false;
+        }
+    }
+
+    /**
+     * @notice Check if a user has voted on launch
+     * @param cabalId The Cabal to check
+     * @param user The user address to check
+     * @return Whether the user has voted
+     */
+    function hasVotedLaunch(uint256 cabalId, address user) external view returns (bool) {
+        return LibAppStorage.hasVotedLaunch(cabalId, user);
     }
 
     // ============ Internal Functions ============

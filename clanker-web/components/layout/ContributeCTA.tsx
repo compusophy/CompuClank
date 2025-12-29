@@ -11,6 +11,8 @@ import { WalletButton } from '@/components/wallet/WalletButton';
 import { haptics } from '@/lib/haptics';
 import { parseEther } from 'viem';
 
+const MIN_CONTRIBUTION = '0.001'; // Must match contract MIN_CONTRIBUTION
+
 interface ContributeCTAProps {
   cabalId: bigint;
   onSuccess?: () => void;
@@ -18,7 +20,7 @@ interface ContributeCTAProps {
 
 export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
   const { isConnected, address } = useAccount();
-  const [amount, setAmount] = useState('0.00001');
+  const [amount, setAmount] = useState(MIN_CONTRIBUTION);
 
   const { writeContract, data: hash, isPending, reset } = useWriteContract();
   
@@ -42,8 +44,8 @@ export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
       return;
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
-      toast.error('Enter a valid amount');
+    if (!amount || parseFloat(amount) < parseFloat(MIN_CONTRIBUTION)) {
+      toast.error(`Minimum contribution is ${MIN_CONTRIBUTION} ETH`);
       return;
     }
 
@@ -76,7 +78,7 @@ export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
         
         // Reset local state
         reset();
-        setAmount('0.00001');
+        setAmount(MIN_CONTRIBUTION);
       };
 
       handleSuccess();
@@ -111,8 +113,8 @@ export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
                   <div className="absolute inset-0 flex items-center justify-center w-full px-1">
                     <input
                       type="number"
-                      step="0.00001"
-                      min="0"
+                      step="0.001"
+                      min={MIN_CONTRIBUTION}
                       placeholder="0.0"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}

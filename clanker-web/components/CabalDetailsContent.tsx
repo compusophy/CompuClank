@@ -798,6 +798,16 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
       initialData: initialCabal,
     },
   }) as { data: CabalInfo | undefined; isLoading: boolean; refetch: () => void }
+  
+  // Check if user has voted (for ContributeCTA warning)
+  const { data: userVoteStatus } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "getLaunchVote",
+    args: address ? [cabalId, address] : undefined,
+    query: { enabled: !!address && cabal?.phase === CabalPhase.Presale },
+  })
+  const userHasVoted = (userVoteStatus ?? 0n) !== 0n
 
   // Watch for CabalFinalized events to update UI when presale -> active
   // Only watch during presale phase, poll every 30 seconds to reduce RPC calls
@@ -1046,7 +1056,7 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
 
       {/* Contribute CTA (Fixed Bottom) */}
       {cabal.phase === CabalPhase.Presale && (
-        <ContributeCTA cabalId={cabalId} onSuccess={handleSuccess} />
+        <ContributeCTA cabalId={cabalId} userHasVoted={userHasVoted} onSuccess={handleSuccess} />
       )}
     </div>
   )

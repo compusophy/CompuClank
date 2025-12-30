@@ -114,6 +114,7 @@ library LibAppStorage {
     bytes32 constant CREATOR_CABALS_POSITION = keccak256("cabal.creator.cabals.mapping");
     bytes32 constant USER_STAKED_CABALS_POSITION = keccak256("cabal.user.staked.cabals.mapping");
     bytes32 constant LAUNCH_VOTED_POSITION = keccak256("cabal.launch.voted.mapping");
+    bytes32 constant LAUNCH_VOTE_WEIGHT_POSITION = keccak256("cabal.launch.vote.weight.mapping");
 
     function appStorage() internal pure returns (AppStorage storage s) {
         bytes32 position = APP_STORAGE_POSITION;
@@ -291,11 +292,31 @@ library LibAppStorage {
         return getLaunchVote(cabalId, user) != 0;
     }
 
-    function setLaunchVote(uint256 cabalId, address user, bool support) internal {
-        bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
+    function setLaunchVote(uint256 cabalId, address user, bool support, uint256 weight) internal {
+        bytes32 votePosition = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
+        bytes32 weightPosition = keccak256(abi.encodePacked(LAUNCH_VOTE_WEIGHT_POSITION, cabalId, user));
         uint256 value = support ? 1 : 2; // 1 = YES, 2 = NO
         assembly {
-            sstore(position, value)
+            sstore(votePosition, value)
+            sstore(weightPosition, weight)
+        }
+    }
+    
+    function getLaunchVoteWeight(uint256 cabalId, address user) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTE_WEIGHT_POSITION, cabalId, user));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function clearLaunchVote(uint256 cabalId, address user) internal {
+        bytes32 votePosition = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
+        bytes32 weightPosition = keccak256(abi.encodePacked(LAUNCH_VOTE_WEIGHT_POSITION, cabalId, user));
+        assembly {
+            sstore(votePosition, 0)
+            sstore(weightPosition, 0)
         }
     }
 }

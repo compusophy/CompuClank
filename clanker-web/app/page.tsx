@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { useBalance, useReadContract, useWatchContractEvent } from "wagmi"
+import { useBalance, useReadContract, useWatchContractEvent, useAccount } from "wagmi"
 import { erc20Abi } from "viem"
 import { WalletButton } from "@/components/wallet/WalletButton"
 import { SettingsModal } from "@/components/SettingsModal"
@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { TokenAmount } from "@/components/TokenAmount"
-import { Plus, Users, Coins, TrendingUp, Wallet, Loader2 } from "lucide-react"
+import { Plus, Users, Coins, TrendingUp, Wallet, Loader2, Check } from "lucide-react"
 import { CabalDetailsContent } from "@/components/CabalDetailsContent"
 import { Ticker } from "@/components/Ticker"
 import { Footer } from "@/components/layout/Footer"
@@ -20,6 +20,7 @@ import { CreateModal } from "@/components/CreateModal"
 import { TradeModal } from "@/components/TradeModal"
 import { haptics } from "@/lib/haptics"
 import { useInfiniteCabals } from "@/hooks/useInfiniteCabals"
+import { useUserCabalPositions } from "@/hooks/useUserCabalPositions"
 
 type PhaseFilter = "all" | "active" | "presale"
 type SortOrder = "newest" | "oldest"
@@ -192,8 +193,10 @@ function CabalCard({
 }
 
 export default function HomePage() {
+  const { isConnected } = useAccount()
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("all")
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
+  const [showOwned, setShowOwned] = useState(false)
   const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
@@ -208,6 +211,9 @@ export default function HomePage() {
     refresh, 
     sentinelRef 
   } = useInfiniteCabals()
+
+  // Get user positions for filtering owned cabals
+  const { ownedCabalIds, isLoading: isLoadingPositions } = useUserCabalPositions(cabals)
 
   // Watch for new cabals being created (polls every 30 seconds)
   useWatchContractEvent({
@@ -232,9 +238,9 @@ export default function HomePage() {
   })
 
   // Process and filter cabals (client-side on loaded items)
-  const { filteredCabals, counts, cabalMap } = useMemo(() => {
+  const { filteredCabals, counts, cabalMap, ownedCount } = useMemo(() => {
     if (!cabals || cabals.length === 0) {
-      return { filteredCabals: [], counts: { all: 0, active: 0, presale: 0 }, cabalMap: new Map() }
+      return { filteredCabals: [], counts: { all: 0, active: 0, presale: 0 }, cabalMap: new Map(), ownedCount: 0 }
     }
 
     // Create a map for quick lookup
@@ -250,6 +256,9 @@ export default function HomePage() {
       presale: cabals.filter((c) => c.phase === CabalPhase.Presale).length,
     }
 
+    // Count owned cabals
+    const owned = ownedCabalIds.size
+
     // Filter by phase
     let filtered = [...cabals]
     if (phaseFilter === "active") {
@@ -258,14 +267,19 @@ export default function HomePage() {
       filtered = cabals.filter((c) => c.phase === CabalPhase.Presale)
     }
 
+    // Filter by ownership if enabled
+    if (showOwned) {
+      filtered = filtered.filter((c) => ownedCabalIds.has(c.id.toString()))
+    }
+
     // Sort: "newest" keeps natural order (already newest-first from contract)
     // "oldest" reverses the loaded items
     if (sortOrder === "oldest") {
       filtered.reverse()
     }
 
-    return { filteredCabals: filtered, counts, cabalMap: map }
-  }, [cabals, phaseFilter, sortOrder])
+    return { filteredCabals: filtered, counts, cabalMap: map, ownedCount: owned }
+  }, [cabals, phaseFilter, sortOrder, showOwned, ownedCabalIds])
 
   // Get selected cabal data
   const selectedCabal = selectedCabalId !== null ? cabalMap.get(selectedCabalId) : undefined
@@ -391,24 +405,47 @@ export default function HomePage() {
             {/* Filter Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
               {/* Phase Filter */}
-              <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full w-fit">
-                <FilterPill active={phaseFilter === "all"} onClick={() => setPhaseFilter("all")} count={counts.all}>
-                  All
-                </FilterPill>
-                <FilterPill
-                  active={phaseFilter === "active"}
-                  onClick={() => setPhaseFilter("active")}
-                  count={counts.active}
-                >
-                  Active
-                </FilterPill>
-                <FilterPill
-                  active={phaseFilter === "presale"}
-                  onClick={() => setPhaseFilter("presale")}
-                  count={counts.presale}
-                >
-                  Presale
-                </FilterPill>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full w-fit">
+                  <FilterPill active={phaseFilter === "all"} onClick={() => setPhaseFilter("all")} count={counts.all}>
+                    All
+                  </FilterPill>
+                  <FilterPill
+                    active={phaseFilter === "active"}
+                    onClick={() => setPhaseFilter("active")}
+                    count={counts.active}
+                  >
+                    Active
+                  </FilterPill>
+                  <FilterPill
+                    active={phaseFilter === "presale"}
+                    onClick={() => setPhaseFilter("presale")}
+                    count={counts.presale}
+                  >
+                    Presale
+                  </FilterPill>
+                </div>
+
+                {/* Show Owned Toggle - only visible when connected */}
+                {isConnected && (
+                  <button
+                    onClick={() => {
+                      haptics.selection()
+                      setShowOwned(!showOwned)
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
+                      showOwned
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted bg-muted/50"
+                    }`}
+                  >
+                    {showOwned && <Check className="h-3.5 w-3.5" />}
+                    <span>My Cabals</span>
+                    {ownedCount > 0 && (
+                      <span className={`text-xs ${showOwned ? "opacity-70" : "opacity-50"}`}>{ownedCount}</span>
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Sort Toggle */}
@@ -425,7 +462,11 @@ export default function HomePage() {
             {/* Grid */}
             {filteredCabals.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No {phaseFilter} cabals found</p>
+                <p className="text-muted-foreground">
+                  {showOwned 
+                    ? "No cabals found. Contribute to a presale or buy tokens to see your cabals here."
+                    : `No ${phaseFilter === "all" ? "" : phaseFilter} cabals found`}
+                </p>
               </div>
             ) : (
               <>

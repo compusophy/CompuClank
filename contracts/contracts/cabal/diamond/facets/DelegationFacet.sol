@@ -37,6 +37,7 @@ contract DelegationFacet {
      * @notice Delegate voting power to another address
      * @param cabalId The Cabal to delegate in
      * @param delegatee The address to delegate to
+     * @dev Includes both auto-staked (presale) and manually staked tokens
      */
     function delegate(uint256 cabalId, address delegatee) external {
         if (delegatee == address(0)) revert CannotDelegateToZero();
@@ -48,12 +49,13 @@ contract DelegationFacet {
         address currentDelegatee = LibAppStorage.getDelegatee(cabalId, msg.sender);
         if (currentDelegatee == delegatee) revert AlreadyDelegatedToThis();
         
-        uint256 delegatorStake = LibAppStorage.getStakedBalance(cabalId, msg.sender);
+        // Calculate total delegatable power (auto-staked + manual stake)
+        uint256 delegatorPower = _getTotalDelegatablePower(cabalId, msg.sender, cabal);
         
         // Remove power from old delegatee
         if (currentDelegatee != address(0)) {
             uint256 oldPower = LibAppStorage.getDelegatedPower(cabalId, currentDelegatee);
-            uint256 newOldPower = oldPower > delegatorStake ? oldPower - delegatorStake : 0;
+            uint256 newOldPower = oldPower > delegatorPower ? oldPower - delegatorPower : 0;
             LibAppStorage.setDelegatedPower(cabalId, currentDelegatee, newOldPower);
             
             emit DelegatedPowerChanged(cabalId, currentDelegatee, oldPower, newOldPower);
@@ -61,7 +63,7 @@ contract DelegationFacet {
         
         // Add power to new delegatee
         uint256 newDelegateePower = LibAppStorage.getDelegatedPower(cabalId, delegatee);
-        uint256 updatedPower = newDelegateePower + delegatorStake;
+        uint256 updatedPower = newDelegateePower + delegatorPower;
         LibAppStorage.setDelegatedPower(cabalId, delegatee, updatedPower);
         
         // Update delegation
@@ -84,11 +86,12 @@ contract DelegationFacet {
             return; // Not delegated, nothing to do
         }
         
-        uint256 delegatorStake = LibAppStorage.getStakedBalance(cabalId, msg.sender);
+        // Calculate total delegatable power (auto-staked + manual stake)
+        uint256 delegatorPower = _getTotalDelegatablePower(cabalId, msg.sender, cabal);
         
         // Remove power from delegatee
         uint256 oldPower = LibAppStorage.getDelegatedPower(cabalId, currentDelegatee);
-        uint256 newPower = oldPower > delegatorStake ? oldPower - delegatorStake : 0;
+        uint256 newPower = oldPower > delegatorPower ? oldPower - delegatorPower : 0;
         LibAppStorage.setDelegatedPower(cabalId, currentDelegatee, newPower);
         
         // Clear delegation
@@ -96,6 +99,28 @@ contract DelegationFacet {
         
         emit DelegateChanged(cabalId, msg.sender, currentDelegatee, address(0));
         emit DelegatedPowerChanged(cabalId, currentDelegatee, oldPower, newPower);
+    }
+
+    // ============ Internal Functions ============
+    
+    /**
+     * @dev Calculate total delegatable power (auto-staked + manual stake)
+     */
+    function _getTotalDelegatablePower(
+        uint256 cabalId, 
+        address user, 
+        CabalData storage cabal
+    ) internal view returns (uint256) {
+        uint256 manualStake = LibAppStorage.getStakedBalance(cabalId, user);
+        
+        // Include auto-staked tokens if user hasn't claimed
+        uint256 autoStaked = 0;
+        if (!LibAppStorage.hasClaimed(cabalId, user) && cabal.totalRaised > 0) {
+            uint256 contribution = LibAppStorage.getContribution(cabalId, user);
+            autoStaked = (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
+        }
+        
+        return manualStake + autoStaked;
     }
 
     // ============ View Functions ============

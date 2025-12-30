@@ -15,10 +15,11 @@ const MIN_CONTRIBUTION = '0.001'; // Must match contract MIN_CONTRIBUTION
 
 interface ContributeCTAProps {
   cabalId: bigint;
+  userHasVoted?: boolean;
   onSuccess?: () => void;
 }
 
-export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
+export function ContributeCTA({ cabalId, userHasVoted, onSuccess }: ContributeCTAProps) {
   const { isConnected, address } = useAccount();
   const [amount, setAmount] = useState(MIN_CONTRIBUTION);
 
@@ -91,6 +92,11 @@ export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
         haptics.sacredRhythm();
         toast.success(`Contributed ${amount} ETH successfully!`);
         
+        // If user had voted before, inform them their vote was reset
+        if (userHasVoted) {
+          toast.info('Your vote was reset. Please vote again with your new weight.');
+        }
+        
         // Wait for refetch to complete
         await refetchContribution();
         
@@ -104,7 +110,7 @@ export function ContributeCTA({ cabalId, onSuccess }: ContributeCTAProps) {
 
       handleSuccess();
     }
-  }, [isSuccess, hash, amount, onSuccess, reset, refetchContribution]);
+  }, [isSuccess, hash, amount, userHasVoted, onSuccess, reset, refetchContribution]);
 
   const isLoading = isPending || isConfirming;
 

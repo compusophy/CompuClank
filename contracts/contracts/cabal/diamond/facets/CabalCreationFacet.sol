@@ -99,6 +99,11 @@ contract CabalCreationFacet {
         uint256 weight
     );
     
+    event LaunchVoteReset(
+        uint256 indexed cabalId,
+        address indexed voter
+    );
+    
     event LaunchApproved(
         uint256 indexed cabalId,
         uint256 launchableAt
@@ -191,22 +196,38 @@ contract CabalCreationFacet {
 
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Presale) revert CabalNotInPresale();
-        
+
         // Block contributions during launch window (after vote threshold met)
         if (cabal.launchApprovedAt > 0) revert ContributionsLocked();
-        
+
         // Track contribution
         uint256 existing = LibAppStorage.getContribution(cabalId, msg.sender);
         if (existing == 0) {
             cabal.contributors.push(msg.sender);
         }
+        
+        // If user already voted, reset their vote (contribution weight changed)
+        uint256 currentVote = LibAppStorage.getLaunchVote(cabalId, msg.sender);
+        if (currentVote != 0) {
+            // Remove old vote using STORED weight (not current contribution)
+            uint256 oldWeight = LibAppStorage.getLaunchVoteWeight(cabalId, msg.sender);
+            if (currentVote == 1) {
+                cabal.launchVotesFor -= oldWeight;
+            } else {
+                cabal.launchVotesAgainst -= oldWeight;
+            }
+            // Clear vote - user must vote again with new weight
+            LibAppStorage.clearLaunchVote(cabalId, msg.sender);
+            emit LaunchVoteReset(cabalId, msg.sender);
+        }
+        
         LibAppStorage.setContribution(cabalId, msg.sender, existing + msg.value);
         cabal.totalRaised += msg.value;
-        
+
         // Forward ETH to TBA
         (bool success, ) = cabal.tbaAddress.call{value: msg.value}("");
         if (!success) revert TransferFailed();
-        
+
         emit Contributed(cabalId, msg.sender, msg.value, cabal.totalRaised);
     }
 
@@ -243,6 +264,7 @@ contract CabalCreationFacet {
     
     /**
      * @dev Internal helper to apply vote changes
+     *      Uses stored vote weight to prevent underflow when contribution has changed
      */
     function _applyVoteChange(
         uint256 cabalId,
@@ -252,20 +274,28 @@ contract CabalCreationFacet {
     ) internal {
         // Get current vote: 0 = not voted, 1 = YES, 2 = NO
         uint256 cv = LibAppStorage.getLaunchVote(cabalId, msg.sender);
-        
+
         // Revert if trying to vote the same way
         if (cv == (support ? 1 : 2)) revert VoteUnchanged();
-        
-        // Remove old vote if changing, add new vote
-        unchecked {
-            if (cv == 1) cabal.launchVotesFor -= contribution;
-            else if (cv == 2) cabal.launchVotesAgainst -= contribution;
-            
-            if (support) cabal.launchVotesFor += contribution;
-            else cabal.launchVotesAgainst += contribution;
+
+        // Remove old vote using STORED weight (not current contribution)
+        if (cv == 1) {
+            uint256 oldWeight = LibAppStorage.getLaunchVoteWeight(cabalId, msg.sender);
+            cabal.launchVotesFor -= oldWeight;
+        } else if (cv == 2) {
+            uint256 oldWeight = LibAppStorage.getLaunchVoteWeight(cabalId, msg.sender);
+            cabal.launchVotesAgainst -= oldWeight;
         }
-        
-        LibAppStorage.setLaunchVote(cabalId, msg.sender, support);
+
+        // Add new vote with current contribution as weight
+        if (support) {
+            cabal.launchVotesFor += contribution;
+        } else {
+            cabal.launchVotesAgainst += contribution;
+        }
+
+        // Store vote direction AND weight
+        LibAppStorage.setLaunchVote(cabalId, msg.sender, support, contribution);
     }
 
     /**

@@ -64,6 +64,7 @@ export interface CabalCreationFacetInterface extends Interface {
       | "Contributed"
       | "LaunchApproved"
       | "LaunchVoteCast"
+      | "LaunchVoteReset"
       | "ProtocolFeeCollected"
       | "TokensClaimed"
   ): EventFragment;
@@ -257,6 +258,19 @@ export namespace LaunchVoteCastEvent {
     voter: string;
     support: boolean;
     weight: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace LaunchVoteResetEvent {
+  export type InputTuple = [cabalId: BigNumberish, voter: AddressLike];
+  export type OutputTuple = [cabalId: bigint, voter: string];
+  export interface OutputObject {
+    cabalId: bigint;
+    voter: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -519,6 +533,13 @@ export interface CabalCreationFacet extends BaseContract {
     LaunchVoteCastEvent.OutputObject
   >;
   getEvent(
+    key: "LaunchVoteReset"
+  ): TypedContractEvent<
+    LaunchVoteResetEvent.InputTuple,
+    LaunchVoteResetEvent.OutputTuple,
+    LaunchVoteResetEvent.OutputObject
+  >;
+  getEvent(
     key: "ProtocolFeeCollected"
   ): TypedContractEvent<
     ProtocolFeeCollectedEvent.InputTuple,
@@ -587,6 +608,17 @@ export interface CabalCreationFacet extends BaseContract {
       LaunchVoteCastEvent.InputTuple,
       LaunchVoteCastEvent.OutputTuple,
       LaunchVoteCastEvent.OutputObject
+    >;
+
+    "LaunchVoteReset(uint256,address)": TypedContractEvent<
+      LaunchVoteResetEvent.InputTuple,
+      LaunchVoteResetEvent.OutputTuple,
+      LaunchVoteResetEvent.OutputObject
+    >;
+    LaunchVoteReset: TypedContractEvent<
+      LaunchVoteResetEvent.InputTuple,
+      LaunchVoteResetEvent.OutputTuple,
+      LaunchVoteResetEvent.OutputObject
     >;
 
     "ProtocolFeeCollected(uint256,uint256)": TypedContractEvent<

@@ -150,11 +150,12 @@ contract StakingFacet {
         // Update total staked
         cabal.totalStaked -= amount;
         
-        // Update delegated power if user has delegated
+        // Update delegated power if user has delegated (safe subtraction to prevent revert)
         address delegatee = LibAppStorage.getDelegatee(cabalId, msg.sender);
         if (delegatee != address(0)) {
             uint256 currentDelegatedPower = LibAppStorage.getDelegatedPower(cabalId, delegatee);
-            LibAppStorage.setDelegatedPower(cabalId, delegatee, currentDelegatedPower - amount);
+            uint256 newDelegatedPower = currentDelegatedPower > amount ? currentDelegatedPower - amount : 0;
+            LibAppStorage.setDelegatedPower(cabalId, delegatee, newDelegatedPower);
         }
         
         // Transfer tokens from TBA back to user

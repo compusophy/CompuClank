@@ -11,9 +11,8 @@ interface FacetUpgrade {
 }
 
 const FACETS_TO_UPGRADE: FacetUpgrade[] = [
-  { name: "SettingsFacet", contractName: "SettingsFacet" },
-  { name: "ViewFacet", contractName: "ViewFacet" },
-  { name: "CabalCreationFacet", contractName: "CabalCreationFacet" },
+  { name: "StakingFacet", contractName: "StakingFacet" },
+  { name: "DelegationFacet", contractName: "DelegationFacet" },
 ];
 
 async function main() {

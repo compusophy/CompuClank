@@ -533,6 +533,24 @@ export const CABAL_ABI = [
     anonymous: false,
     inputs: [
       { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "voter", type: "address" },
+    ],
+    name: "LaunchVoteReset",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: false, name: "amount", type: "uint256" },
+    ],
+    name: "ProtocolFeeCollected",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
       { indexed: false, name: "tokenAddress", type: "address" },
       { indexed: false, name: "totalRaised", type: "uint256" },
       { indexed: false, name: "titheAmount", type: "uint256" },

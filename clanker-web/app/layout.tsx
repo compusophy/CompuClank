@@ -21,14 +21,14 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://compu-cabal.vercel.a
 // Farcaster Mini App embed metadata
 const miniAppEmbed = {
   version: "1",
-  imageUrl: `${APP_URL}/image.png`,
+  imageUrl: `${APP_URL}/image.gif`,
   button: {
     title: "OPEN",
     action: {
       type: "launch_frame",
       name: "CABAL",
       url: APP_URL,
-      splashImageUrl: `${APP_URL}/image.png`,
+      splashImageUrl: `${APP_URL}/icon.gif`,
       splashBackgroundColor: "#000000"
     }
   }

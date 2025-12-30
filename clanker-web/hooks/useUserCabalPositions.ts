@@ -28,6 +28,9 @@ export function useUserCabalPositions(cabals: CabalInfo[]): UseUserCabalPosition
   const contracts = useMemo(() => {
     if (!address || !cabals.length || !CABAL_DIAMOND_ADDRESS) return [];
 
+    // Store in local const for TypeScript narrowing
+    const diamondAddress = CABAL_DIAMOND_ADDRESS;
+
     const calls: {
       address: `0x${string}`;
       abi: typeof CABAL_ABI | typeof erc20Abi;
@@ -39,7 +42,7 @@ export function useUserCabalPositions(cabals: CabalInfo[]): UseUserCabalPosition
       // Get staked balance (for active cabals)
       if (cabal.phase === CabalPhase.Active) {
         calls.push({
-          address: CABAL_DIAMOND_ADDRESS,
+          address: diamondAddress,
           abi: CABAL_ABI,
           functionName: "getStakedBalance",
           args: [cabal.id, address] as const,
@@ -47,7 +50,7 @@ export function useUserCabalPositions(cabals: CabalInfo[]): UseUserCabalPosition
       } else {
         // Placeholder for presale cabals (no staking)
         calls.push({
-          address: CABAL_DIAMOND_ADDRESS,
+          address: diamondAddress,
           abi: CABAL_ABI,
           functionName: "getContribution", // Will be overwritten, just needs valid call
           args: [cabal.id, address] as const,
@@ -56,7 +59,7 @@ export function useUserCabalPositions(cabals: CabalInfo[]): UseUserCabalPosition
 
       // Get contribution (for all cabals, useful for presale)
       calls.push({
-        address: CABAL_DIAMOND_ADDRESS,
+        address: diamondAddress,
         abi: CABAL_ABI,
         functionName: "getContribution",
         args: [cabal.id, address] as const,
@@ -73,7 +76,7 @@ export function useUserCabalPositions(cabals: CabalInfo[]): UseUserCabalPosition
       } else {
         // Placeholder - use contribution call for presale
         calls.push({
-          address: CABAL_DIAMOND_ADDRESS,
+          address: diamondAddress,
           abi: CABAL_ABI,
           functionName: "getContribution",
           args: [cabal.id, address] as const,

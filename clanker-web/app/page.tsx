@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { TokenAmount } from "@/components/TokenAmount"
-import { Plus, Users, Coins, TrendingUp, Wallet, Loader2, Check } from "lucide-react"
+import { Plus, Users, Coins, TrendingUp, Wallet, Loader2, Check, Search, X } from "lucide-react"
 import { CabalDetailsContent } from "@/components/CabalDetailsContent"
 import { Ticker } from "@/components/Ticker"
 import { Footer } from "@/components/layout/Footer"
@@ -21,8 +21,9 @@ import { TradeModal } from "@/components/TradeModal"
 import { haptics } from "@/lib/haptics"
 import { useInfiniteCabals } from "@/hooks/useInfiniteCabals"
 import { useUserCabalPositions } from "@/hooks/useUserCabalPositions"
+import { useLaunchingCabals } from "@/hooks/useLaunchingCabals"
 
-type PhaseFilter = "all" | "active" | "presale"
+type PhaseFilter = "all" | "active" | "launching" | "presale"
 type SortOrder = "newest" | "oldest"
 
 function formatPercent(value: number): string {
@@ -197,6 +198,7 @@ export default function HomePage() {
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("all")
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
   const [showOwned, setShowOwned] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
@@ -214,6 +216,9 @@ export default function HomePage() {
 
   // Get user positions for filtering owned cabals
   const { ownedCabalIds, isLoading: isLoadingPositions } = useUserCabalPositions(cabals)
+
+  // Detect launching cabals (presale with vote threshold met)
+  const { launchingCabalIds } = useLaunchingCabals(cabals)
 
   // Watch for new cabals being created (polls every 30 seconds)
   useWatchContractEvent({
@@ -240,7 +245,7 @@ export default function HomePage() {
   // Process and filter cabals (client-side on loaded items)
   const { filteredCabals, counts, cabalMap, ownedCount } = useMemo(() => {
     if (!cabals || cabals.length === 0) {
-      return { filteredCabals: [], counts: { all: 0, active: 0, presale: 0 }, cabalMap: new Map(), ownedCount: 0 }
+      return { filteredCabals: [], counts: { all: 0, active: 0, launching: 0, presale: 0 }, cabalMap: new Map(), ownedCount: 0 }
     }
 
     // Create a map for quick lookup
@@ -249,11 +254,18 @@ export default function HomePage() {
       map.set(cabal.id, cabal)
     })
 
+    // Helper to check if a cabal is launching (presale with vote threshold met)
+    const isLaunching = (c: CabalInfo) => 
+      c.phase === CabalPhase.Presale && launchingCabalIds.has(c.id.toString())
+
     // Count by phase (of loaded cabals)
+    // "Launching" is a subset of presale, so presale count excludes launching
+    const launchingCount = cabals.filter(isLaunching).length
     const counts = {
       all: cabals.length,
       active: cabals.filter((c) => c.phase === CabalPhase.Active).length,
-      presale: cabals.filter((c) => c.phase === CabalPhase.Presale).length,
+      launching: launchingCount,
+      presale: cabals.filter((c) => c.phase === CabalPhase.Presale && !launchingCabalIds.has(c.id.toString())).length,
     }
 
     // Count owned cabals
@@ -263,13 +275,25 @@ export default function HomePage() {
     let filtered = [...cabals]
     if (phaseFilter === "active") {
       filtered = cabals.filter((c) => c.phase === CabalPhase.Active)
+    } else if (phaseFilter === "launching") {
+      filtered = cabals.filter(isLaunching)
     } else if (phaseFilter === "presale") {
-      filtered = cabals.filter((c) => c.phase === CabalPhase.Presale)
+      // Presale filter shows only non-launching presales
+      filtered = cabals.filter((c) => c.phase === CabalPhase.Presale && !launchingCabalIds.has(c.id.toString()))
     }
 
     // Filter by ownership if enabled
     if (showOwned) {
       filtered = filtered.filter((c) => ownedCabalIds.has(c.id.toString()))
+    }
+
+    // Filter by search query (name or symbol)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter((c) => 
+        c.name.toLowerCase().includes(query) || 
+        c.symbol.toLowerCase().includes(query)
+      )
     }
 
     // Sort: "newest" keeps natural order (already newest-first from contract)
@@ -279,7 +303,7 @@ export default function HomePage() {
     }
 
     return { filteredCabals: filtered, counts, cabalMap: map, ownedCount: owned }
-  }, [cabals, phaseFilter, sortOrder, showOwned, ownedCabalIds])
+  }, [cabals, phaseFilter, sortOrder, showOwned, ownedCabalIds, launchingCabalIds, searchQuery])
 
   // Get selected cabal data
   const selectedCabal = selectedCabalId !== null ? cabalMap.get(selectedCabalId) : undefined
@@ -403,10 +427,30 @@ export default function HomePage() {
         ) : (
           <div className="space-y-3.5">
             {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-              {/* Phase Filter */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full w-fit">
+            <div className="space-y-3">
+              {/* Search Bar */}
+              <div className="relative max-w-md mx-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder=""
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-10 pl-9 pr-9 rounded-full border border-input bg-muted/50 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Phase Filter - Centered */}
+              <div className="flex justify-center">
+                <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full">
                   <FilterPill active={phaseFilter === "all"} onClick={() => setPhaseFilter("all")} count={counts.all}>
                     All
                   </FilterPill>
@@ -418,6 +462,13 @@ export default function HomePage() {
                     Active
                   </FilterPill>
                   <FilterPill
+                    active={phaseFilter === "launching"}
+                    onClick={() => setPhaseFilter("launching")}
+                    count={counts.launching}
+                  >
+                    Launching
+                  </FilterPill>
+                  <FilterPill
                     active={phaseFilter === "presale"}
                     onClick={() => setPhaseFilter("presale")}
                     count={counts.presale}
@@ -425,8 +476,21 @@ export default function HomePage() {
                     Presale
                   </FilterPill>
                 </div>
+              </div>
 
-                {/* Show Owned Toggle - only visible when connected */}
+              {/* Second Row - Sort left, Owned right */}
+              <div className="flex justify-between items-center">
+                {/* Sort Toggle - Left */}
+                <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full">
+                  <FilterPill active={sortOrder === "newest"} onClick={() => setSortOrder("newest")}>
+                    Newest
+                  </FilterPill>
+                  <FilterPill active={sortOrder === "oldest"} onClick={() => setSortOrder("oldest")}>
+                    Oldest
+                  </FilterPill>
+                </div>
+
+                {/* Show Owned Toggle - Right, only visible when connected */}
                 {isConnected && (
                   <button
                     onClick={() => {
@@ -440,22 +504,12 @@ export default function HomePage() {
                     }`}
                   >
                     {showOwned && <Check className="h-3.5 w-3.5" />}
-                    <span>My Cabals</span>
+                    <span>Owned</span>
                     {ownedCount > 0 && (
                       <span className={`text-xs ${showOwned ? "opacity-70" : "opacity-50"}`}>{ownedCount}</span>
                     )}
                   </button>
                 )}
-              </div>
-
-              {/* Sort Toggle */}
-              <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-full w-fit">
-                <FilterPill active={sortOrder === "newest"} onClick={() => setSortOrder("newest")}>
-                  Newest
-                </FilterPill>
-                <FilterPill active={sortOrder === "oldest"} onClick={() => setSortOrder("oldest")}>
-                  Oldest
-                </FilterPill>
               </div>
             </div>
 

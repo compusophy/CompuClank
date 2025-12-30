@@ -23,12 +23,12 @@ const miniAppEmbed = {
   version: "1",
   imageUrl: `${APP_URL}/image.png`,
   button: {
-    title: "Open CABAL",
+    title: "OPEN",
     action: {
       type: "launch_frame",
       name: "CABAL",
       url: APP_URL,
-      splashImageUrl: `${APP_URL}/splash.png`,
+      splashImageUrl: `${APP_URL}/image.png`,
       splashBackgroundColor: "#000000"
     }
   }

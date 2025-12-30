@@ -10,8 +10,8 @@
     "iconUrl": "https://compu-cabal.vercel.app/icon.png",
     "homeUrl": "https://compu-cabal.vercel.app",
     "imageUrl": "https://compu-cabal.vercel.app/image.png",
-    "buttonTitle": "Open CABAL",
-    "splashImageUrl": "https://compu-cabal.vercel.app/splash.png",
+    "buttonTitle": "OPEN",
+    "splashImageUrl": "https://compu-cabal.vercel.app/icon.png",
     "splashBackgroundColor": "#000000",
     "webhookUrl": "https://compu-cabal.vercel.app/api/webhook"
   }

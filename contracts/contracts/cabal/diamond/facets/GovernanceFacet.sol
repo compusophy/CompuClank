@@ -1,17 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { LibAppStorage, AppStorage, CabalData, CabalPhase, Proposal, ProposalState, GovernanceSettings } from "../libraries/LibAppStorage.sol";
+import { LibAppStorage, AppStorage, CabalData, CabalPhase, Proposal, ProposalState, GovernanceSettings, ActivityType } from "../libraries/LibAppStorage.sol";
 
 /**
  * @title GovernanceFacet
  * @notice Handles proposals, voting, and execution
+ * @dev Includes preset proposal types for common actions in the fractal DAO
  */
 contract GovernanceFacet {
     // ============ Constants ============
     
     uint256 constant BPS_DENOMINATOR = 10000;
     uint256 constant PROPOSAL_COOLDOWN = 24 hours; // Time after launch before proposals can be created
+
+    // ============ Enums ============
+    
+    enum ProposalType {
+        Custom,             // 0: Free-form proposal
+        CreateChildCabal,   // 1: Spawn a new child cabal
+        ContributeToPresale,// 2: Contribute ETH to another cabal's presale
+        DissolveChild,      // 3: Dissolve a child cabal
+        Trade               // 4: Buy/sell tokens
+    }
 
     // ============ Events ============
     
@@ -48,6 +59,7 @@ contract GovernanceFacet {
     // ============ Errors ============
     
     error CabalNotActive();
+    error CabalClosed();
     error ProposalCooldownNotElapsed();
     error InsufficientVotingPower();
     error ProposalNotActive();
@@ -57,6 +69,9 @@ contract GovernanceFacet {
     error NotProposer();
     error ExecutionFailed();
     error ArrayLengthMismatch();
+    error ProposalAlreadyActive();
+    error NotChildCabal();
+    error InvalidTargetCabal();
 
     // ============ External Functions ============
 
@@ -86,6 +101,14 @@ contract GovernanceFacet {
         // Check proposal cooldown has elapsed (24 hours after launch)
         if (block.timestamp < cabal.launchedAt + PROPOSAL_COOLDOWN) revert ProposalCooldownNotElapsed();
         
+        // One proposal at a time - check if previous proposal is still active
+        if (cabal.nextProposalId > 0) {
+            ProposalState prevState = _getProposalState(cabalId, cabal.nextProposalId - 1);
+            if (prevState == ProposalState.Active || prevState == ProposalState.Pending) {
+                revert ProposalAlreadyActive();
+            }
+        }
+        
         // Check proposer has enough voting power
         uint256 votingPower = _getVotingPower(cabalId, msg.sender);
         if (votingPower < cabal.settings.proposalThreshold) revert InsufficientVotingPower();
@@ -113,6 +136,8 @@ contract GovernanceFacet {
             proposal.startBlock,
             proposal.endBlock
         );
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.ProposalCreated, proposalId);
     }
 
     /**
@@ -147,6 +172,8 @@ contract GovernanceFacet {
         }
         
         emit VoteCast(cabalId, proposalId, msg.sender, support, weight);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.ProposalVoted, weight);
     }
 
     /**
@@ -181,6 +208,8 @@ contract GovernanceFacet {
         }
         
         emit ProposalExecuted(cabalId, proposalId);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.ProposalExecuted, proposalId);
     }
 
     /**
@@ -196,6 +225,134 @@ contract GovernanceFacet {
         proposal.cancelled = true;
         
         emit ProposalCancelled(cabalId, proposalId);
+    }
+
+    // ============ Preset Proposal Functions ============
+
+    /**
+     * @notice Create a proposal to spawn a new child cabal
+     * @param cabalId The parent cabal proposing the child creation
+     * @param ethContribution The ETH amount from treasury to contribute to child's presale
+     * @param description Description of why this child cabal should be created
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeCreateChildCabal(
+        uint256 cabalId,
+        uint256 ethContribution,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = ethContribution;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("createChildCabal(uint256)", cabalId);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
+    /**
+     * @notice Create a proposal to contribute to another cabal's presale
+     * @param cabalId The cabal proposing the contribution
+     * @param targetCabalId The cabal to contribute to
+     * @param ethAmount The ETH amount to contribute
+     * @param description Description of why this contribution should be made
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeContributeToPresale(
+        uint256 cabalId,
+        uint256 targetCabalId,
+        uint256 ethAmount,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        // Verify target exists and is in presale
+        CabalData storage target = LibAppStorage.getCabalData(targetCabalId);
+        if (target.tbaAddress == address(0)) revert InvalidTargetCabal();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = ethAmount;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("contribute(uint256)", targetCabalId);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
+    /**
+     * @notice Create a proposal to dissolve a child cabal
+     * @param cabalId The parent cabal proposing the dissolution
+     * @param childCabalId The child cabal to dissolve
+     * @param description Description of why this child should be dissolved
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeDissolveChild(
+        uint256 cabalId,
+        uint256 childCabalId,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        // Verify child is actually a child of this cabal
+        CabalData storage child = LibAppStorage.getCabalData(childCabalId);
+        if (child.parentCabalId != cabalId) revert NotChildCabal();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("dissolveChild(uint256)", childCabalId);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
+    /**
+     * @notice Create a proposal to buy tokens from another cabal
+     * @param cabalId The cabal proposing the trade
+     * @param targetCabalId The cabal whose tokens to buy
+     * @param ethAmount The ETH amount to spend
+     * @param minAmountOut Minimum tokens expected (slippage protection)
+     * @param description Description of why this trade should be made
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeBuyTokens(
+        uint256 cabalId,
+        uint256 targetCabalId,
+        uint256 ethAmount,
+        uint256 minAmountOut,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = ethAmount;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("buyTokens(uint256,uint256)", targetCabalId, minAmountOut);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
     }
 
     // ============ View Functions ============
@@ -296,5 +453,59 @@ contract GovernanceFacet {
         }
 
         return autoStaked + ownStake + delegatedToMe;
+    }
+
+    /**
+     * @dev Internal helper to create proposal (shared by standard and preset methods)
+     */
+    function _createProposalInternal(
+        uint256 cabalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        string calldata description
+    ) internal returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        
+        // Check proposal cooldown has elapsed (24 hours after launch)
+        if (block.timestamp < cabal.launchedAt + PROPOSAL_COOLDOWN) revert ProposalCooldownNotElapsed();
+        
+        // One proposal at a time - check if previous proposal is still active
+        if (cabal.nextProposalId > 0) {
+            ProposalState prevState = _getProposalState(cabalId, cabal.nextProposalId - 1);
+            if (prevState == ProposalState.Active || prevState == ProposalState.Pending) {
+                revert ProposalAlreadyActive();
+            }
+        }
+        
+        // Check proposer has enough voting power
+        uint256 votingPower = _getVotingPower(cabalId, msg.sender);
+        if (votingPower < cabal.settings.proposalThreshold) revert InsufficientVotingPower();
+        
+        proposalId = cabal.nextProposalId++;
+        
+        Proposal storage proposal = LibAppStorage.getProposal(cabalId, proposalId);
+        proposal.id = proposalId;
+        proposal.proposer = msg.sender;
+        proposal.targets = targets;
+        proposal.values = values;
+        proposal.calldatas = calldatas;
+        proposal.description = description;
+        proposal.startBlock = block.number;
+        proposal.endBlock = block.number + cabal.settings.votingPeriod;
+        
+        emit ProposalCreated(
+            cabalId,
+            proposalId,
+            msg.sender,
+            targets,
+            values,
+            calldatas,
+            description,
+            proposal.startBlock,
+            proposal.endBlock
+        );
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.ProposalCreated, proposalId);
     }
 }

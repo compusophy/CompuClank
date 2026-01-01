@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { LibAppStorage, AppStorage, CabalData, CabalPhase } from "../libraries/LibAppStorage.sol";
+import { LibAppStorage, AppStorage, CabalData, CabalPhase, ActivityType } from "../libraries/LibAppStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -70,6 +70,8 @@ contract TreasuryFacet {
         uint256 claimed = balanceAfter - balanceBefore;
         
         emit LPFeesClaimed(cabalId, token, claimed);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.FeeClaimed, claimed);
     }
 
     /**

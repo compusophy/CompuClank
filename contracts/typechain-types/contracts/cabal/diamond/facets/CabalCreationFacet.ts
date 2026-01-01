@@ -23,31 +23,12 @@ import type {
   TypedContractMethod,
 } from "../../../../common";
 
-export type GovernanceSettingsStruct = {
-  votingPeriod: BigNumberish;
-  quorumBps: BigNumberish;
-  majorityBps: BigNumberish;
-  proposalThreshold: BigNumberish;
-};
-
-export type GovernanceSettingsStructOutput = [
-  votingPeriod: bigint,
-  quorumBps: bigint,
-  majorityBps: bigint,
-  proposalThreshold: bigint
-] & {
-  votingPeriod: bigint;
-  quorumBps: bigint;
-  majorityBps: bigint;
-  proposalThreshold: bigint;
-};
-
 export interface CabalCreationFacetInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "claimTokens"
       | "contribute"
-      | "createCabal"
+      | "createChildCabal"
       | "finalizeCabal"
       | "getClaimable"
       | "getContributors"
@@ -78,8 +59,8 @@ export interface CabalCreationFacetInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "createCabal",
-    values: [string, string, string, GovernanceSettingsStruct]
+    functionFragment: "createChildCabal",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "finalizeCabal",
@@ -116,7 +97,7 @@ export interface CabalCreationFacetInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "contribute", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "createCabal",
+    functionFragment: "createChildCabal",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -360,13 +341,8 @@ export interface CabalCreationFacet extends BaseContract {
 
   contribute: TypedContractMethod<[cabalId: BigNumberish], [void], "payable">;
 
-  createCabal: TypedContractMethod<
-    [
-      name: string,
-      symbol: string,
-      image: string,
-      settings: GovernanceSettingsStruct
-    ],
+  createChildCabal: TypedContractMethod<
+    [parentCabalId: BigNumberish],
     [bigint],
     "payable"
   >;
@@ -434,17 +410,8 @@ export interface CabalCreationFacet extends BaseContract {
     nameOrSignature: "contribute"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "payable">;
   getFunction(
-    nameOrSignature: "createCabal"
-  ): TypedContractMethod<
-    [
-      name: string,
-      symbol: string,
-      image: string,
-      settings: GovernanceSettingsStruct
-    ],
-    [bigint],
-    "payable"
-  >;
+    nameOrSignature: "createChildCabal"
+  ): TypedContractMethod<[parentCabalId: BigNumberish], [bigint], "payable">;
   getFunction(
     nameOrSignature: "finalizeCabal"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;

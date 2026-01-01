@@ -27,6 +27,20 @@ contract ViewFacet {
         uint256 totalStaked;
         uint256 contributorCount;
         GovernanceSettings settings;
+        uint256 parentCabalId;  // Parent in hierarchy (0 for root/legacy)
+    }
+
+    struct CabalHierarchy {
+        uint256 cabalId;
+        uint256 parentId;
+        uint256[] childIds;
+        CabalPhase phase;
+        string symbol;
+    }
+
+    struct TreeNode {
+        uint256 cabalId;
+        uint256 parentId;
     }
 
     // ============ Cabal Queries ============
@@ -52,7 +66,8 @@ contract ViewFacet {
             totalTokensReceived: cabal.totalTokensReceived,
             totalStaked: cabal.totalStaked,
             contributorCount: cabal.contributors.length,
-            settings: cabal.settings
+            settings: cabal.settings,
+            parentCabalId: cabal.parentCabalId
         });
     }
 
@@ -118,7 +133,8 @@ contract ViewFacet {
                 totalTokensReceived: cabal.totalTokensReceived,
                 totalStaked: cabal.totalStaked,
                 contributorCount: cabal.contributors.length,
-                settings: cabal.settings
+                settings: cabal.settings,
+                parentCabalId: cabal.parentCabalId
             });
         }
     }
@@ -178,10 +194,11 @@ contract ViewFacet {
                 totalTokensReceived: cabal.totalTokensReceived,
                 totalStaked: cabal.totalStaked,
                 contributorCount: cabal.contributors.length,
-                settings: cabal.settings
+                settings: cabal.settings,
+                parentCabalId: cabal.parentCabalId
             });
         }
-        
+
         return infos;
     }
 
@@ -218,5 +235,121 @@ contract ViewFacet {
             address delegatee = LibAppStorage.getDelegatee(cabalId, user);
             votingPowers[i] = delegatee != address(0) ? delegatedToMe : autoStaked + ownStake + delegatedToMe;
         }
+    }
+
+    // ============ Hierarchy Queries ============
+
+    /**
+     * @notice Get hierarchy info for a single cabal
+     * @param cabalId The cabal to get hierarchy for
+     * @return hierarchy Parent ID and child IDs
+     */
+    function getCabalHierarchy(uint256 cabalId) external view returns (CabalHierarchy memory hierarchy) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        
+        hierarchy = CabalHierarchy({
+            cabalId: cabalId,
+            parentId: cabal.parentCabalId,
+            childIds: cabal.childCabalIds,
+            phase: cabal.phase,
+            symbol: cabal.symbol
+        });
+    }
+
+    /**
+     * @notice Get the full tree structure (all cabals with their parent IDs)
+     * @return nodes Array of TreeNode structs containing all cabals
+     * @dev Optimized for graph visualization - minimal data per node
+     */
+    function getFullTree() external view returns (TreeNode[] memory nodes) {
+        uint256[] storage allIds = LibAppStorage.appStorage().allCabalIds;
+        nodes = new TreeNode[](allIds.length);
+        
+        for (uint256 i = 0; i < allIds.length; i++) {
+            uint256 cabalId = allIds[i];
+            CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+            
+            nodes[i] = TreeNode({
+                cabalId: cabalId,
+                parentId: cabal.parentCabalId
+            });
+        }
+    }
+
+    /**
+     * @notice Get only hierarchical cabals (CABAL0 and its descendants)
+     * @return ids Array of cabal IDs that are part of the fractal hierarchy
+     * @dev Excludes legacy cabals (those with parentCabalId=0 that aren't CABAL0)
+     */
+    function getHierarchicalCabalIds() external view returns (uint256[] memory ids) {
+        if (!LibAppStorage.isGenesisInitialized()) {
+            return new uint256[](0);
+        }
+        
+        uint256 rootId = LibAppStorage.getRootCabalId();
+        uint256[] storage allIds = LibAppStorage.appStorage().allCabalIds;
+        
+        // First pass: count hierarchical cabals
+        uint256 count = 0;
+        for (uint256 i = 0; i < allIds.length; i++) {
+            uint256 cabalId = allIds[i];
+            CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+            // Include if: is root cabal OR has a parent (part of hierarchy)
+            if (cabalId == rootId || cabal.parentCabalId > 0) {
+                count++;
+            }
+        }
+        
+        // Second pass: collect hierarchical cabal IDs
+        ids = new uint256[](count);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < allIds.length; i++) {
+            uint256 cabalId = allIds[i];
+            CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+            if (cabalId == rootId || cabal.parentCabalId > 0) {
+                ids[idx++] = cabalId;
+            }
+        }
+    }
+
+    /**
+     * @notice Get root cabal ID (CABAL0)
+     */
+    function getRootCabalId() external view returns (uint256) {
+        return LibAppStorage.getRootCabalId();
+    }
+
+    /**
+     * @notice Check if genesis has been initialized
+     */
+    function isGenesisInitialized() external view returns (bool) {
+        return LibAppStorage.isGenesisInitialized();
+    }
+
+    /**
+     * @notice Get the protocol treasury address (CABAL0's TBA)
+     */
+    function getProtocolTreasury() external view returns (address) {
+        if (!LibAppStorage.isGenesisInitialized()) return address(0);
+        uint256 rootId = LibAppStorage.getRootCabalId();
+        return LibAppStorage.getCabalData(rootId).tbaAddress;
+    }
+
+    /**
+     * @notice Get children of a cabal
+     * @param cabalId The parent cabal
+     * @return childIds Array of child cabal IDs
+     */
+    function getChildCabals(uint256 cabalId) external view returns (uint256[] memory childIds) {
+        return LibAppStorage.getCabalData(cabalId).childCabalIds;
+    }
+
+    /**
+     * @notice Get parent of a cabal
+     * @param cabalId The child cabal
+     * @return parentId Parent cabal ID (0 for root)
+     */
+    function getParentCabal(uint256 cabalId) external view returns (uint256 parentId) {
+        return LibAppStorage.getCabalData(cabalId).parentCabalId;
     }
 }

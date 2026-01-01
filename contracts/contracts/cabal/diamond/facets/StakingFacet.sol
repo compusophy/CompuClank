@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { LibAppStorage, AppStorage, CabalData, CabalPhase } from "../libraries/LibAppStorage.sol";
+import { LibAppStorage, AppStorage, CabalData, CabalPhase, ActivityType } from "../libraries/LibAppStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
@@ -128,6 +128,8 @@ contract StakingFacet {
         }
         
         emit Staked(cabalId, msg.sender, amount, newBalance);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Staked, amount);
     }
 
     /**
@@ -177,6 +179,8 @@ contract StakingFacet {
         if (!success) revert TransferFailed();
         
         emit Unstaked(cabalId, msg.sender, amount, newBalance);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Unstaked, amount);
     }
 
     // ============ View Functions ============

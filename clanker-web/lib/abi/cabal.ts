@@ -4,21 +4,7 @@
 export const CABAL_ABI = [
   // ============ CabalCreationFacet ============
   {
-    inputs: [
-      { name: "name", type: "string" },
-      { name: "symbol", type: "string" },
-      { name: "image", type: "string" },
-      {
-        name: "settings",
-        type: "tuple",
-        components: [
-          { name: "votingPeriod", type: "uint256" },
-          { name: "quorumBps", type: "uint256" },
-          { name: "majorityBps", type: "uint256" },
-          { name: "proposalThreshold", type: "uint256" },
-        ],
-      },
-    ],
+    inputs: [],
     name: "createCabal",
     outputs: [{ name: "cabalId", type: "uint256" }],
     stateMutability: "payable",
@@ -227,6 +213,7 @@ export const CABAL_ABI = [
               { name: "proposalThreshold", type: "uint256" },
             ],
           },
+          { name: "parentCabalId", type: "uint256" },
         ],
       },
     ],
@@ -237,6 +224,13 @@ export const CABAL_ABI = [
     inputs: [],
     name: "getAllCabals",
     outputs: [{ name: "", type: "uint256[]" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getHierarchicalCabalIds",
+    outputs: [{ name: "ids", type: "uint256[]" }],
     stateMutability: "view",
     type: "function",
   },
@@ -282,6 +276,7 @@ export const CABAL_ABI = [
               { name: "proposalThreshold", type: "uint256" },
             ],
           },
+          { name: "parentCabalId", type: "uint256" },
         ],
       },
       { name: "total", type: "uint256" },
@@ -589,6 +584,348 @@ export const CABAL_ABI = [
     name: "AllCabalsReset",
     type: "event",
   },
+
+  // ============ Proposal View Functions ============
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getNextProposalId",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "proposalId", type: "uint256" },
+    ],
+    name: "getProposal",
+    outputs: [
+      { name: "id", type: "uint256" },
+      { name: "proposer", type: "address" },
+      { name: "forVotes", type: "uint256" },
+      { name: "againstVotes", type: "uint256" },
+      { name: "startBlock", type: "uint256" },
+      { name: "endBlock", type: "uint256" },
+      { name: "executed", type: "bool" },
+      { name: "cancelled", type: "bool" },
+      { name: "description", type: "string" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "proposalId", type: "uint256" },
+    ],
+    name: "getProposalState",
+    outputs: [{ name: "", type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "proposalId", type: "uint256" },
+      { name: "voter", type: "address" },
+    ],
+    name: "hasVoted",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+
+  // ============ ActivityFacet ============
+  {
+    inputs: [],
+    name: "getRecentActivities",
+    outputs: [
+      {
+        name: "activities",
+        type: "tuple[10]",
+        components: [
+          { name: "cabalId", type: "uint256" },
+          { name: "actor", type: "address" },
+          { name: "activityType", type: "uint8" },
+          { name: "amount", type: "uint256" },
+          { name: "timestamp", type: "uint256" },
+        ],
+      },
+      { name: "count", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getTotalActivityCount",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+
+  // ============ GenesisFacet ============
+  {
+    inputs: [],
+    name: "initializeGenesis",
+    outputs: [{ name: "cabalId", type: "uint256" }],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "contributeToGenesis",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "isGenesisInitialized",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getRootCabalId",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getProtocolTreasury",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+
+  // ============ Hierarchy (ViewFacet) ============
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getCabalHierarchy",
+    outputs: [
+      {
+        name: "hierarchy",
+        type: "tuple",
+        components: [
+          { name: "cabalId", type: "uint256" },
+          { name: "parentId", type: "uint256" },
+          { name: "childIds", type: "uint256[]" },
+          { name: "phase", type: "uint8" },
+          { name: "symbol", type: "string" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getFullTree",
+    outputs: [
+      {
+        name: "nodes",
+        type: "tuple[]",
+        components: [
+          { name: "cabalId", type: "uint256" },
+          { name: "parentId", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getChildCabals",
+    outputs: [{ name: "childIds", type: "uint256[]" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getParentCabal",
+    outputs: [{ name: "parentId", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalIds", type: "uint256[]" }],
+    name: "getCabals",
+    outputs: [
+      {
+        name: "",
+        type: "tuple[]",
+        components: [
+          { name: "id", type: "uint256" },
+          { name: "creator", type: "address" },
+          { name: "name", type: "string" },
+          { name: "symbol", type: "string" },
+          { name: "image", type: "string" },
+          { name: "tbaAddress", type: "address" },
+          { name: "tokenAddress", type: "address" },
+          { name: "phase", type: "uint8" },
+          { name: "createdAt", type: "uint256" },
+          { name: "launchedAt", type: "uint256" },
+          { name: "totalRaised", type: "uint256" },
+          { name: "totalTokensReceived", type: "uint256" },
+          { name: "totalStaked", type: "uint256" },
+          { name: "contributorCount", type: "uint256" },
+          {
+            name: "settings",
+            type: "tuple",
+            components: [
+              { name: "votingPeriod", type: "uint256" },
+              { name: "quorumBps", type: "uint256" },
+              { name: "majorityBps", type: "uint256" },
+              { name: "proposalThreshold", type: "uint256" },
+            ],
+          },
+          { name: "parentCabalId", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+
+  // ============ DissolutionFacet ============
+  {
+    inputs: [{ name: "childCabalId", type: "uint256" }],
+    name: "dissolveChild",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "canDissolve",
+    outputs: [
+      { name: "canDissolve", type: "bool" },
+      { name: "reason", type: "string" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getDissolutionInfo",
+    outputs: [
+      { name: "parentId", type: "uint256" },
+      { name: "childCount", type: "uint256" },
+      { name: "totalStaked", type: "uint256" },
+      { name: "ethBalance", type: "uint256" },
+      { name: "tokenBalance", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+
+  // ============ Governance Preset Proposals ============
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "ethContribution", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeCreateChildCabal",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "targetCabalId", type: "uint256" },
+      { name: "ethAmount", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeContributeToPresale",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "childCabalId", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeDissolveChild",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "targetCabalId", type: "uint256" },
+      { name: "ethAmount", type: "uint256" },
+      { name: "minAmountOut", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeBuyTokens",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+
+  // ============ Dissolution Events ============
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "parentCabalId", type: "uint256" },
+    ],
+    name: "DissolutionStarted",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: false, name: "totalStakers", type: "uint256" },
+      { indexed: false, name: "ethDistributed", type: "uint256" },
+      { indexed: false, name: "tokensDistributed", type: "uint256" },
+    ],
+    name: "CabalDissolved",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "staker", type: "address" },
+      { indexed: false, name: "ethAmount", type: "uint256" },
+      { indexed: false, name: "tokenAmount", type: "uint256" },
+    ],
+    name: "StakerPayout",
+    type: "event",
+  },
+
+  // ============ Genesis Events ============
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: false, name: "tbaAddress", type: "address" },
+    ],
+    name: "GenesisInitialized",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "contributor", type: "address" },
+      { indexed: false, name: "amount", type: "uint256" },
+    ],
+    name: "GenesisContributed",
+    type: "event",
+  },
+
 ] as const;
 
 // Cabal phase enum
@@ -596,6 +933,36 @@ export enum CabalPhase {
   Presale = 0,
   Active = 1,
   Paused = 2,
+  Closed = 3,
+}
+
+// Proposal state enum
+export enum ProposalState {
+  Pending = 0,
+  Active = 1,
+  Succeeded = 2,
+  Defeated = 3,
+  Executed = 4,
+  Cancelled = 5,
+}
+
+// Activity type enum
+export enum ActivityType {
+  CabalCreated = 0,
+  Contributed = 1,
+  VotedLaunch = 2,
+  Launched = 3,
+  Claimed = 4,
+  Staked = 5,
+  Unstaked = 6,
+  Bought = 7,
+  Sold = 8,
+  ProposalCreated = 9,
+  ProposalVoted = 10,
+  ProposalExecuted = 11,
+  Delegated = 12,
+  Undelegated = 13,
+  FeeClaimed = 14,
 }
 
 // Types
@@ -622,4 +989,5 @@ export interface CabalInfo {
   totalStaked: bigint;
   contributorCount: bigint;
   settings: GovernanceSettings;
+  parentCabalId: bigint;
 }

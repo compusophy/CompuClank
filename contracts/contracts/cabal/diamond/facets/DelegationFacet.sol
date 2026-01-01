@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { LibAppStorage, AppStorage, CabalData, CabalPhase } from "../libraries/LibAppStorage.sol";
+import { LibAppStorage, AppStorage, CabalData, CabalPhase, ActivityType } from "../libraries/LibAppStorage.sol";
 
 /**
  * @title DelegationFacet
@@ -71,6 +71,8 @@ contract DelegationFacet {
         
         emit DelegateChanged(cabalId, msg.sender, currentDelegatee, delegatee);
         emit DelegatedPowerChanged(cabalId, delegatee, newDelegateePower, updatedPower);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Delegated, delegatorPower);
     }
 
     /**
@@ -99,6 +101,8 @@ contract DelegationFacet {
         
         emit DelegateChanged(cabalId, msg.sender, currentDelegatee, address(0));
         emit DelegatedPowerChanged(cabalId, currentDelegatee, oldPower, newPower);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Undelegated, delegatorPower);
     }
 
     // ============ Internal Functions ============

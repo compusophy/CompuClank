@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibAppStorage, AppStorage, CabalData, CabalPhase, ClankerV4Settings } from "../libraries/LibAppStorage.sol";
+import { LibAppStorage, AppStorage, CabalData, CabalPhase, ClankerV4Settings, ActivityType } from "../libraries/LibAppStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // Uniswap V4 imports
@@ -44,7 +44,9 @@ interface IWETH {
 /**
  * @title SwapFacet
  * @notice Handles token swaps via Uniswap V4 for Cabal tokens
- * @dev Uses Universal Router with official Uniswap V4 encoding pattern
+ * @dev Uses Universal Router with official Uniswap V4 encoding pattern.
+ *      Trading fees (1%) are enforced at the Clanker hook level and collected in ClankerFeeLocker.
+ *      99% of fees go to the cabal's TBA, 1% to CABAL0's TBA (protocol treasury).
  */
 contract SwapFacet {
     // ============ Constants ============
@@ -70,6 +72,7 @@ contract SwapFacet {
     // ============ Errors ============
     
     error CabalNotActive();
+    error CabalClosed();
     error ZeroAmount();
     error InsufficientBalance();
     error SlippageExceeded();
@@ -91,6 +94,7 @@ contract SwapFacet {
 
     /**
      * @notice Buy Cabal tokens with hook data
+     * @dev Trading fees are handled at the Clanker hook level (collected in ClankerFeeLocker)
      */
     function buyTokensWithHookData(
         uint256 cabalId,
@@ -101,6 +105,7 @@ contract SwapFacet {
         
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
         if (cabal.tokenAddress == address(0)) revert InvalidToken();
         
         ClankerV4Settings storage c = LibAppStorage.clankerV4Settings();
@@ -118,6 +123,8 @@ contract SwapFacet {
         IERC20(cabal.tokenAddress).transfer(msg.sender, amountOut);
         
         emit TokensBought(cabalId, msg.sender, msg.value, amountOut);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Bought, msg.value);
     }
 
     // ============ Sell Function ============
@@ -135,6 +142,7 @@ contract SwapFacet {
 
     /**
      * @notice Sell Cabal tokens with hook data
+     * @dev Trading fees are handled at the Clanker hook level (collected in ClankerFeeLocker)
      */
     function sellTokensWithHookData(
         uint256 cabalId,
@@ -146,6 +154,7 @@ contract SwapFacet {
         
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
         if (cabal.tokenAddress == address(0)) revert InvalidToken();
         
         ClankerV4Settings storage c = LibAppStorage.clankerV4Settings();
@@ -170,6 +179,8 @@ contract SwapFacet {
         require(success, "ETH transfer failed");
         
         emit TokensSold(cabalId, msg.sender, tokenAmount, ethOut);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Sold, ethOut);
     }
 
     // ============ Internal Swap Functions ============

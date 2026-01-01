@@ -33,6 +33,10 @@ export interface GovernanceFacetInterface extends Interface {
       | "getProposal"
       | "getProposalState"
       | "hasVoted"
+      | "proposeBuyTokens"
+      | "proposeContributeToPresale"
+      | "proposeCreateChildCabal"
+      | "proposeDissolveChild"
       | "vote"
   ): FunctionFragment;
 
@@ -73,6 +77,22 @@ export interface GovernanceFacetInterface extends Interface {
     values: [BigNumberish, BigNumberish, AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "proposeBuyTokens",
+    values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "proposeContributeToPresale",
+    values: [BigNumberish, BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "proposeCreateChildCabal",
+    values: [BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "proposeDissolveChild",
+    values: [BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
     functionFragment: "vote",
     values: [BigNumberish, BigNumberish, boolean]
   ): string;
@@ -102,6 +122,22 @@ export interface GovernanceFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "hasVoted", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeBuyTokens",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeContributeToPresale",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeCreateChildCabal",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeDissolveChild",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "vote", data: BytesLike): Result;
 }
 
@@ -312,6 +348,41 @@ export interface GovernanceFacet extends BaseContract {
     "view"
   >;
 
+  proposeBuyTokens: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      ethAmount: BigNumberish,
+      minAmountOut: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
+  proposeContributeToPresale: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      ethAmount: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
+  proposeCreateChildCabal: TypedContractMethod<
+    [cabalId: BigNumberish, ethContribution: BigNumberish, description: string],
+    [bigint],
+    "nonpayable"
+  >;
+
+  proposeDissolveChild: TypedContractMethod<
+    [cabalId: BigNumberish, childCabalId: BigNumberish, description: string],
+    [bigint],
+    "nonpayable"
+  >;
+
   vote: TypedContractMethod<
     [cabalId: BigNumberish, proposalId: BigNumberish, support: boolean],
     [void],
@@ -394,6 +465,45 @@ export interface GovernanceFacet extends BaseContract {
     [cabalId: BigNumberish, proposalId: BigNumberish, voter: AddressLike],
     [boolean],
     "view"
+  >;
+  getFunction(
+    nameOrSignature: "proposeBuyTokens"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      ethAmount: BigNumberish,
+      minAmountOut: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "proposeContributeToPresale"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      ethAmount: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "proposeCreateChildCabal"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, ethContribution: BigNumberish, description: string],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "proposeDissolveChild"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, childCabalId: BigNumberish, description: string],
+    [bigint],
+    "nonpayable"
   >;
   getFunction(
     nameOrSignature: "vote"

@@ -80,6 +80,8 @@ export type { IERC6551Executable } from "./contracts/cabal/CabalTBA.sol/IERC6551
 export { IERC6551Executable__factory } from "./factories/contracts/cabal/CabalTBA.sol/IERC6551Executable__factory";
 export type { Diamond } from "./contracts/cabal/diamond/Diamond";
 export { Diamond__factory } from "./factories/contracts/cabal/diamond/Diamond__factory";
+export type { ActivityFacet } from "./contracts/cabal/diamond/facets/ActivityFacet";
+export { ActivityFacet__factory } from "./factories/contracts/cabal/diamond/facets/ActivityFacet__factory";
 export type { CabalCreationFacet } from "./contracts/cabal/diamond/facets/CabalCreationFacet";
 export { CabalCreationFacet__factory } from "./factories/contracts/cabal/diamond/facets/CabalCreationFacet__factory";
 export type { DelegationFacet } from "./contracts/cabal/diamond/facets/DelegationFacet";
@@ -88,6 +90,12 @@ export type { DiamondCutFacet } from "./contracts/cabal/diamond/facets/DiamondCu
 export { DiamondCutFacet__factory } from "./factories/contracts/cabal/diamond/facets/DiamondCutFacet__factory";
 export type { DiamondLoupeFacet } from "./contracts/cabal/diamond/facets/DiamondLoupeFacet";
 export { DiamondLoupeFacet__factory } from "./factories/contracts/cabal/diamond/facets/DiamondLoupeFacet__factory";
+export type { DissolutionFacet } from "./contracts/cabal/diamond/facets/DissolutionFacet.sol/DissolutionFacet";
+export { DissolutionFacet__factory } from "./factories/contracts/cabal/diamond/facets/DissolutionFacet.sol/DissolutionFacet__factory";
+export type { IWETH } from "./contracts/cabal/diamond/facets/DissolutionFacet.sol/IWETH";
+export { IWETH__factory } from "./factories/contracts/cabal/diamond/facets/DissolutionFacet.sol/IWETH__factory";
+export type { GenesisFacet } from "./contracts/cabal/diamond/facets/GenesisFacet";
+export { GenesisFacet__factory } from "./factories/contracts/cabal/diamond/facets/GenesisFacet__factory";
 export type { GovernanceFacet } from "./contracts/cabal/diamond/facets/GovernanceFacet";
 export { GovernanceFacet__factory } from "./factories/contracts/cabal/diamond/facets/GovernanceFacet__factory";
 export type { IERC173 } from "./contracts/cabal/diamond/facets/OwnershipFacet.sol/IERC173";
@@ -106,8 +114,6 @@ export type { IPermit2 } from "./contracts/cabal/diamond/facets/SwapFacet.sol/IP
 export { IPermit2__factory } from "./factories/contracts/cabal/diamond/facets/SwapFacet.sol/IPermit2__factory";
 export type { IUniversalRouter } from "./contracts/cabal/diamond/facets/SwapFacet.sol/IUniversalRouter";
 export { IUniversalRouter__factory } from "./factories/contracts/cabal/diamond/facets/SwapFacet.sol/IUniversalRouter__factory";
-export type { IWETH } from "./contracts/cabal/diamond/facets/SwapFacet.sol/IWETH";
-export { IWETH__factory } from "./factories/contracts/cabal/diamond/facets/SwapFacet.sol/IWETH__factory";
 export type { SwapFacet } from "./contracts/cabal/diamond/facets/SwapFacet.sol/SwapFacet";
 export { SwapFacet__factory } from "./factories/contracts/cabal/diamond/facets/SwapFacet.sol/SwapFacet__factory";
 export type { IClankerFeeLocker } from "./contracts/cabal/diamond/facets/TreasuryFacet.sol/IClankerFeeLocker";

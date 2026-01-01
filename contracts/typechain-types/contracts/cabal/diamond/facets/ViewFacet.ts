@@ -57,6 +57,7 @@ export declare namespace ViewFacet {
     totalStaked: BigNumberish;
     contributorCount: BigNumberish;
     settings: GovernanceSettingsStruct;
+    parentCabalId: BigNumberish;
   };
 
   export type CabalInfoStructOutput = [
@@ -74,7 +75,8 @@ export declare namespace ViewFacet {
     totalTokensReceived: bigint,
     totalStaked: bigint,
     contributorCount: bigint,
-    settings: GovernanceSettingsStructOutput
+    settings: GovernanceSettingsStructOutput,
+    parentCabalId: bigint
   ] & {
     id: bigint;
     creator: string;
@@ -91,6 +93,39 @@ export declare namespace ViewFacet {
     totalStaked: bigint;
     contributorCount: bigint;
     settings: GovernanceSettingsStructOutput;
+    parentCabalId: bigint;
+  };
+
+  export type CabalHierarchyStruct = {
+    cabalId: BigNumberish;
+    parentId: BigNumberish;
+    childIds: BigNumberish[];
+    phase: BigNumberish;
+    symbol: string;
+  };
+
+  export type CabalHierarchyStructOutput = [
+    cabalId: bigint,
+    parentId: bigint,
+    childIds: bigint[],
+    phase: bigint,
+    symbol: string
+  ] & {
+    cabalId: bigint;
+    parentId: bigint;
+    childIds: bigint[];
+    phase: bigint;
+    symbol: string;
+  };
+
+  export type TreeNodeStruct = {
+    cabalId: BigNumberish;
+    parentId: BigNumberish;
+  };
+
+  export type TreeNodeStructOutput = [cabalId: bigint, parentId: bigint] & {
+    cabalId: bigint;
+    parentId: bigint;
   };
 }
 
@@ -99,14 +134,22 @@ export interface ViewFacetInterface extends Interface {
     nameOrSignature:
       | "getAllCabals"
       | "getCabal"
+      | "getCabalHierarchy"
       | "getCabals"
       | "getCabalsByCreator"
       | "getCabalsByStaker"
       | "getCabalsPaginated"
+      | "getChildCabals"
       | "getContribution"
+      | "getFullTree"
+      | "getHierarchicalCabalIds"
+      | "getParentCabal"
+      | "getProtocolTreasury"
+      | "getRootCabalId"
       | "getTotalCabals"
       | "getUserPositions"
       | "hasClaimed"
+      | "isGenesisInitialized"
   ): FunctionFragment;
 
   encodeFunctionData(
@@ -115,6 +158,10 @@ export interface ViewFacetInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "getCabal",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getCabalHierarchy",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -134,8 +181,32 @@ export interface ViewFacetInterface extends Interface {
     values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "getChildCabals",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getContribution",
     values: [BigNumberish, AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getFullTree",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getHierarchicalCabalIds",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getParentCabal",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getProtocolTreasury",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getRootCabalId",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "getTotalCabals",
@@ -149,12 +220,20 @@ export interface ViewFacetInterface extends Interface {
     functionFragment: "hasClaimed",
     values: [BigNumberish, AddressLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "isGenesisInitialized",
+    values?: undefined
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "getAllCabals",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "getCabal", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "getCabalHierarchy",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "getCabals", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getCabalsByCreator",
@@ -169,7 +248,31 @@ export interface ViewFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "getChildCabals",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getContribution",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getFullTree",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getHierarchicalCabalIds",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getParentCabal",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getProtocolTreasury",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getRootCabalId",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -181,6 +284,10 @@ export interface ViewFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "hasClaimed", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "isGenesisInitialized",
+    data: BytesLike
+  ): Result;
 }
 
 export interface ViewFacet extends BaseContract {
@@ -234,6 +341,12 @@ export interface ViewFacet extends BaseContract {
     "view"
   >;
 
+  getCabalHierarchy: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [ViewFacet.CabalHierarchyStructOutput],
+    "view"
+  >;
+
   getCabals: TypedContractMethod<
     [cabalIds: BigNumberish[]],
     [ViewFacet.CabalInfoStructOutput[]],
@@ -263,11 +376,35 @@ export interface ViewFacet extends BaseContract {
     "view"
   >;
 
+  getChildCabals: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [bigint[]],
+    "view"
+  >;
+
   getContribution: TypedContractMethod<
     [cabalId: BigNumberish, user: AddressLike],
     [bigint],
     "view"
   >;
+
+  getFullTree: TypedContractMethod<
+    [],
+    [ViewFacet.TreeNodeStructOutput[]],
+    "view"
+  >;
+
+  getHierarchicalCabalIds: TypedContractMethod<[], [bigint[]], "view">;
+
+  getParentCabal: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [bigint],
+    "view"
+  >;
+
+  getProtocolTreasury: TypedContractMethod<[], [string], "view">;
+
+  getRootCabalId: TypedContractMethod<[], [bigint], "view">;
 
   getTotalCabals: TypedContractMethod<[], [bigint], "view">;
 
@@ -290,6 +427,8 @@ export interface ViewFacet extends BaseContract {
     "view"
   >;
 
+  isGenesisInitialized: TypedContractMethod<[], [boolean], "view">;
+
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
   ): T;
@@ -302,6 +441,13 @@ export interface ViewFacet extends BaseContract {
   ): TypedContractMethod<
     [cabalId: BigNumberish],
     [ViewFacet.CabalInfoStructOutput],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "getCabalHierarchy"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish],
+    [ViewFacet.CabalHierarchyStructOutput],
     "view"
   >;
   getFunction(
@@ -330,12 +476,30 @@ export interface ViewFacet extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "getChildCabals"
+  ): TypedContractMethod<[cabalId: BigNumberish], [bigint[]], "view">;
+  getFunction(
     nameOrSignature: "getContribution"
   ): TypedContractMethod<
     [cabalId: BigNumberish, user: AddressLike],
     [bigint],
     "view"
   >;
+  getFunction(
+    nameOrSignature: "getFullTree"
+  ): TypedContractMethod<[], [ViewFacet.TreeNodeStructOutput[]], "view">;
+  getFunction(
+    nameOrSignature: "getHierarchicalCabalIds"
+  ): TypedContractMethod<[], [bigint[]], "view">;
+  getFunction(
+    nameOrSignature: "getParentCabal"
+  ): TypedContractMethod<[cabalId: BigNumberish], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "getProtocolTreasury"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "getRootCabalId"
+  ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "getTotalCabals"
   ): TypedContractMethod<[], [bigint], "view">;
@@ -360,6 +524,9 @@ export interface ViewFacet extends BaseContract {
     [boolean],
     "view"
   >;
+  getFunction(
+    nameOrSignature: "isGenesisInitialized"
+  ): TypedContractMethod<[], [boolean], "view">;
 
   filters: {};
 }

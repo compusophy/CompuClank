@@ -162,6 +162,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Diamond__factory>;
     getContractFactory(
+      name: "ActivityFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ActivityFacet__factory>;
+    getContractFactory(
       name: "CabalCreationFacet",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.CabalCreationFacet__factory>;
@@ -177,6 +181,18 @@ declare module "hardhat/types/runtime" {
       name: "DiamondLoupeFacet",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.DiamondLoupeFacet__factory>;
+    getContractFactory(
+      name: "DissolutionFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.DissolutionFacet__factory>;
+    getContractFactory(
+      name: "IWETH",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IWETH__factory>;
+    getContractFactory(
+      name: "GenesisFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.GenesisFacet__factory>;
     getContractFactory(
       name: "GovernanceFacet",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -464,6 +480,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.Diamond>;
     getContractAt(
+      name: "ActivityFacet",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ActivityFacet>;
+    getContractAt(
       name: "CabalCreationFacet",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -483,6 +504,21 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.DiamondLoupeFacet>;
+    getContractAt(
+      name: "DissolutionFacet",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.DissolutionFacet>;
+    getContractAt(
+      name: "IWETH",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IWETH>;
+    getContractAt(
+      name: "GenesisFacet",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.GenesisFacet>;
     getContractAt(
       name: "GovernanceFacet",
       address: string | ethers.Addressable,
@@ -758,6 +794,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Diamond>;
     deployContract(
+      name: "ActivityFacet",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ActivityFacet>;
+    deployContract(
       name: "CabalCreationFacet",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.CabalCreationFacet>;
@@ -773,6 +813,18 @@ declare module "hardhat/types/runtime" {
       name: "DiamondLoupeFacet",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.DiamondLoupeFacet>;
+    deployContract(
+      name: "DissolutionFacet",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.DissolutionFacet>;
+    deployContract(
+      name: "IWETH",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IWETH>;
+    deployContract(
+      name: "GenesisFacet",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.GenesisFacet>;
     deployContract(
       name: "GovernanceFacet",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -1060,6 +1112,11 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Diamond>;
     deployContract(
+      name: "ActivityFacet",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ActivityFacet>;
+    deployContract(
       name: "CabalCreationFacet",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -1079,6 +1136,21 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.DiamondLoupeFacet>;
+    deployContract(
+      name: "DissolutionFacet",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.DissolutionFacet>;
+    deployContract(
+      name: "IWETH",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IWETH>;
+    deployContract(
+      name: "GenesisFacet",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.GenesisFacet>;
     deployContract(
       name: "GovernanceFacet",
       args: any[],

@@ -6,7 +6,8 @@ pragma solidity ^0.8.20;
 enum CabalPhase {
     Presale,    // Accepting contributions
     Active,     // Token deployed, governance active
-    Paused      // Governance paused (emergency)
+    Paused,     // Governance paused (emergency)
+    Closed      // Dissolved - inert, read-only
 }
 
 enum ProposalState {
@@ -16,6 +17,24 @@ enum ProposalState {
     Defeated,
     Executed,
     Cancelled
+}
+
+enum ActivityType {
+    CabalCreated,
+    Contributed,
+    VotedLaunch,
+    Launched,
+    Claimed,
+    Staked,
+    Unstaked,
+    Bought,
+    Sold,
+    ProposalCreated,
+    ProposalVoted,
+    ProposalExecuted,
+    Delegated,
+    Undelegated,
+    FeeClaimed
 }
 
 // ============ Structs ============
@@ -40,6 +59,14 @@ struct Proposal {
     uint256 endBlock;
     bool executed;
     bool cancelled;
+}
+
+struct Activity {
+    uint256 cabalId;
+    address actor;
+    ActivityType activityType;
+    uint256 amount;      // ETH or token amount (context-dependent)
+    uint256 timestamp;
 }
 
 struct CabalData {
@@ -72,6 +99,10 @@ struct CabalData {
     
     // Launch timer (ADDED AT END to preserve storage layout)
     uint256 launchApprovedAt;   // block.timestamp when launch vote threshold was met (0 if not yet)
+    
+    // Hierarchy (ADDED AT END to preserve storage layout)
+    uint256 parentCabalId;      // Parent cabal ID (0 for root cabal)
+    uint256[] childCabalIds;    // Array of child cabal IDs spawned by this cabal
 }
 
 struct AppStorage {
@@ -99,6 +130,13 @@ struct ClankerV4Settings {
     address devBuyExtension;
 }
 
+// Ring buffer for global activity feed (10 most recent)
+struct ActivityRingBuffer {
+    Activity[10] activities;
+    uint256 nextIndex;      // Next write position (0-9)
+    uint256 totalCount;     // Total activities ever logged
+}
+
 // Storage positions for mappings
 library LibAppStorage {
     bytes32 constant APP_STORAGE_POSITION = keccak256("cabal.app.storage");
@@ -115,6 +153,9 @@ library LibAppStorage {
     bytes32 constant USER_STAKED_CABALS_POSITION = keccak256("cabal.user.staked.cabals.mapping");
     bytes32 constant LAUNCH_VOTED_POSITION = keccak256("cabal.launch.voted.mapping");
     bytes32 constant LAUNCH_VOTE_WEIGHT_POSITION = keccak256("cabal.launch.vote.weight.mapping");
+    bytes32 constant ACTIVITY_BUFFER_POSITION = keccak256("cabal.activity.buffer");
+    bytes32 constant ROOT_CABAL_ID_POSITION = keccak256("cabal.root.id");
+    bytes32 constant GENESIS_INITIALIZED_POSITION = keccak256("cabal.genesis.initialized");
 
     function appStorage() internal pure returns (AppStorage storage s) {
         bytes32 position = APP_STORAGE_POSITION;
@@ -318,5 +359,94 @@ library LibAppStorage {
             sstore(votePosition, 0)
             sstore(weightPosition, 0)
         }
+    }
+
+    // ============ Activity Ring Buffer ============
+
+    function activityBuffer() internal pure returns (ActivityRingBuffer storage s) {
+        bytes32 position = ACTIVITY_BUFFER_POSITION;
+        assembly {
+            s.slot := position
+        }
+    }
+
+    function logActivity(uint256 cabalId, address actor, ActivityType activityType, uint256 amount) internal {
+        ActivityRingBuffer storage buffer = activityBuffer();
+        
+        buffer.activities[buffer.nextIndex] = Activity({
+            cabalId: cabalId,
+            actor: actor,
+            activityType: activityType,
+            amount: amount,
+            timestamp: block.timestamp
+        });
+        
+        buffer.nextIndex = (buffer.nextIndex + 1) % 10;
+        buffer.totalCount++;
+    }
+
+    function getRecentActivities() internal view returns (Activity[10] memory activities, uint256 count) {
+        ActivityRingBuffer storage buffer = activityBuffer();
+        count = buffer.totalCount < 10 ? buffer.totalCount : 10;
+        
+        // Return in reverse chronological order (newest first)
+        for (uint256 i = 0; i < count; i++) {
+            // Calculate index: start from most recent and go backwards
+            uint256 idx = (buffer.nextIndex + 9 - i) % 10;
+            activities[i] = buffer.activities[idx];
+        }
+    }
+
+    // ============ Genesis/Root Cabal ============
+
+    function getRootCabalId() internal view returns (uint256) {
+        bytes32 position = ROOT_CABAL_ID_POSITION;
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+
+    function setRootCabalId(uint256 cabalId) internal {
+        bytes32 position = ROOT_CABAL_ID_POSITION;
+        assembly {
+            sstore(position, cabalId)
+        }
+    }
+
+    function isGenesisInitialized() internal view returns (bool) {
+        bytes32 position = GENESIS_INITIALIZED_POSITION;
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value == 1;
+    }
+
+    function setGenesisInitialized() internal {
+        bytes32 position = GENESIS_INITIALIZED_POSITION;
+        assembly {
+            sstore(position, 1)
+        }
+    }
+
+    // ============ Hierarchy Helpers ============
+
+    function addChildCabal(uint256 parentCabalId, uint256 childCabalId) internal {
+        CabalData storage parent = getCabalData(parentCabalId);
+        parent.childCabalIds.push(childCabalId);
+    }
+
+    function getChildCabals(uint256 cabalId) internal view returns (uint256[] memory) {
+        return getCabalData(cabalId).childCabalIds;
+    }
+
+    function getParentCabalId(uint256 cabalId) internal view returns (uint256) {
+        return getCabalData(cabalId).parentCabalId;
+    }
+
+    function isRootCabal(uint256 cabalId) internal view returns (bool) {
+        return cabalId == getRootCabalId();
     }
 }

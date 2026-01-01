@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { LibAppStorage, AppStorage, CabalData, CabalPhase, GovernanceSettings, ClankerV4Settings } from "../libraries/LibAppStorage.sol";
+import { LibAppStorage, AppStorage, CabalData, CabalPhase, GovernanceSettings, ClankerV4Settings, ActivityType } from "../libraries/LibAppStorage.sol";
 import { LibDiamond } from "../libraries/LibDiamond.sol";
 import "../../CabalNFT.sol";
 import "../../CabalTBA.sol";
 import "../../interfaces/IERC6551Registry.sol";
 import "../../interfaces/IClankerFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 // DevBuy extension data structure (must match IClankerUniv4EthDevBuy)
 // IMPORTANT: Field order matters for ABI encoding!
@@ -28,13 +29,13 @@ struct Univ4EthDevBuyExtensionData {
 /**
  * @title CabalCreationFacet
  * @notice Handles Cabal creation, presale contributions, finalization, and token claims
+ * @dev In the fractal DAO architecture, cabals can only be created via governance proposals.
+ *      All protocol fees (1%) go to CABAL0's treasury (the root cabal).
  */
 contract CabalCreationFacet {
     // ============ Constants ============
     
-    // Protocol fee recipient
-    address constant PROTOCOL_FEE_RECIPIENT = 0x0487f15eA5E1e3358C22D3c21b927FbFC006EA05;
-    
+    // Protocol fee goes to CABAL0's TBA (set dynamically)
     // 1/33/33/33 Split: 1% protocol fee, 33% ETH to treasury, 33% tokens to treasury, 33% tokens to contributors
     uint256 constant PROTOCOL_FEE_BPS = 100;      // 1% protocol fee
     uint256 constant TREASURY_ETH_BPS = 3300;     // 33% stays as ETH in treasury
@@ -42,15 +43,15 @@ contract CabalCreationFacet {
     uint256 constant BPS_DENOMINATOR = 10000;     // 1% + 33% + 66% devBuy = 100%
     bytes32 constant TBA_SALT = bytes32(0);
     
-    // Minimum amounts to prevent spam
-    uint256 constant MIN_CREATION_FEE = 0.001 ether;
-    uint256 constant MIN_CONTRIBUTION = 0.001 ether;
+    // Minimum amounts to prevent spam (TESTING: reduced for dev)
+    uint256 constant MIN_CREATION_FEE = 0.00001 ether;  // ~$0.03
+    uint256 constant MIN_CONTRIBUTION = 0.00001 ether;  // ~$0.03
     
     // Launch voting threshold - absolute majority of total raised capital
     uint256 constant LAUNCH_MAJORITY_BPS = 5100;  // 51% of totalRaised must vote YES
     
-    // Launch timer - delay after vote threshold met before finalization
-    uint256 constant LAUNCH_DELAY = 24 hours;
+    // Launch timer - delay after vote threshold met before finalization (TESTING: reduced)
+    uint256 constant LAUNCH_DELAY = 30 minutes;
     
     // Default pool config (standard Clanker settings)
     int24 constant DEFAULT_TICK = -230400; // ~10 ETH market cap
@@ -120,27 +121,35 @@ contract CabalCreationFacet {
     error VoteUnchanged();
     error LaunchMajorityNotMet();
     error LaunchTimerNotElapsed();
-    error ContributionsLocked();
     error TransferFailed();
     error DeploymentFailed();
+    error GenesisNotInitialized();
+    error NotCalledViaDiamond();
+    error InvalidParentCabal();
+    error CabalClosed();
 
     // ============ External Functions ============
 
     /**
-     * @notice Create a new Cabal with presale
-     * @param name Token name
-     * @param symbol Token symbol
-     * @param image Token image URI
-     * @param settings Initial governance settings
+     * @notice Create a new child Cabal with presale (called via governance proposal)
+     * @param parentCabalId The parent cabal that is spawning this child
      * @return cabalId The ID of the new Cabal
-     * @dev Requires minimum 0.001 ETH which becomes the creator's initial contribution
+     * @dev Can only be called via diamond (governance proposal execution).
+     *      Name and symbol are auto-generated based on cabal ID.
+     *      Parent cabal's treasury provides the initial contribution.
      */
-    function createCabal(
-        string calldata name,
-        string calldata symbol,
-        string calldata image,
-        GovernanceSettings calldata settings
-    ) external payable returns (uint256 cabalId) {
+    function createChildCabal(uint256 parentCabalId) external payable returns (uint256 cabalId) {
+        // Must be called via diamond (governance proposal execution)
+        if (msg.sender != address(this)) revert NotCalledViaDiamond();
+        
+        // Genesis must be initialized
+        if (!LibAppStorage.isGenesisInitialized()) revert GenesisNotInitialized();
+        
+        // Parent must exist and be active
+        CabalData storage parent = LibAppStorage.getCabalData(parentCabalId);
+        if (parent.tbaAddress == address(0)) revert InvalidParentCabal();
+        if (parent.phase == CabalPhase.Closed) revert CabalClosed();
+        
         if (msg.value < MIN_CREATION_FEE) revert InsufficientCreationFee();
         
         AppStorage storage s = LibAppStorage.appStorage();
@@ -157,33 +166,50 @@ contract CabalCreationFacet {
             cabalId
         );
         
-        // Initialize Cabal data
+        // Auto-generate name and ticker based on ID
+        string memory idStr = Strings.toString(cabalId);
+        string memory name = string(abi.encodePacked("Cabal ", idStr));
+        string memory symbol = string(abi.encodePacked("CABAL", idStr));
+        
+        // Initialize Cabal data with default settings
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
-        cabal.creator = msg.sender;
+        cabal.creator = parent.tbaAddress; // Parent TBA is the "creator"
         cabal.name = name;
         cabal.symbol = symbol;
-        cabal.image = image;
+        cabal.image = "";
         cabal.tbaAddress = tbaAddress;
         cabal.phase = CabalPhase.Presale;
         cabal.createdAt = block.timestamp;
-        cabal.settings = settings;
+        
+        // Set parent-child relationship
+        cabal.parentCabalId = parentCabalId;
+        LibAppStorage.addChildCabal(parentCabalId, cabalId);
+        
+        // Default governance settings
+        cabal.settings = GovernanceSettings({
+            votingPeriod: 50400,      // ~1 week on Base (2s blocks)
+            quorumBps: 1000,          // 10%
+            majorityBps: 5100,        // 51%
+            proposalThreshold: 0      // Anyone can propose
+        });
         
         // Track in indexes
         s.nextCabalId = cabalId + 1;
         s.allCabalIds.push(cabalId);
-        LibAppStorage.getCreatorCabals(msg.sender).push(cabalId);
         
-        // Auto-contribute the creation fee (creator becomes first contributor)
-        cabal.contributors.push(msg.sender);
-        LibAppStorage.setContribution(cabalId, msg.sender, msg.value);
+        // Parent TBA becomes first contributor
+        cabal.contributors.push(parent.tbaAddress);
+        LibAppStorage.setContribution(cabalId, parent.tbaAddress, msg.value);
         cabal.totalRaised = msg.value;
         
-        // Forward ETH to TBA
+        // Forward ETH to child TBA
         (bool success, ) = tbaAddress.call{value: msg.value}("");
         if (!success) revert TransferFailed();
         
-        emit CabalCreated(cabalId, msg.sender, name, symbol, tbaAddress);
-        emit Contributed(cabalId, msg.sender, msg.value, msg.value);
+        emit CabalCreated(cabalId, parent.tbaAddress, name, symbol, tbaAddress);
+        emit Contributed(cabalId, parent.tbaAddress, msg.value, msg.value);
+        
+        LibAppStorage.logActivity(cabalId, parent.tbaAddress, ActivityType.CabalCreated, msg.value);
     }
 
     /**
@@ -197,28 +223,28 @@ contract CabalCreationFacet {
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Presale) revert CabalNotInPresale();
 
-        // Block contributions during launch window (after vote threshold met)
-        if (cabal.launchApprovedAt > 0) revert ContributionsLocked();
-
         // Track contribution
         uint256 existing = LibAppStorage.getContribution(cabalId, msg.sender);
         if (existing == 0) {
             cabal.contributors.push(msg.sender);
         }
         
-        // If user already voted, reset their vote (contribution weight changed)
-        uint256 currentVote = LibAppStorage.getLaunchVote(cabalId, msg.sender);
-        if (currentVote != 0) {
-            // Remove old vote using STORED weight (not current contribution)
-            uint256 oldWeight = LibAppStorage.getLaunchVoteWeight(cabalId, msg.sender);
-            if (currentVote == 1) {
-                cabal.launchVotesFor -= oldWeight;
-            } else {
-                cabal.launchVotesAgainst -= oldWeight;
+        // Only reset votes if launch NOT yet approved (voting still matters)
+        // During launch window (24hr countdown), voting is done - just accept contributions
+        if (cabal.launchApprovedAt == 0) {
+            uint256 currentVote = LibAppStorage.getLaunchVote(cabalId, msg.sender);
+            if (currentVote != 0) {
+                // Remove old vote using STORED weight (not current contribution)
+                uint256 oldWeight = LibAppStorage.getLaunchVoteWeight(cabalId, msg.sender);
+                if (currentVote == 1) {
+                    cabal.launchVotesFor -= oldWeight;
+                } else {
+                    cabal.launchVotesAgainst -= oldWeight;
+                }
+                // Clear vote - user must vote again with new weight
+                LibAppStorage.clearLaunchVote(cabalId, msg.sender);
+                emit LaunchVoteReset(cabalId, msg.sender);
             }
-            // Clear vote - user must vote again with new weight
-            LibAppStorage.clearLaunchVote(cabalId, msg.sender);
-            emit LaunchVoteReset(cabalId, msg.sender);
         }
         
         LibAppStorage.setContribution(cabalId, msg.sender, existing + msg.value);
@@ -229,6 +255,8 @@ contract CabalCreationFacet {
         if (!success) revert TransferFailed();
 
         emit Contributed(cabalId, msg.sender, msg.value, cabal.totalRaised);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Contributed, msg.value);
     }
 
     /**
@@ -251,6 +279,8 @@ contract CabalCreationFacet {
         _applyVoteChange(cabalId, cabal, contribution, support);
         
         emit LaunchVoteCast(cabalId, msg.sender, support, contribution);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.VotedLaunch, contribution);
         
         // Start launch timer when threshold first reached
         if (cabal.launchApprovedAt == 0) {
@@ -345,8 +375,10 @@ contract CabalCreationFacet {
 
         emit ProtocolFeeCollected(cabalId, protocolFee);
         emit CabalFinalized(cabalId, tokenAddress, totalRaised, treasuryEth, devBuyAmount);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Launched, totalRaised);
     }
-    
+
     /**
      * @dev Deploy token via Clanker and return split amounts - separated to reduce stack depth
      */
@@ -354,9 +386,10 @@ contract CabalCreationFacet {
         AppStorage storage s = LibAppStorage.appStorage();
         ClankerV4Settings storage c = LibAppStorage.clankerV4Settings();
 
-        // Send 1% protocol fee first
+        // Send 1% protocol fee to CABAL0's treasury (root cabal)
         uint256 protocolFee = (cabal.totalRaised * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
-        CabalTBA(payable(cabal.tbaAddress)).executeCall(PROTOCOL_FEE_RECIPIENT, protocolFee, "");
+        address protocolTreasury = LibAppStorage.getCabalData(LibAppStorage.getRootCabalId()).tbaAddress;
+        CabalTBA(payable(cabal.tbaAddress)).executeCall(protocolTreasury, protocolFee, "");
         
         // Calculate amounts after protocol fee
         uint256 remaining = cabal.totalRaised - protocolFee;
@@ -412,8 +445,10 @@ contract CabalCreationFacet {
         );
         
         emit TokensClaimed(cabalId, msg.sender, tokenAmount);
+        
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Claimed, tokenAmount);
     }
-    
+
     /**
      * @dev Try to auto-finalize if conditions are met
      */
@@ -528,7 +563,9 @@ contract CabalCreationFacet {
         });
         
         // Pool config (pair with WETH)
-        // poolData contains hook configuration (fees, etc.)
+        // poolData contains hook configuration for swap fees
+        // The hex encodes: clankerFee = 10000 BPS (1%), pairedFee = 10000 BPS (1%)
+        // These are collected in ClankerFeeLocker and distributed to rewardRecipients
         IClankerFactory.PoolConfig memory poolConfig = IClankerFactory.PoolConfig({
             hook: c.hook,
             pairedToken: s.weth,
@@ -537,15 +574,40 @@ contract CabalCreationFacet {
             poolData: hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000002710"
         });
         
-        // Locker config - TBA gets 100% of LP rewards
-        address[] memory rewardAdmins = new address[](1);
-        rewardAdmins[0] = tbaAddress;
+        // Locker config - Split fees between cabal TBA and CABAL0 protocol treasury
+        // Fees from the hook are collected in ClankerFeeLocker and claimable by rewardRecipients
+        address protocolTreasury = LibAppStorage.isGenesisInitialized() 
+            ? LibAppStorage.getCabalData(LibAppStorage.getRootCabalId()).tbaAddress 
+            : tbaAddress; // Fallback to own TBA if genesis not initialized (shouldn't happen)
         
-        address[] memory rewardRecipients = new address[](1);
-        rewardRecipients[0] = tbaAddress;
+        // If this IS the protocol treasury (CABAL0), give 100% to self
+        // Otherwise, split 99% to cabal, 1% to protocol
+        bool isProtocolCabal = (tbaAddress == protocolTreasury);
         
-        uint16[] memory rewardBps = new uint16[](1);
-        rewardBps[0] = 10000; // 100%
+        address[] memory rewardAdmins;
+        address[] memory rewardRecipients;
+        uint16[] memory rewardBps;
+        
+        if (isProtocolCabal) {
+            // CABAL0 gets 100% of its own fees
+            rewardAdmins = new address[](1);
+            rewardAdmins[0] = tbaAddress;
+            rewardRecipients = new address[](1);
+            rewardRecipients[0] = tbaAddress;
+            rewardBps = new uint16[](1);
+            rewardBps[0] = 10000; // 100%
+        } else {
+            // Other cabals: 99% to cabal TBA, 1% to protocol treasury (CABAL0)
+            rewardAdmins = new address[](2);
+            rewardAdmins[0] = tbaAddress;
+            rewardAdmins[1] = protocolTreasury;
+            rewardRecipients = new address[](2);
+            rewardRecipients[0] = tbaAddress;
+            rewardRecipients[1] = protocolTreasury;
+            rewardBps = new uint16[](2);
+            rewardBps[0] = 9900; // 99% to cabal
+            rewardBps[1] = 100;  // 1% to protocol (CABAL0)
+        }
         
         // Standard LP positions (5 positions like Clanker SDK default)
         int24[] memory tickLower = new int24[](5);

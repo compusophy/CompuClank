@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -27,16 +26,6 @@ interface CreateModalProps {
 
 export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProps) {
   const { isConnected } = useAccount();
-  const [formData, setFormData] = useState({
-    name: '',
-    symbol: '',
-    image: '',
-    votingPeriod: '50400',
-    quorumPercent: '10',
-    majorityPercent: '51',
-    proposalThreshold: '0',
-  });
-
   const [createdCabalId, setCreatedCabalId] = useState<bigint | null>(null);
 
   const { writeContract, data: hash, isPending, reset } = useWriteContract();
@@ -45,43 +34,17 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
     hash,
   });
 
-  // Automatically sync name with symbol (ticker) if not manually edited
-  const handleSymbolChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
-    // Clean up ticker: remove $ prefix, spaces, and non-alphanumeric characters
-    const cleanSymbol = value
-      .replace(/^\$/, '') // Remove leading $
-      .replace(/[^A-Z0-9]/g, '') // Only allow letters and numbers
-      .slice(0, 20); // Max 20 characters for ticker
-    
-    setFormData(prev => ({
-      ...prev,
-      symbol: cleanSymbol,
-      // If name matches symbol (or is empty), keep them synced
-      name: (prev.name === prev.symbol || prev.name === '') ? cleanSymbol : prev.name
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleCreate = () => {
     if (!CABAL_DIAMOND_ADDRESS) {
       toast.error('Contract not deployed');
       return;
     }
 
-    const settings = {
-      votingPeriod: BigInt(formData.votingPeriod),
-      quorumBps: BigInt(Number(formData.quorumPercent) * 100),
-      majorityBps: BigInt(Number(formData.majorityPercent) * 100),
-      proposalThreshold: BigInt(formData.proposalThreshold),
-    };
-
     writeContract({
       address: CABAL_DIAMOND_ADDRESS,
       abi: CABAL_ABI,
       functionName: 'createCabal',
-      args: [formData.name, formData.symbol, formData.image, settings],
+      args: [],
       value: parseEther(MIN_CREATION_FEE),
     }, {
       onSuccess: () => {
@@ -94,7 +57,6 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
           return;
         }
         
-        // Truncate long error messages to prevent UI issues
         const message = error.message.length > 100 
           ? `${error.message.substring(0, 100)}...` 
           : error.message;
@@ -104,15 +66,11 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
     });
   };
 
-  // Handle success via callback in writeContract
   const handleSuccess = () => {
-    // Sacred geometry success celebration haptic
     haptics.sacredRhythm();
     toast.success('CABAL created successfully!');
     reset();
     onOpenChange(false);
-
-    // Pass the actual created ID if we found it
     onSuccess?.(createdCabalId || undefined);
     setCreatedCabalId(null);
   };
@@ -120,13 +78,7 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
   // Extract ID from logs when receipt is available
   useEffect(() => {
     if (receipt && isSuccess) {
-      // Look for the CabalCreated event topic
-      // event CabalCreated(uint256 indexed cabalId, address indexed creator, string name, string symbol)
-      // The first indexed argument (topic[1]) is the cabalId
       const cabalCreatedLog = receipt.logs.find(log => 
-        // We could check address or topic[0] but since we just called createCabal, 
-        // we can look for the log that has the right structure.
-        // For simplicity, let's look for logs from our diamond address
         log.address.toLowerCase() === CABAL_DIAMOND_ADDRESS?.toLowerCase()
       );
 
@@ -141,11 +93,9 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
     }
   }, [receipt, isSuccess]);
 
-  // Watch for transaction confirmation and ID extraction
+  // Watch for transaction confirmation
   useEffect(() => {
-    // Only trigger success once we have the ID (or if we failed to find it but transaction succeeded)
     if (isSuccess && hash) {
-      // Small delay to ensure state update for ID has processed if it was found
       const timer = setTimeout(() => {
         handleSuccess();
       }, 500);
@@ -158,7 +108,7 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-sm dialog-glow-animated">
+      <DialogContent showCloseButton={false} className="sm:max-w-xs dialog-glow-animated">
         <DialogTitle className="sr-only">Create CABAL</DialogTitle>
         <DialogDescription className="sr-only">
           Create a decentralized group wallet with its own governance token.
@@ -172,37 +122,12 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            {/* Primary Input: Ticker */}
-            <label className="flex items-center justify-center h-14 rounded-md border border-input bg-background input-sacred cursor-text w-full">
-              <div className="relative inline-flex items-center justify-center min-w-[min-content]">
-                {/* Ghost element to force width */}
-                <span className="opacity-0 pointer-events-none font-mono text-lg font-bold uppercase whitespace-pre border border-transparent" aria-hidden="true">
-                  ${formData.symbol || "CABAL"}
-                </span>
-                
-                {/* Visible input group */}
-                <div className="absolute inset-0 flex items-center justify-center w-full">
-                  <span className={`font-mono font-bold text-lg select-none ${formData.symbol ? "" : "text-muted-foreground"}`}>$</span>
-                  <input
-                    placeholder="CABAL"
-                    value={formData.symbol}
-                    onChange={handleSymbolChange}
-                    required
-                    maxLength={20}
-                    className="w-full min-w-0 font-mono font-bold uppercase text-lg text-left bg-transparent border-none outline-none placeholder:text-muted-foreground focus:ring-0 p-0"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-            </label>
-
-            {/* Create Button */}
+          <div className="flex flex-col">
             <Button
-              type="submit"
               size="lg"
               className="h-12 w-full text-base font-semibold gap-2 button-shimmer-effect active-press"
-              disabled={isLoading || !formData.name || !formData.symbol}
+              disabled={isLoading}
+              onClick={handleCreate}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -211,7 +136,7 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
               )}
               {isPending ? 'CONFIRM...' : isConfirming ? 'CREATING...' : 'CREATE'}
             </Button>
-          </form>
+          </div>
         )}
       </DialogContent>
     </Dialog>

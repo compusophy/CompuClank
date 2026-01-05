@@ -1,12 +1,20 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from "wagmi"
+import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount } from "wagmi"
 import { parseEther } from "viem"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles, Vote, ArrowLeftRight } from "lucide-react"
+import { Loader2, Sparkles, Vote, ArrowLeftRight, Rocket } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { WalletButton } from "@/components/wallet/WalletButton"
 import { TokenAmount } from "@/components/TokenAmount"
 import { Input } from "@/components/ui/input"
@@ -37,6 +45,7 @@ interface GraphNode {
   id: string
   label: string
   phase: number
+  isLaunching?: boolean
   x?: number
   y?: number
   fx?: number
@@ -62,6 +71,9 @@ const PHASE_COLORS = {
   [CabalPhase.Paused]: "#ef4444", // red
   3: "#6b7280", // gray for Closed
 }
+
+// Launching status color (presale + approved for launch)
+const LAUNCHING_COLOR = "#f97316" // orange
 
 // Match the EXACT color used by border-primary in dark mode
 // Dark mode --primary: oklch(0.75 0.18 50) = rgb(212, 146, 54)
@@ -110,19 +122,37 @@ export function GraphExplorer({
     screenX: 0,
     screenY: 0,
   })
+  // Animation state: 'entering' | 'entered' | 'exiting' | 'exited'
+  const [menuAnimState, setMenuAnimState] = useState<'entering' | 'entered' | 'exiting' | 'exited'>('exited')
+  const menuAnimTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // Animated node radius for smooth transitions
+  const [animatedRadius, setAnimatedRadius] = useState<number>(0)
+  const animationFrameRef = useRef<number | null>(null)
   
   // Calculate UI scale based on container size - used for node and panel sizing
-  const CONTAINER_PADDING = 14
-  const BASE_OUTER_RADIUS = 175
-  const GRAPH_NODE_RADIUS = 32
+  // Use consistent padding with rest of app (3.5 = 14px / 4)
+  const CONTAINER_PADDING = 3.5 * 4 // 14px - matches p-3.5 used throughout app
   const availableRadius = dimensions.width > 0 && dimensions.height > 0
     ? Math.min(dimensions.width, dimensions.height) / 2 - CONTAINER_PADDING
-    : BASE_OUTER_RADIUS
-  const uiScale = availableRadius / BASE_OUTER_RADIUS
-  const NODE_RADIUS = GRAPH_NODE_RADIUS * uiScale
+    : 175
+  
+  // Node fills the outer circle by default (gap matches app margins)
+  const FULL_NODE_RADIUS = availableRadius - 14 // 14px gap to outer ring (matches p-3.5)
+  // When expanded with panels, node shrinks to make room for panels INSIDE the outer ring
+  const SMALL_NODE_RADIUS = availableRadius * 0.18
+  // Use small radius for panel calculations - panels must fit inside outer ring
+  const NODE_RADIUS = SMALL_NODE_RADIUS
   
   // Contribution input state
   const [contributionAmount, setContributionAmount] = useState("0.001")
+  
+  // Launch confirmation dialog
+  const [showLaunchConfirm, setShowLaunchConfirm] = useState(false)
+  
+  // Track which cabals are in "launching" state (presale + approved)
+  // This persists across selection changes so nodes stay orange
+  const [launchingCabalIds, setLaunchingCabalIds] = useState<Set<string>>(new Set())
   
   const { isConnected, address } = useAccount()
   
@@ -150,6 +180,46 @@ export function GraphExplorer({
       enabled: !!hierarchicalIds && hierarchicalIds.length > 0,
     },
   }) as { data: readonly CabalInfo[] | undefined; isLoading: boolean }
+
+  // Get presale cabal IDs to batch fetch their launch status
+  const presaleCabalIds = useMemo(() => {
+    if (!cabalsData) return []
+    return cabalsData
+      .filter(c => c.phase === CabalPhase.Presale)
+      .map(c => c.id)
+  }, [cabalsData])
+  
+  // Batch fetch launch status for ALL presale cabals on page load
+  const launchStatusContracts = useMemo(() => {
+    if (!CABAL_DIAMOND_ADDRESS || presaleCabalIds.length === 0) return []
+    return presaleCabalIds.map(cabalId => ({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: "getLaunchVoteStatus" as const,
+      args: [cabalId] as const,
+    }))
+  }, [presaleCabalIds])
+  
+  const { data: allLaunchStatuses } = useReadContracts({
+    contracts: launchStatusContracts,
+    query: { enabled: launchStatusContracts.length > 0 },
+  })
+  
+  // Build set of launching cabal IDs from batch query results
+  const launchingCabalIdsFromBatch = useMemo(() => {
+    const launching = new Set<string>()
+    if (!allLaunchStatuses || !presaleCabalIds) return launching
+    
+    allLaunchStatuses.forEach((result, index) => {
+      if (result.status === 'success' && result.result) {
+        const launchApprovedAt = (result.result as [bigint, bigint, bigint, bigint, bigint, bigint, bigint])[5]
+        if (launchApprovedAt > 0n) {
+          launching.add(presaleCabalIds[index].toString())
+        }
+      }
+    })
+    return launching
+  }, [allLaunchStatuses, presaleCabalIds])
 
   // Check if genesis is initialized
   const { data: isGenesisInitialized, refetch: refetchGenesis } = useReadContract({
@@ -185,6 +255,41 @@ export function GraphExplorer({
     args: selectedCabalId ? [selectedCabalId] : undefined,
     query: { enabled: !!selectedCabalId && radialMenu.phase === CabalPhase.Presale },
   })
+  
+  // Early extraction of launch status for graph node coloring
+  const launchApprovedAtEarly = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[5] ?? 0n
+  const launchableAtEarly = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[6] ?? 0n
+  const isLaunchApproved = launchApprovedAtEarly > 0n
+  const isLaunchable = launchableAtEarly > 0n && BigInt(Math.floor(Date.now() / 1000)) >= launchableAtEarly
+  
+  // Track launching cabals - update when we detect one is launching
+  useEffect(() => {
+    if (radialMenu.cabalId && isLaunchApproved && radialMenu.phase === CabalPhase.Presale) {
+      setLaunchingCabalIds(prev => {
+        if (prev.has(radialMenu.cabalId)) return prev
+        const next = new Set(prev)
+        next.add(radialMenu.cabalId)
+        return next
+      })
+    }
+  }, [radialMenu.cabalId, isLaunchApproved, radialMenu.phase])
+  
+  // Clean up launching set when cabals become active
+  useEffect(() => {
+    if (!cabalsData) return
+    const activeCabalIds = new Set(
+      cabalsData.filter(c => c.phase === CabalPhase.Active).map(c => c.id.toString())
+    )
+    if (activeCabalIds.size > 0) {
+      setLaunchingCabalIds(prev => {
+        const toRemove = [...prev].filter(id => activeCabalIds.has(id))
+        if (toRemove.length === 0) return prev
+        const next = new Set(prev)
+        toRemove.forEach(id => next.delete(id))
+        return next
+      })
+    }
+  }, [cabalsData])
   
   // Get user's vote direction
   const { data: userVote, refetch: refetchUserVote } = useReadContract({
@@ -304,7 +409,7 @@ export function GraphExplorer({
     fg.d3Force('collision', 
       forceCollide()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .radius((node: any) => node.collisionRadius || NODE_RADIUS * 1.2)
+        .radius((node: any) => node.collisionRadius || FULL_NODE_RADIUS * 1.1)
         .strength(0.8)
         .iterations(3)
     )
@@ -313,6 +418,58 @@ export function GraphExplorer({
     fg.d3ReheatSimulation()
     
   }, [radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS])
+  
+  // Initialize animated radius
+  useEffect(() => {
+    if (animatedRadius === 0 && FULL_NODE_RADIUS > 0) {
+      setAnimatedRadius(FULL_NODE_RADIUS)
+    }
+  }, [animatedRadius, FULL_NODE_RADIUS])
+  
+  // Smooth radius animation when menu opens/closes
+  // Shrink on 'entering', expand on 'exiting' (start immediately when closing)
+  useEffect(() => {
+    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
+    const targetRadius = isExpanding ? FULL_NODE_RADIUS : SMALL_NODE_RADIUS
+    const startRadius = animatedRadius || FULL_NODE_RADIUS
+    const diff = targetRadius - startRadius
+    
+    if (Math.abs(diff) < 1) {
+      setAnimatedRadius(targetRadius)
+      return
+    }
+    
+    // Longer duration for expand (more noticeable), shorter for shrink
+    const duration = isExpanding ? 500 : 382
+    const startTime = performance.now()
+    
+    // Easing function - cubic bezier approximation for smooth feel
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const easedProgress = easeOutCubic(progress)
+      
+      const newRadius = startRadius + diff * easedProgress
+      setAnimatedRadius(newRadius)
+      
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate)
+      }
+    }
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+    }
+    animationFrameRef.current = requestAnimationFrame(animate)
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
 
   // Build graph data from hierarchical cabals
   const graphData = useMemo((): GraphData => {
@@ -330,13 +487,22 @@ export function GraphExplorer({
       const nodeId = cabal.id.toString()
       const isSelected = radialMenu.isOpen && radialMenu.cabalId === nodeId
       
+      // Check if this cabal is in "launching" state
+      // Use batch-loaded status (from page load) OR manually tracked OR current selection
+      const isThisLaunching = cabal.phase === CabalPhase.Presale && (
+        launchingCabalIdsFromBatch.has(nodeId) ||
+        launchingCabalIds.has(nodeId) || 
+        (isSelected && isLaunchApproved)
+      )
+      
       const node: GraphNode = {
         id: nodeId,
         label: nodeId,
         phase: cabal.phase,
+        isLaunching: isThisLaunching,
         // When selected, expand collision radius to make room for radial menu
         // Use a large multiplier to push other nodes away
-        collisionRadius: isSelected ? NODE_RADIUS * 4 : NODE_RADIUS * 1.2,
+        collisionRadius: isSelected ? FULL_NODE_RADIUS * 1.5 : FULL_NODE_RADIUS * 1.1,
       }
       
       // CABAL0 (root with no parent) is ALWAYS fixed at center
@@ -358,21 +524,64 @@ export function GraphExplorer({
     })
 
     return { nodes, links }
-  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS])
+  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch])
 
+
+  const closeRadialMenu = useCallback(() => {
+    // Clear any pending animation
+    if (menuAnimTimeoutRef.current) {
+      clearTimeout(menuAnimTimeoutRef.current)
+      menuAnimTimeoutRef.current = null
+    }
+    
+    // Trigger exit animation - node expands immediately
+    setMenuAnimState('exiting')
+    
+    menuAnimTimeoutRef.current = setTimeout(() => {
+      setRadialMenu(prev => ({ ...prev, isOpen: false }))
+      setMenuAnimState('exited')
+      setContributionAmount("0.001")
+    }, 500) // Match expand animation duration (500ms)
+  }, [])
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
+      // Debounce rapid clicks (prevents touch + click double-firing)
+      const now = Date.now()
+      if (now - lastNodeClickRef.current < 300) {
+        return
+      }
+      lastNodeClickRef.current = now
+      
       // Haptic feedback on tap
       haptics.cardTap()
+      
+      // If clicking the same node that's already expanded, collapse it
+      if (radialMenu.isOpen && radialMenu.cabalId === node.id) {
+        closeRadialMenu()
+        return
+      }
       
       // Convert node's graph coordinates to screen coordinates
       if (!graphRef.current) return
       
-      const { x: screenX, y: screenY } = graphRef.current.graph2ScreenCoords(
-        node.x || 0,
-        node.y || 0
-      )
+      let screenX: number, screenY: number
+      
+      // For the root node at (0,0), use container center for perfect centering
+      if (node.fx === 0 && node.fy === 0) {
+        screenX = dimensions.width / 2
+        screenY = dimensions.height / 2
+      } else {
+        const coords = graphRef.current.graph2ScreenCoords(node.x || 0, node.y || 0)
+        screenX = coords.x
+        screenY = coords.y
+      }
+      
+      // Clear any pending exit animation
+      if (menuAnimTimeoutRef.current) {
+        clearTimeout(menuAnimTimeoutRef.current)
+        menuAnimTimeoutRef.current = null
+      }
       
       setRadialMenu({
         isOpen: true,
@@ -381,17 +590,20 @@ export function GraphExplorer({
         screenX,
         screenY,
       })
+      
+      // Trigger entering animation
+      setMenuAnimState('entering')
+      menuAnimTimeoutRef.current = setTimeout(() => {
+        setMenuAnimState('entered')
+      }, 400) // Match animation duration (0.382s + buffer)
     },
-    []
+    [dimensions.width, dimensions.height, radialMenu.isOpen, radialMenu.cabalId, closeRadialMenu]
   )
-  
-  const closeRadialMenu = useCallback(() => {
-    setRadialMenu(prev => ({ ...prev, isOpen: false }))
-    setContributionAmount("0.001")
-  }, [])
   
   // Track if we just handled a touch to prevent click handler from closing menu
   const justTouchedNodeRef = useRef(false)
+  // Debounce node clicks to prevent double-firing on mobile
+  const lastNodeClickRef = useRef(0)
   
   // Custom touch handler for immediate tap response on mobile
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -405,15 +617,16 @@ export function GraphExplorer({
     // Convert screen coords to graph coords
     const graphCoords = graphRef.current.screen2GraphCoords(screenX, screenY)
     
-    // Check if any node was touched
+    // Check if any node was touched - use current animated radius for open menu
+    const hitRadius = radialMenu.isOpen ? Math.max(animatedRadius, SMALL_NODE_RADIUS) : FULL_NODE_RADIUS
     const touchedNode = graphData.nodes.find((node) => {
       const nodeX = node.x || 0
       const nodeY = node.y || 0
       const dx = graphCoords.x - nodeX
       const dy = graphCoords.y - nodeY
       const distance = Math.sqrt(dx * dx + dy * dy)
-      // Use a slightly larger hit area for touch (1.2x radius)
-      return distance < NODE_RADIUS * 1.2
+      // Use appropriate radius for touch hit area
+      return distance < hitRadius * 1.2
     })
     
     if (touchedNode) {
@@ -427,7 +640,7 @@ export function GraphExplorer({
       // Touched background - close menu
       closeRadialMenu()
     }
-  }, [graphData.nodes, handleNodeClick, closeRadialMenu])
+  }, [graphData.nodes, handleNodeClick, closeRadialMenu, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, radialMenu.isOpen, animatedRadius])
   
   const handleContribute = useCallback(() => {
     if (!CABAL_DIAMOND_ADDRESS || !contributionAmount) return
@@ -441,12 +654,17 @@ export function GraphExplorer({
     }, {
       onError: (e) => {
         haptics.error()
-        toast.error(e.message || "Failed to contribute")
+        const msg = e.message || "Failed to contribute"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 80))
+        }
       },
     })
   }, [radialMenu.cabalId, contributionAmount, contributeWrite])
   
-  const handleVote = useCallback((support: boolean) => {
+  const executeVote = useCallback((support: boolean) => {
     if (!CABAL_DIAMOND_ADDRESS) return
     
     voteWrite({
@@ -457,9 +675,15 @@ export function GraphExplorer({
     }, {
       onError: (e) => {
         haptics.error()
-        toast.error(e.message || "Failed to vote")
+        const msg = e.message || "Failed to vote"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 80))
+        }
       },
     })
+    setShowLaunchConfirm(false)
   }, [radialMenu.cabalId, voteWrite])
 
   const isLoading = isLoadingIds || isLoadingCabals
@@ -542,23 +766,41 @@ export function GraphExplorer({
     )
   }
 
-  // Panel sizes scaled proportionally with node
-  const PANEL_SIZE = NODE_RADIUS * PHI * 2 // Diameter for all panels (1.618× node diameter)
-  const PANEL_GAP = NODE_RADIUS * 2 * (PHI - 1) // Gap between node edge and panel edge (0.618× node diameter)
-  const PANEL_OFFSET = NODE_RADIUS + PANEL_GAP + PANEL_SIZE / 2 // Distance from node center to panel center
+  // Panel sizes - sacred geometry ratios, panels tangent to outer ring
   const OUTER_CIRCLE_RADIUS = availableRadius
+  // Gap between center node edge and panel edge = 0.61803× (φ-1) of center node diameter
+  const PANEL_GAP = NODE_RADIUS * 2 * (PHI - 1) // Sacred ratio gap
+  // Panel size so outer edge touches outer ring: PANEL_OFFSET + PANEL_SIZE/2 = OUTER_CIRCLE_RADIUS
+  // PANEL_OFFSET = NODE_RADIUS + PANEL_GAP + PANEL_SIZE/2
+  // So: NODE_RADIUS + PANEL_GAP + PANEL_SIZE/2 + PANEL_SIZE/2 = OUTER_CIRCLE_RADIUS
+  // PANEL_SIZE = OUTER_CIRCLE_RADIUS - NODE_RADIUS - PANEL_GAP
+  const PANEL_SIZE = OUTER_CIRCLE_RADIUS - NODE_RADIUS - PANEL_GAP
+  const PANEL_OFFSET = NODE_RADIUS + PANEL_GAP + PANEL_SIZE / 2
   
   const isPresale = radialMenu.phase === CabalPhase.Presale
   const isActive = radialMenu.phase === CabalPhase.Active
   
-  // Vote status parsing
+  // Vote status parsing (isLaunchApproved defined earlier for graph node coloring)
   const votesFor = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[0] ?? 0n
   const totalRaisedForVote = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[2] ?? 0n
-  const launchApprovedAt = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[5] ?? 0n
-  const isLaunchApproved = launchApprovedAt > 0n
+  const majorityRequired = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[3] ?? 0n
   const yesPercent = totalRaisedForVote > 0n ? Number((votesFor * 10000n) / totalRaisedForVote) / 100 : 0
   const userVotedYes = (userVote ?? 0n) === 1n
   const hasContributed = !!userContribution && userContribution > 0n
+  
+  // Check if a YES vote would trigger launch (push over 51%)
+  const contributionAmount_bigint = userContribution ?? 0n
+  const wouldTriggerLaunch = !isLaunchApproved && !userVotedYes && 
+    (votesFor + contributionAmount_bigint) >= majorityRequired && majorityRequired > 0n
+  
+  // Vote handler - shows confirmation if would trigger launch
+  const handleVote = (support: boolean) => {
+    if (support && wouldTriggerLaunch) {
+      setShowLaunchConfirm(true)
+      return
+    }
+    executeVote(support)
+  }
   
   const isContributeLoading = isContributing || isContributeConfirming
   const isVoteLoading = isVoting || isVoteConfirming
@@ -567,7 +809,14 @@ export function GraphExplorer({
   return (
     <div 
       ref={containerRef}
-      className="w-full h-full bg-muted/10 rounded-xl overflow-hidden border border-primary/10 relative touch-manipulation [&_canvas]:touch-manipulation"
+      className="w-full h-full bg-muted/10 rounded-xl overflow-hidden border border-primary/10 relative touch-manipulation [&_canvas]:touch-manipulation select-none"
+      onTouchStart={(e) => {
+        // Prevent default to avoid browser gestures interfering
+        // but only if touching on canvas area
+        if ((e.target as HTMLElement).tagName === 'CANVAS') {
+          e.preventDefault()
+        }
+      }}
       onTouchEnd={handleTouchEnd}
       onClick={(e) => {
         // Skip if we just handled a touch event
@@ -637,9 +886,9 @@ export function GraphExplorer({
             d3AlphaMin={0.001}
             nodeCanvasObjectMode={() => "replace"}
           nodePointerAreaPaint={(node, color, ctx, globalScale) => {
-            // Hit area uses scaled NODE_RADIUS to match visual size
+            // Hit area uses FULL_NODE_RADIUS to match visual size
             const n = node as GraphNode
-            const radius = NODE_RADIUS / globalScale
+            const radius = FULL_NODE_RADIUS / globalScale
             const x = n.x || 0
             const y = n.y || 0
             ctx.beginPath()
@@ -650,13 +899,19 @@ export function GraphExplorer({
           nodeCanvasObject={(node, ctx, globalScale) => {
             const n = node as GraphNode
             const label = n.label
-            const statusColor =
-              PHASE_COLORS[n.phase as keyof typeof PHASE_COLORS] || "#6b7280"
+            const isSelected = radialMenu.isOpen && radialMenu.cabalId === n.id
             
-            // Use scaled NODE_RADIUS to match panel sizing
-            const radius = NODE_RADIUS / globalScale
-            const fontSize = (NODE_RADIUS * 0.44) / globalScale
-            const statusDotRadius = (NODE_RADIUS * 0.15) / globalScale
+            // Use orange for launching status, otherwise use phase color
+            const statusColor = n.isLaunching 
+              ? LAUNCHING_COLOR 
+              : PHASE_COLORS[n.phase as keyof typeof PHASE_COLORS] || "#6b7280"
+            
+            // Selected nodes use animated radius for smooth transitions
+            const baseRadius = isSelected ? (animatedRadius || SMALL_NODE_RADIUS) : FULL_NODE_RADIUS
+            const radius = baseRadius / globalScale
+            // Bigger font - 40% of radius for good visibility
+            const fontSize = (baseRadius * 0.4) / globalScale
+            const statusDotRadius = (baseRadius * 0.15) / globalScale
             const x = n.x || 0
             const y = n.y || 0
             
@@ -700,18 +955,24 @@ export function GraphExplorer({
         )}
         
         {/* Radial Fractal UI */}
-        {radialMenu.isOpen && (
+        {(radialMenu.isOpen || menuAnimState === 'exiting') && (
           <div 
-            className="absolute pointer-events-none z-10"
+            className={`absolute pointer-events-none z-10 radial-menu-container ${menuAnimState}`}
             style={{
               left: radialMenu.screenX,
               top: radialMenu.screenY,
               transform: 'translate(-50%, -50%)',
             }}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
+            
             {/* TOP PANEL - Total Raised */}
             <div 
-              className="absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center"
+              className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-0' : 
+                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
+              }`}
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
@@ -720,11 +981,12 @@ export function GraphExplorer({
               }}
             >
               {selectedCabal ? (
-                <div className="px-2">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Raised</p>
-                  <p className="text-base font-bold font-mono">
-                    <TokenAmount amount={selectedCabal.totalRaised} symbol="ETH" decimals={4} />
+                <div className="px-2 flex flex-col items-center">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Raised</p>
+                  <p className="text-base font-bold font-mono leading-tight">
+                    <TokenAmount amount={selectedCabal.totalRaised} decimals={4} />
                   </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>
                 </div>
               ) : (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -733,7 +995,10 @@ export function GraphExplorer({
             
             {/* BOTTOM PANEL - Your Position */}
             <div 
-              className="absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center"
+              className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-3' : 
+                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
+              }`}
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
@@ -741,27 +1006,30 @@ export function GraphExplorer({
                 top: PANEL_OFFSET - PANEL_SIZE / 2,
               }}
             >
-              <div className="px-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">You</p>
-                <p className="text-base font-bold font-mono">
+              <div className="px-2 flex flex-col items-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">You</p>
+                <p className="text-base font-bold font-mono leading-tight">
                   {hasContributed ? (
-                    <TokenAmount amount={userContribution} symbol="ETH" decimals={4} />
+                    <TokenAmount amount={userContribution} decimals={4} />
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
                 </p>
+                {hasContributed && <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>}
               </div>
             </div>
             
-            {/* LEFT PANEL - Contribute (Presale) or Trade (Active) - Golden ratio pill */}
+            {/* LEFT PANEL - Contribute (Presale) or Trade (Active) - Circle */}
             <div 
-              className="absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden"
+              className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-1' : 
+                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
+              }`}
               style={{
                 width: PANEL_SIZE,
-                height: PANEL_SIZE * PHI, // Golden ratio height
-                borderRadius: PANEL_SIZE / 2, // Pill shape
+                height: PANEL_SIZE,
                 left: -PANEL_OFFSET - PANEL_SIZE / 2,
-                top: `calc(50% - ${(PANEL_SIZE * PHI) / 2}px)`,
+                top: `calc(50% - ${PANEL_SIZE / 2}px)`,
               }}
             >
               {isPresale ? (
@@ -771,8 +1039,7 @@ export function GraphExplorer({
                     <p className="text-xs text-muted-foreground">Connect to contribute</p>
                   </div>
                 ) : (
-                  <div className="px-3 py-3 space-y-2 w-full text-center">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Join</p>
+                  <div className="px-3 py-2 space-y-1.5 w-full text-center">
                     <Input
                         type="number"
                         step="0.001"
@@ -812,15 +1079,17 @@ disabled={isContributeLoading}
               )}
             </div>
             
-            {/* RIGHT PANEL - Vote/Launch (Presale) or Info (Active) - Golden ratio pill */}
+            {/* RIGHT PANEL - Vote/Launch (Presale) or Info (Active) - Circle */}
             <div 
-              className="absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden"
+              className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-2' : 
+                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
+              }`}
               style={{
                 width: PANEL_SIZE,
-                height: PANEL_SIZE * PHI, // Golden ratio height
-                borderRadius: PANEL_SIZE / 2, // Pill shape
+                height: PANEL_SIZE,
                 left: PANEL_OFFSET - PANEL_SIZE / 2,
-                top: `calc(50% - ${(PANEL_SIZE * PHI) / 2}px)`,
+                top: `calc(50% - ${PANEL_SIZE / 2}px)`,
               }}
             >
               {isPresale ? (
@@ -835,9 +1104,23 @@ disabled={isContributeLoading}
                     <p className="text-xs text-muted-foreground">Contribute to vote</p>
                   </div>
                 ) : isLaunchApproved ? (
-                  <div className="px-2 space-y-1">
-                    <p className="text-lg">🚀</p>
-                    <p className="text-xs font-medium">Approved!</p>
+                  <div className="px-3 py-2 space-y-2 w-full text-center">
+                    {isLaunchable ? (
+                      <Button
+                        onClick={() => onSelectCabal?.(BigInt(radialMenu.cabalId))}
+                        className="w-full h-8 text-xs"
+                        size="sm"
+                      >
+                        Launch
+                      </Button>
+                    ) : (
+                      <>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Launching in</p>
+                        <p className="text-lg font-mono font-bold">
+                          {Math.max(0, Math.ceil((Number(launchableAtEarly) - Date.now() / 1000) / 60))} min
+                        </p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="px-3 py-3 space-y-2 w-full">
@@ -886,6 +1169,49 @@ disabled={isContributeLoading}
             </div>
           </div>
         )}
+        
+        {/* Launch Confirmation Dialog */}
+        <Dialog open={showLaunchConfirm} onOpenChange={setShowLaunchConfirm}>
+          <DialogContent 
+            className="dialog-glow-animated"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Rocket className="h-5 w-5" />
+                Start Launch Countdown?
+              </DialogTitle>
+              <DialogDescription>
+                Your vote will trigger a <strong>10 minute</strong> countdown. After this period, anyone can finalize the launch to deploy the token and begin trading.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowLaunchConfirm(false)
+                }}
+                disabled={isVoteLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  executeVote(true)
+                }}
+                disabled={isVoteLoading}
+                className="gap-2"
+              >
+                {isVoteLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isVoteLoading ? "Confirming..." : "Launch"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   )
 }

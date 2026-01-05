@@ -80,7 +80,12 @@ export function ContributeCTA({ cabalId, userHasVoted, onSuccess }: ContributeCT
     }, {
       onError: (error) => {
         haptics.error();
-        toast.error(error.message || 'Failed to contribute');
+        const msg = error.message || 'Failed to contribute';
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled");
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 80));
+        }
       },
     });
   };

@@ -28,6 +28,18 @@ import { CABAL_ABI, CabalInfo, CabalPhase, ProposalState } from "@/lib/abi/cabal
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { Network, GitBranch, Lock } from "lucide-react"
 
+function showErrorToast(error: Error) {
+  const msg = error.message || "Transaction failed"
+  // User rejected the transaction
+  if (msg.includes("User denied") || msg.includes("User rejected")) {
+    toast.error("Transaction cancelled")
+    return
+  }
+  // Extract just the first line or a short summary
+  const shortMsg = msg.split("\n")[0].slice(0, 80)
+  toast.error(shortMsg.length < msg.length ? shortMsg + "..." : shortMsg)
+}
+
 function showTransactionToast(hash: string, message: string) {
   toast.success(message, {
     action: {
@@ -106,11 +118,28 @@ function LaunchSection({
 
   useEffect(() => {
     if (finalizeSuccess && finalizeHash) {
-      showTransactionToast(finalizeHash, "Cabal launched! 🚀")
+      showTransactionToast(finalizeHash, "Cabal launched!")
       queryClient.invalidateQueries()
       onSuccess()
     }
   }, [finalizeSuccess, finalizeHash, queryClient, onSuccess])
+
+  // Watch for vote reset events (triggered when user contributes more during presale)
+  useWatchContractEvent({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    eventName: "LaunchVoteReset",
+    onLogs(logs) {
+      const relevantLog = logs.find((log) => {
+        const args = log.args as { cabalId?: bigint; voter?: string }
+        return args.cabalId === cabalId && args.voter?.toLowerCase() === userAddress.toLowerCase()
+      })
+      if (relevantLog) {
+        refetchUserVote()
+        refetchVoteStatus()
+      }
+    },
+  })
 
   const handleFinalize = () => {
     if (!CABAL_DIAMOND_ADDRESS) return
@@ -122,7 +151,7 @@ function LaunchSection({
         args: [cabalId],
       },
       {
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -137,7 +166,7 @@ function LaunchSection({
         args: [cabalId, support],
       },
       {
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -189,32 +218,32 @@ function LaunchSection({
 
   return (
     <div className="space-y-4">
-      {/* Launch Approved Status */}
+      {/* Launch Countdown / Launch Button */}
       {isLaunchApproved && (
-        <div className="p-4 bg-primary/10 border border-primary/30 rounded-lg text-center space-y-3">
-          <div className="space-y-1">
-            <p className="text-base font-medium">
-              🚀 Launch Approved!
-            </p>
-            {isLaunchable ? (
-              <p className="text-sm text-muted-foreground">Ready to launch</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Launching {new Date(Number(launchableAt) * 1000).toLocaleString()}
-              </p>
-            )}
+        <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg text-center space-y-3">
+          <div className="flex items-center justify-center gap-2">
+            <Rocket className="h-5 w-5 text-orange-500" />
+            <span className="text-base font-medium text-orange-500">
+              {isLaunchable ? "Ready to Launch" : "Launching Soon"}
+            </span>
           </div>
-          {isLaunchable && (
-            <Button
-              onClick={handleFinalize}
-              disabled={isFinalizing || isFinalizeConfirming}
-              className="w-full h-12 text-base gap-2"
-              size="lg"
-            >
-              {(isFinalizing || isFinalizeConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isFinalizing || isFinalizeConfirming ? "Launching..." : "Launch Now"}
-            </Button>
+          {!isLaunchable && (
+            <div className="space-y-1">
+              <p className="text-2xl font-bold font-mono">
+                {Math.max(0, Math.ceil((Number(launchableAt) - Date.now() / 1000) / 60))} min
+              </p>
+              <p className="text-xs text-muted-foreground">until launch available</p>
+            </div>
           )}
+          <Button
+            onClick={handleFinalize}
+            disabled={!isLaunchable || isFinalizing || isFinalizeConfirming}
+            className="w-full h-12 text-base gap-2"
+            size="lg"
+          >
+            {(isFinalizing || isFinalizeConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isFinalizing || isFinalizeConfirming ? "Launching..." : isLaunchable ? "Launch Now" : "Waiting..."}
+          </Button>
         </div>
       )}
 
@@ -280,14 +309,14 @@ function LaunchSection({
 
       {/* Launch Confirmation Dialog */}
       <Dialog open={showLaunchConfirm} onOpenChange={setShowLaunchConfirm}>
-        <DialogContent>
+        <DialogContent className="dialog-glow-animated">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Rocket className="h-5 w-5" />
               Start Launch Countdown?
             </DialogTitle>
             <DialogDescription>
-              Your vote will trigger the 24-hour launch countdown. After this, the token will be deployed and trading will begin.
+              Your vote will trigger a <strong>10 minute</strong> countdown. After this period, anyone can finalize the launch to deploy the token and begin trading.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -503,7 +532,7 @@ function ProposalSection({
         args: [cabalId, currentProposalId, support],
       },
       {
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -518,7 +547,7 @@ function ProposalSection({
         args: [cabalId, currentProposalId],
       },
       {
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -743,7 +772,7 @@ function ActiveSection({
     claimWrite(
       { address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: "claimTokens", args: [cabalId] },
       {
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -758,7 +787,7 @@ function ActiveSection({
         args: [cabalId, parseEther(unstakeAmount)],
       },
       {
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
         onSuccess: () => setUnstakeAmount(""),
       }
     )
@@ -780,7 +809,7 @@ function ActiveSection({
           setIsDelegateModalOpen(false)
           onSuccess()
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -794,7 +823,7 @@ function ActiveSection({
           toast.success("Undelegated!")
           onSuccess()
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -813,7 +842,7 @@ function ActiveSection({
           toast.success("LP fees claimed!")
           onSuccess()
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => showErrorToast(e),
       }
     )
   }
@@ -1186,6 +1215,17 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
     query: { enabled: !!address && cabal?.phase === CabalPhase.Presale },
   })
   const userHasVoted = (userVoteStatus ?? 0n) !== 0n
+  
+  // Get launch status for phase label (presale vs launching)
+  const { data: mainVoteStatus } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "getLaunchVoteStatus",
+    args: [cabalId],
+    query: { enabled: cabal?.phase === CabalPhase.Presale },
+  })
+  const mainLaunchApprovedAt = (mainVoteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[5] ?? 0n
+  const isMainLaunchApproved = mainLaunchApprovedAt > 0n
 
   // Watch for CabalFinalized events to update UI when presale -> active
   // Only watch during presale phase, poll every 30 seconds to reduce RPC calls
@@ -1305,16 +1345,22 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
     )
   }
 
-  const phaseLabel = ["Presale", "Active", "Paused", "Closed"][cabal.phase] || "Unknown"
   const isClosed = cabal.phase === 3 // CabalPhase.Closed
+  // Show "Launching" when presale + launch approved, otherwise use phase name
+  const isLaunching = cabal.phase === CabalPhase.Presale && isMainLaunchApproved
+  const phaseLabel = isLaunching 
+    ? "Launching" 
+    : ["Presale", "Active", "Paused", "Closed"][cabal.phase] || "Unknown"
   const phaseColor =
-    cabal.phase === CabalPhase.Presale
-      ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
-      : cabal.phase === CabalPhase.Active
-        ? "bg-green-500/10 text-green-500 border-green-500/30"
-        : isClosed
-          ? "bg-gray-500/10 text-gray-500 border-gray-500/30"
-          : "bg-red-500/10 text-red-500 border-red-500/30"
+    isLaunching
+      ? "bg-orange-500/10 text-orange-500 border-orange-500/30"
+      : cabal.phase === CabalPhase.Presale
+        ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
+        : cabal.phase === CabalPhase.Active
+          ? "bg-green-500/10 text-green-500 border-green-500/30"
+          : isClosed
+            ? "bg-gray-500/10 text-gray-500 border-gray-500/30"
+            : "bg-red-500/10 text-red-500 border-red-500/30"
 
   // Calculate staked percentage
   const stakedPercent =

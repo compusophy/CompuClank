@@ -707,3 +707,176 @@
     transparent 50%
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RADIAL MENU SACRED GEOMETRY ANIMATIONS
+   Fractal-inspired bloom animation using golden ratio
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Base radial menu container - animate the whole system */
+.radial-menu-container {
+  transition: opacity 0.309s ease-out;
+}
+
+.radial-menu-container.entering {
+  opacity: 1;
+}
+
+.radial-menu-container.exiting {
+  opacity: 0;
+}
+
+/* Radial panel bloom animation - smooth sacred geometry inspired */
+@keyframes radial-bloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes radial-collapse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+/* Panel base class with smooth transitions */
+.radial-panel {
+  will-change: transform, opacity;
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+/* Visible state after animation completes */
+.radial-panel-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Bloom animation with smooth easing */
+.radial-panel-enter {
+  animation: radial-bloom 0.382s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Top panel (index 0) - enters first */
+.radial-panel-enter.radial-delay-0 {
+  animation-delay: 0ms;
+}
+
+/* Left panel (index 1) - φ delay */
+.radial-panel-enter.radial-delay-1 {
+  animation-delay: 38ms; /* 0.0382s */
+}
+
+/* Right panel (index 2) - φ² delay */
+.radial-panel-enter.radial-delay-2 {
+  animation-delay: 62ms; /* 0.0618s */
+}
+
+/* Bottom panel (index 3) - φ³ delay */
+.radial-panel-enter.radial-delay-3 {
+  animation-delay: 100ms; /* 0.1s */
+}
+
+/* Collapse animation - smooth exit, matches node expansion timing */
+.radial-panel-exit {
+  animation: radial-collapse 0.4s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+}
+
+/* Outer ring expansion/contraction animation */
+/* Center node shrinks from full size to small size */
+@keyframes center-shrink {
+  0% {
+    scale: var(--full-to-small-ratio, 3);
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+@keyframes center-expand {
+  0% {
+    scale: 1;
+  }
+  100% {
+    scale: var(--full-to-small-ratio, 3);
+  }
+}
+
+.radial-center-shrink {
+  will-change: scale;
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+.radial-center-shrink-enter {
+  animation: center-shrink 0.382s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.radial-center-shrink-exit {
+  animation: center-expand 0.236s ease-in forwards;
+}
+
+/* Outer ring expands from full node size to panel ring size */
+@keyframes ring-expand {
+  0% {
+    scale: var(--start-scale, 0.5);
+    opacity: 0;
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@keyframes ring-contract {
+  0% {
+    scale: 1;
+    opacity: 1;
+  }
+  100% {
+    scale: var(--start-scale, 0.5);
+    opacity: 0;
+  }
+}
+
+.radial-outer-ring {
+  will-change: scale, opacity;
+  pointer-events: none;
+  transform-origin: center center;
+}
+
+.radial-outer-ring-enter {
+  animation: ring-expand 0.382s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.radial-outer-ring-exit {
+  animation: ring-contract 0.236s ease-in forwards;
+}
+
+/* Sacred geometry glow pulse on the ring */
+@keyframes ring-sacred-pulse {
+  0%, 100% {
+    box-shadow: 
+      inset 0 0 30px rgba(212, 146, 54, 0.08),
+      0 0 40px rgba(190, 130, 50, 0.05);
+  }
+  61.8% {
+    box-shadow: 
+      inset 0 0 40px rgba(212, 146, 54, 0.12),
+      0 0 60px rgba(190, 130, 50, 0.08);
+  }
+}
+
+.radial-outer-ring-glow {
+  animation: ring-sacred-pulse 2.618s ease-in-out infinite;
+}

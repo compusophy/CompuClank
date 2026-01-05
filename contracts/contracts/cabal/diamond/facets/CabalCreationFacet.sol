@@ -51,7 +51,7 @@ contract CabalCreationFacet {
     uint256 constant LAUNCH_MAJORITY_BPS = 5100;  // 51% of totalRaised must vote YES
     
     // Launch timer - delay after vote threshold met before finalization (TESTING: reduced)
-    uint256 constant LAUNCH_DELAY = 30 minutes;
+    uint256 constant LAUNCH_DELAY = 10 minutes;
     
     // Default pool config (standard Clanker settings)
     int24 constant DEFAULT_TICK = -230400; // ~10 ETH market cap

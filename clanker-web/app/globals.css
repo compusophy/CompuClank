@@ -76,105 +76,106 @@
   --golden-minor: 38.197%;
   
   /* ═══════════════════════════════════════════════════════════════
-     GOLDEN CABAL COLOR SYSTEM
-     Primary: Golden Amber (hue 45°) - The sacred fire
-     Secondary: Rose Gold (hue 25°) - φ relationship  
-     Accent: Bronze (hue 35°) - The bridge
+     GOLDEN CABAL COLOR SYSTEM - RGB for consistency with canvas
+     Primary: Golden Amber - The sacred fire
+     Secondary: Rose Gold - φ relationship  
+     Accent: Bronze - The bridge
      ═══════════════════════════════════════════════════════════════ */
   
   /* Light Mode */
-  --background: oklch(0.99 0.005 85);
-  --foreground: oklch(0.15 0.02 45);
-  --card: oklch(0.98 0.008 60);
-  --card-foreground: oklch(0.15 0.02 45);
-  --popover: oklch(0.99 0.005 85);
-  --popover-foreground: oklch(0.15 0.02 45);
+  --background: rgb(252, 251, 250);
+  --foreground: rgb(38, 32, 28);
+  --card: rgb(250, 248, 245);
+  --card-foreground: rgb(38, 32, 28);
+  --popover: rgb(252, 251, 250);
+  --popover-foreground: rgb(38, 32, 28);
   
   /* Primary: Golden Amber - Luxurious, warm, powerful */
-  --primary: oklch(0.65 0.18 45);
-  --primary-foreground: oklch(0.99 0.01 85);
+  --primary: rgb(180, 120, 40);
+  --primary-foreground: rgb(252, 250, 248);
   
   /* Secondary: Soft cream with golden undertone */
-  --secondary: oklch(0.95 0.02 70);
-  --secondary-foreground: oklch(0.35 0.08 45);
+  --secondary: rgb(242, 238, 230);
+  --secondary-foreground: rgb(85, 70, 55);
   
-  --muted: oklch(0.94 0.015 60);
-  --muted-foreground: oklch(0.45 0.03 45);
+  --muted: rgb(240, 235, 228);
+  --muted-foreground: rgb(110, 95, 80);
   
   /* Accent: Rose gold warmth */
-  --accent: oklch(0.92 0.04 35);
-  --accent-foreground: oklch(0.25 0.06 30);
+  --accent: rgb(235, 225, 215);
+  --accent-foreground: rgb(65, 50, 40);
   
-  --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.88 0.025 55);
-  --input: oklch(0.92 0.02 60);
-  --ring: oklch(0.70 0.15 45);
+  --destructive: rgb(180, 60, 50);
+  --border: rgb(225, 215, 200);
+  --input: rgb(235, 230, 222);
+  --ring: rgb(190, 130, 50);
   
   /* Chart colors - golden harmony */
-  --chart-1: oklch(0.70 0.18 45);  /* Golden amber */
-  --chart-2: oklch(0.65 0.15 25);  /* Rose gold */
-  --chart-3: oklch(0.60 0.12 70);  /* Honey */
-  --chart-4: oklch(0.75 0.10 90);  /* Champagne */
-  --chart-5: oklch(0.55 0.14 35);  /* Bronze */
+  --chart-1: rgb(190, 130, 50);  /* Golden amber */
+  --chart-2: rgb(180, 110, 70);  /* Rose gold */
+  --chart-3: rgb(160, 130, 90);  /* Honey */
+  --chart-4: rgb(200, 175, 140); /* Champagne */
+  --chart-5: rgb(150, 100, 60);  /* Bronze */
   
-  --sidebar: oklch(0.97 0.01 60);
-  --sidebar-foreground: oklch(0.15 0.02 45);
-  --sidebar-primary: oklch(0.65 0.18 45);
-  --sidebar-primary-foreground: oklch(0.99 0.01 85);
-  --sidebar-accent: oklch(0.92 0.04 35);
-  --sidebar-accent-foreground: oklch(0.25 0.06 30);
-  --sidebar-border: oklch(0.88 0.025 55);
-  --sidebar-ring: oklch(0.70 0.15 45);
+  --sidebar: rgb(248, 245, 240);
+  --sidebar-foreground: rgb(38, 32, 28);
+  --sidebar-primary: rgb(180, 120, 40);
+  --sidebar-primary-foreground: rgb(252, 250, 248);
+  --sidebar-accent: rgb(235, 225, 215);
+  --sidebar-accent-foreground: rgb(65, 50, 40);
+  --sidebar-border: rgb(225, 215, 200);
+  --sidebar-ring: rgb(190, 130, 50);
 }
 
 .dark {
   /* ═══════════════════════════════════════════════════════════════
      DARK MODE - Deep Obsidian with Golden Fire
-     A luxurious dark canvas that makes the gold glow
+     Using RGB to match canvas rendering exactly
+     BRAND_BG: rgb(28, 26, 24) | BRAND_GOLD: rgb(212, 146, 54)
      ═══════════════════════════════════════════════════════════════ */
   
-  --background: oklch(0.12 0.015 45);
-  --foreground: oklch(0.95 0.02 60);
-  --card: oklch(0.16 0.02 45);
-  --card-foreground: oklch(0.95 0.02 60);
-  --popover: oklch(0.14 0.018 45);
-  --popover-foreground: oklch(0.95 0.02 60);
+  --background: rgb(28, 26, 24);
+  --foreground: rgb(240, 235, 228);
+  --card: rgb(38, 34, 32);
+  --card-foreground: rgb(240, 235, 228);
+  --popover: rgb(32, 29, 27);
+  --popover-foreground: rgb(240, 235, 228);
   
-  /* Primary: Luminous golden amber - glows in the dark */
-  --primary: oklch(0.75 0.18 50);
-  --primary-foreground: oklch(0.12 0.02 45);
+  /* Primary: Golden amber - matches BRAND_GOLD exactly */
+  --primary: rgb(212, 146, 54);
+  --primary-foreground: rgb(28, 26, 24);
   
   /* Secondary: Deep bronze */
-  --secondary: oklch(0.22 0.03 40);
-  --secondary-foreground: oklch(0.90 0.05 55);
+  --secondary: rgb(52, 46, 42);
+  --secondary-foreground: rgb(225, 215, 200);
   
-  --muted: oklch(0.20 0.025 45);
-  --muted-foreground: oklch(0.65 0.04 50);
+  --muted: rgb(48, 43, 40);
+  --muted-foreground: rgb(160, 145, 130);
   
   /* Accent: Warm ember glow */
-  --accent: oklch(0.25 0.05 40);
-  --accent-foreground: oklch(0.92 0.06 55);
+  --accent: rgb(60, 52, 46);
+  --accent-foreground: rgb(235, 225, 210);
   
-  --destructive: oklch(0.60 0.20 25);
-  --border: oklch(0.28 0.04 45);
-  --input: oklch(0.22 0.03 45);
-  --ring: oklch(0.70 0.16 48);
+  --destructive: rgb(180, 60, 50);
+  --border: rgb(68, 60, 54);
+  --input: rgb(52, 46, 42);
+  --ring: rgb(190, 130, 50);
   
   /* Chart colors - golden fire in darkness */
-  --chart-1: oklch(0.75 0.18 50);  /* Bright gold */
-  --chart-2: oklch(0.65 0.16 35);  /* Rose gold */
-  --chart-3: oklch(0.70 0.14 65);  /* Honey amber */
-  --chart-4: oklch(0.60 0.12 80);  /* Champagne */
-  --chart-5: oklch(0.55 0.18 30);  /* Deep bronze */
+  --chart-1: rgb(212, 146, 54);  /* Bright gold - BRAND_GOLD */
+  --chart-2: rgb(180, 110, 70);  /* Rose gold */
+  --chart-3: rgb(195, 150, 80);  /* Honey amber */
+  --chart-4: rgb(160, 130, 90);  /* Champagne */
+  --chart-5: rgb(150, 90, 50);   /* Deep bronze */
   
-  --sidebar: oklch(0.14 0.018 45);
-  --sidebar-foreground: oklch(0.95 0.02 60);
-  --sidebar-primary: oklch(0.75 0.18 50);
-  --sidebar-primary-foreground: oklch(0.12 0.02 45);
-  --sidebar-accent: oklch(0.25 0.05 40);
-  --sidebar-accent-foreground: oklch(0.92 0.06 55);
-  --sidebar-border: oklch(0.28 0.04 45);
-  --sidebar-ring: oklch(0.70 0.16 48);
+  --sidebar: rgb(32, 29, 27);
+  --sidebar-foreground: rgb(240, 235, 228);
+  --sidebar-primary: rgb(212, 146, 54);
+  --sidebar-primary-foreground: rgb(28, 26, 24);
+  --sidebar-accent: rgb(60, 52, 46);
+  --sidebar-accent-foreground: rgb(235, 225, 210);
+  --sidebar-border: rgb(68, 60, 54);
+  --sidebar-ring: rgb(190, 130, 50);
 }
 
 /* Hide number input spinners */
@@ -270,11 +271,11 @@
 .button-shimmer-effect {
   background: linear-gradient(
     90deg, 
-    oklch(0.70 0.18 48) 0%, 
-    oklch(0.70 0.18 48) 40%, 
-    oklch(0.80 0.14 52) 50%, 
-    oklch(0.70 0.18 48) 60%, 
-    oklch(0.70 0.18 48) 100%
+    rgb(190, 130, 50) 0%, 
+    rgb(190, 130, 50) 40%, 
+    rgb(220, 170, 90) 50%, 
+    rgb(190, 130, 50) 60%, 
+    rgb(190, 130, 50) 100%
   );
   background-size: 200% 100%;
   animation: button-shimmer 4s ease-in-out infinite;
@@ -283,11 +284,11 @@
 .dark .button-shimmer-effect {
   background: linear-gradient(
     90deg, 
-    oklch(0.75 0.18 50) 0%, 
-    oklch(0.75 0.18 50) 40%, 
-    oklch(0.85 0.14 55) 50%, 
-    oklch(0.75 0.18 50) 60%, 
-    oklch(0.75 0.18 50) 100%
+    rgb(212, 146, 54) 0%, 
+    rgb(212, 146, 54) 40%, 
+    rgb(235, 185, 100) 50%, 
+    rgb(212, 146, 54) 60%, 
+    rgb(212, 146, 54) 100%
   );
   background-size: 200% 100%;
 }
@@ -306,13 +307,13 @@
 @keyframes dialog-glow-pulse {
   0%, 100% {
     box-shadow: 
-      0 0 30px oklch(0.75 0.12 50 / 0.15),
-      0 0 60px oklch(0.70 0.10 48 / 0.08);
+      0 0 30px rgba(212, 146, 54, 0.15),
+      0 0 60px rgba(190, 130, 50, 0.08);
   }
   50% {
     box-shadow: 
-      0 0 40px oklch(0.78 0.15 50 / 0.2),
-      0 0 80px oklch(0.72 0.12 48 / 0.12);
+      0 0 40px rgba(220, 160, 70, 0.2),
+      0 0 80px rgba(200, 140, 55, 0.12);
   }
 }
 
@@ -325,8 +326,8 @@
   backdrop-filter: blur(3px);
   background: linear-gradient(
     180deg,
-    oklch(0 0 0 / 0.3) 0%,
-    oklch(0.12 0.02 45 / 0.5) 100%
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(28, 26, 24, 0.5) 100%
   );
 }
 
@@ -334,21 +335,21 @@
 @keyframes input-sacred-glow {
   0%, 100% {
     box-shadow: 
-      0 0 0 1px oklch(0.70 0.10 48 / 0.3),
-      0 0 20px oklch(0.75 0.12 50 / 0.1);
-    border-color: oklch(0.65 0.08 48 / 0.5);
+      0 0 0 1px rgba(190, 130, 50, 0.3),
+      0 0 20px rgba(212, 146, 54, 0.1);
+    border-color: rgba(170, 115, 45, 0.5);
   }
   38.2% {
     box-shadow: 
-      0 0 0 1px oklch(0.75 0.14 50 / 0.5),
-      0 0 30px oklch(0.78 0.15 52 / 0.15);
-    border-color: oklch(0.72 0.12 50 / 0.7);
+      0 0 0 1px rgba(212, 146, 54, 0.5),
+      0 0 30px rgba(220, 160, 70, 0.15);
+    border-color: rgba(200, 140, 55, 0.7);
   }
   61.8% {
     box-shadow: 
-      0 0 0 1px oklch(0.72 0.12 49 / 0.4),
-      0 0 25px oklch(0.76 0.13 51 / 0.12);
-    border-color: oklch(0.68 0.10 49 / 0.6);
+      0 0 0 1px rgba(200, 140, 55, 0.4),
+      0 0 25px rgba(215, 155, 65, 0.12);
+    border-color: rgba(185, 125, 50, 0.6);
   }
 }
 
@@ -369,9 +370,9 @@
 .input-sacred:focus {
   animation: none;
   box-shadow: 
-    0 0 0 2px oklch(0.75 0.16 50 / 0.6),
-    0 0 40px oklch(0.78 0.14 48 / 0.2);
-  border-color: oklch(0.72 0.15 50 / 0.8);
+    0 0 0 2px rgba(212, 146, 54, 0.6),
+    0 0 40px rgba(220, 160, 70, 0.2);
+  border-color: rgba(200, 140, 55, 0.8);
 }
 
 .input-sacred::placeholder {
@@ -382,12 +383,12 @@
 /* Sacred Card - subtle breathing golden border */
 @keyframes card-sacred-breathe {
   0%, 100% {
-    border-color: oklch(0.70 0.06 48 / 0.2);
-    box-shadow: 0 1px 3px oklch(0.70 0.05 48 / 0.05);
+    border-color: rgba(190, 130, 50, 0.2);
+    box-shadow: 0 1px 3px rgba(190, 130, 50, 0.05);
   }
   61.8% {
-    border-color: oklch(0.75 0.10 50 / 0.3);
-    box-shadow: 0 2px 8px oklch(0.72 0.08 49 / 0.1);
+    border-color: rgba(212, 146, 54, 0.3);
+    box-shadow: 0 2px 8px rgba(200, 140, 55, 0.1);
   }
 }
 
@@ -397,8 +398,8 @@
 
 .card-sacred:hover {
   animation-play-state: paused;
-  border-color: oklch(0.75 0.14 50 / 0.5);
-  box-shadow: 0 4px 20px oklch(0.72 0.10 48 / 0.15);
+  border-color: rgba(212, 146, 54, 0.5);
+  box-shadow: 0 4px 20px rgba(200, 140, 55, 0.15);
 }
 
 /* Sacred text shimmer for headings - golden glow */
@@ -416,7 +417,7 @@
     90deg,
     currentColor 0%,
     currentColor 38.2%,
-    oklch(0.78 0.16 50) 50%,
+    rgb(220, 160, 70) 50%,
     currentColor 61.8%,
     currentColor 100%
   );
@@ -503,10 +504,10 @@
 .text-golden {
   background: linear-gradient(
     135deg,
-    oklch(0.75 0.18 50) 0%,
-    oklch(0.85 0.15 55) 38.2%,
-    oklch(0.70 0.20 45) 61.8%,
-    oklch(0.80 0.16 52) 100%
+    rgb(212, 146, 54) 0%,
+    rgb(235, 185, 100) 38.2%,
+    rgb(190, 120, 40) 61.8%,
+    rgb(225, 170, 85) 100%
   );
   background-clip: text;
   -webkit-background-clip: text;
@@ -526,11 +527,11 @@
 .text-golden-animated {
   background: linear-gradient(
     90deg,
-    oklch(0.70 0.18 45) 0%,
-    oklch(0.85 0.12 55) 25%,
-    oklch(0.75 0.20 48) 50%,
-    oklch(0.90 0.10 60) 75%,
-    oklch(0.70 0.18 45) 100%
+    rgb(190, 120, 40) 0%,
+    rgb(235, 185, 100) 25%,
+    rgb(212, 146, 54) 50%,
+    rgb(245, 205, 130) 75%,
+    rgb(190, 120, 40) 100%
   );
   background-size: 200% auto;
   background-clip: text;
@@ -542,56 +543,56 @@
 /* Golden glow effect */
 .glow-golden {
   box-shadow: 
-    0 0 20px oklch(0.75 0.15 50 / 0.3),
-    0 0 40px oklch(0.70 0.12 48 / 0.2),
-    0 0 60px oklch(0.65 0.10 45 / 0.1);
+    0 0 20px rgba(212, 146, 54, 0.3),
+    0 0 40px rgba(190, 130, 50, 0.2),
+    0 0 60px rgba(170, 115, 45, 0.1);
 }
 
 .glow-golden-subtle {
   box-shadow: 
-    0 0 15px oklch(0.75 0.12 50 / 0.15),
-    0 0 30px oklch(0.70 0.10 48 / 0.08);
+    0 0 15px rgba(212, 146, 54, 0.15),
+    0 0 30px rgba(190, 130, 50, 0.08);
 }
 
 /* Glassmorphism with golden tint */
 .glass-golden {
-  background: oklch(0.95 0.02 55 / 0.7);
+  background: rgba(245, 240, 230, 0.7);
   backdrop-filter: blur(12px) saturate(1.5);
-  border: 1px solid oklch(0.80 0.08 50 / 0.3);
+  border: 1px solid rgba(220, 170, 90, 0.3);
 }
 
 .dark .glass-golden {
-  background: oklch(0.18 0.03 45 / 0.8);
+  background: rgba(28, 26, 24, 0.8);
   backdrop-filter: blur(12px) saturate(1.5);
-  border: 1px solid oklch(0.50 0.10 48 / 0.3);
+  border: 1px solid rgba(140, 100, 50, 0.3);
 }
 
 /* Premium button with golden gradient */
 .btn-golden {
   background: linear-gradient(
     135deg,
-    oklch(0.70 0.18 48) 0%,
-    oklch(0.75 0.16 52) 50%,
-    oklch(0.68 0.19 45) 100%
+    rgb(190, 130, 50) 0%,
+    rgb(212, 146, 54) 50%,
+    rgb(180, 120, 45) 100%
   );
   box-shadow: 
-    0 4px 15px oklch(0.65 0.15 48 / 0.4),
-    inset 0 1px 0 oklch(0.90 0.08 55 / 0.4);
+    0 4px 15px rgba(170, 115, 50, 0.4),
+    inset 0 1px 0 rgba(245, 205, 130, 0.4);
   transition: all 0.309s ease-out;
 }
 
 .btn-golden:hover {
   box-shadow: 
-    0 6px 25px oklch(0.65 0.18 48 / 0.5),
-    inset 0 1px 0 oklch(0.92 0.08 55 / 0.5);
+    0 6px 25px rgba(170, 115, 50, 0.5),
+    inset 0 1px 0 rgba(250, 215, 140, 0.5);
   transform: translateY(-2px);
 }
 
 .btn-golden:active {
   transform: translateY(0);
   box-shadow: 
-    0 2px 10px oklch(0.65 0.15 48 / 0.4),
-    inset 0 1px 0 oklch(0.85 0.08 55 / 0.3);
+    0 2px 10px rgba(170, 115, 50, 0.4),
+    inset 0 1px 0 rgba(235, 190, 110, 0.3);
 }
 
 /* Golden border gradient */
@@ -599,7 +600,7 @@
   border: 1px solid transparent;
   background: 
     linear-gradient(var(--background), var(--background)) padding-box,
-    linear-gradient(135deg, oklch(0.75 0.15 50), oklch(0.65 0.18 45), oklch(0.80 0.12 55)) border-box;
+    linear-gradient(135deg, rgb(212, 146, 54), rgb(170, 115, 45), rgb(225, 175, 95)) border-box;
 }
 
 /* Luxury card with golden accent */
@@ -617,9 +618,9 @@
   height: 3px;
   background: linear-gradient(
     90deg,
-    oklch(0.70 0.18 45) 0%,
-    oklch(0.80 0.14 55) 50%,
-    oklch(0.70 0.18 45) 100%
+    rgb(190, 120, 40) 0%,
+    rgb(225, 175, 95) 50%,
+    rgb(190, 120, 40) 100%
   );
 }
 
@@ -638,11 +639,11 @@
   background: 
     linear-gradient(var(--background), var(--background)) padding-box,
     linear-gradient(90deg, 
-      oklch(0.70 0.18 45), 
-      oklch(0.85 0.12 55), 
-      oklch(0.75 0.16 50), 
-      oklch(0.65 0.20 42),
-      oklch(0.70 0.18 45)
+      rgb(190, 120, 40), 
+      rgb(235, 185, 100), 
+      rgb(212, 146, 54), 
+      rgb(165, 105, 35),
+      rgb(190, 120, 40)
     ) border-box;
   background-size: 200% 100%;
   animation: golden-border-flow 3s linear infinite;
@@ -651,14 +652,14 @@
 /* Premium input with golden focus */
 .input-golden {
   transition: all 0.309s ease-out;
-  border: 1px solid oklch(0.80 0.04 50 / 0.5);
+  border: 1px solid rgba(225, 175, 95, 0.5);
 }
 
 .input-golden:focus {
-  border-color: oklch(0.70 0.15 48);
+  border-color: rgb(190, 130, 50);
   box-shadow: 
-    0 0 0 3px oklch(0.75 0.12 50 / 0.2),
-    0 0 20px oklch(0.70 0.10 48 / 0.15);
+    0 0 0 3px rgba(212, 146, 54, 0.2),
+    0 0 20px rgba(190, 130, 50, 0.15);
   outline: none;
 }
 
@@ -668,9 +669,9 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    oklch(0.75 0.12 50 / 0.5) 20%,
-    oklch(0.75 0.12 50 / 0.8) 50%,
-    oklch(0.75 0.12 50 / 0.5) 80%,
+    rgba(212, 146, 54, 0.5) 20%,
+    rgba(212, 146, 54, 0.8) 50%,
+    rgba(212, 146, 54, 0.5) 80%,
     transparent 100%
   );
 }
@@ -678,23 +679,23 @@
 /* Luxury shadow */
 .shadow-golden {
   box-shadow: 
-    0 4px 6px oklch(0 0 0 / 0.05),
-    0 10px 15px oklch(0 0 0 / 0.1),
-    0 0 0 1px oklch(0.75 0.08 50 / 0.1);
+    0 4px 6px rgba(0, 0, 0, 0.05),
+    0 10px 15px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(212, 146, 54, 0.1);
 }
 
 .shadow-golden-lg {
   box-shadow: 
-    0 10px 25px oklch(0 0 0 / 0.1),
-    0 20px 40px oklch(0 0 0 / 0.15),
-    0 0 0 1px oklch(0.75 0.08 50 / 0.15);
+    0 10px 25px rgba(0, 0, 0, 0.1),
+    0 20px 40px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(212, 146, 54, 0.15);
 }
 
 /* Radial golden glow background */
 .bg-golden-radial {
   background: radial-gradient(
     ellipse at 50% 0%,
-    oklch(0.75 0.10 50 / 0.15) 0%,
+    rgba(212, 146, 54, 0.15) 0%,
     transparent 50%
   );
 }
@@ -702,7 +703,7 @@
 .dark .bg-golden-radial {
   background: radial-gradient(
     ellipse at 50% 0%,
-    oklch(0.65 0.12 48 / 0.2) 0%,
+    rgba(170, 115, 50, 0.2) 0%,
     transparent 50%
   );
 }

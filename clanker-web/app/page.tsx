@@ -124,11 +124,12 @@ function CabalCard({
         styles: "bg-primary/10 text-primary border-primary/30"
       }
     }
-    const labels = ["Presale", "Active", "Paused"]
-    const styles = {
+    const labels = ["Presale", "Active", "Paused", "Closed"]
+    const styles: Record<number, string> = {
       [CabalPhase.Presale]: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30",
       [CabalPhase.Active]: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30",
       [CabalPhase.Paused]: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30",
+      3: "bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/30", // Closed
     }
     return {
       label: labels[cabal.phase] || "Unknown",
@@ -411,7 +412,6 @@ export default function HomePage() {
         >
           <GraphExplorer
             onSelectCabal={setSelectedCabalId}
-            onContribute={setSelectedCabalId}
           />
         </div>
       ) : (

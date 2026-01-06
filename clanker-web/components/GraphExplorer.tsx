@@ -965,10 +965,16 @@ export function GraphExplorer({
   }, [animatedRadius, FULL_NODE_RADIUS])
   
   // Smooth radius animation when menu opens/closes
-  // Shrink on 'entering', expand on 'exiting' (start immediately when closing)
   useEffect(() => {
-    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
-    const targetRadius = isExpanding ? FULL_NODE_RADIUS : SMALL_NODE_RADIUS
+    const isEntering = menuAnimState === 'entering'
+    const isExiting = menuAnimState === 'exiting'
+    
+    // Only animate on actual transitions
+    if (!isEntering && !isExiting) {
+      return
+    }
+    
+    const targetRadius = isExiting ? FULL_NODE_RADIUS : SMALL_NODE_RADIUS
     const startRadius = animatedRadius || FULL_NODE_RADIUS
     
     if (Math.abs(targetRadius - startRadius) < 1) {
@@ -979,7 +985,7 @@ export function GraphExplorer({
     const cleanup = animateValue({
       from: startRadius,
       to: targetRadius,
-      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
       easing: easing.easeOutCubic,
       onUpdate: setAnimatedRadius,
     })
@@ -989,36 +995,35 @@ export function GraphExplorer({
   }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
 
   // Animate child node distance when parent expands/collapses
-  const childDistanceStartRef = useRef<number | null>(null)
-  
   useEffect(() => {
+    const isEntering = menuAnimState === 'entering'
+    const isExiting = menuAnimState === 'exiting'
+    
+    // Only animate on actual transitions
+    if (!isEntering && !isExiting) {
+      return
+    }
+    
     const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
     const panelOuterEdge = SMALL_NODE_RADIUS + panelSize
     const childRadius = FULL_NODE_RADIUS * 0.61803
     const expandedDistance = panelOuterEdge + childRadius
     const collapsedDistance = FULL_NODE_RADIUS + childRadius
     
-    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
-    const targetDistance = isExpanding ? collapsedDistance : expandedDistance
-    
-    if (childDistanceStartRef.current === null) {
-      childDistanceStartRef.current = animatedChildDistance ?? collapsedDistance
-    }
-    const startDistance = childDistanceStartRef.current
+    const targetDistance = isExiting ? collapsedDistance : expandedDistance
+    const startDistance = animatedChildDistance ?? collapsedDistance
     
     if (Math.abs(targetDistance - startDistance) < 1) {
       setAnimatedChildDistance(targetDistance)
-      childDistanceStartRef.current = null
       return
     }
     
     const cleanup = animateValue({
       from: startDistance,
       to: targetDistance,
-      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
       easing: easing.easeOutCubic,
       onUpdate: setAnimatedChildDistance,
-      onComplete: () => { childDistanceStartRef.current = null },
     })
     
     return cleanup
@@ -1027,39 +1032,44 @@ export function GraphExplorer({
 
   // Animate parent node distance when focused node's menu expands/collapses
   const parentDistanceStartRef = useRef<number | null>(null)
+  const prevMenuAnimStateRef = useRef<string>('exited')
   
   useEffect(() => {
+    // Only animate on actual state transitions, not on initial render
+    const wasExited = prevMenuAnimStateRef.current === 'exited'
+    const isEntering = menuAnimState === 'entering'
+    const isExiting = menuAnimState === 'exiting'
+    
+    // Skip if not a real transition
+    if (!isEntering && !isExiting) {
+      prevMenuAnimStateRef.current = menuAnimState
+      return
+    }
+    
+    prevMenuAnimStateRef.current = menuAnimState
+    
     const PHI = 1.61803
     const parentRadius = FULL_NODE_RADIUS * PHI
     const panelSize = SMALL_NODE_RADIUS * 2 * PHI
     const ringRadius = SMALL_NODE_RADIUS + panelSize
     
-    // Expanded: parent pushed down so ring bottom is tangent to parent top
     const expandedDistance = ringRadius + parentRadius
-    // Collapsed: parent tangent to focused node
     const collapsedDistance = FULL_NODE_RADIUS + parentRadius
     
-    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
-    const targetDistance = isExpanding ? collapsedDistance : expandedDistance
-    
-    if (parentDistanceStartRef.current === null) {
-      parentDistanceStartRef.current = animatedParentDistance ?? collapsedDistance
-    }
-    const startDistance = parentDistanceStartRef.current
+    const targetDistance = isExiting ? collapsedDistance : expandedDistance
+    const startDistance = animatedParentDistance ?? collapsedDistance
     
     if (Math.abs(targetDistance - startDistance) < 1) {
       setAnimatedParentDistance(targetDistance)
-      parentDistanceStartRef.current = null
       return
     }
     
     const cleanup = animateValue({
       from: startDistance,
       to: targetDistance,
-      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
       easing: easing.easeOutCubic,
       onUpdate: setAnimatedParentDistance,
-      onComplete: () => { parentDistanceStartRef.current = null },
     })
     
     return cleanup
@@ -1067,35 +1077,34 @@ export function GraphExplorer({
   }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
 
   // Animate submenu ring radius when menu opens/closes
-  const submenuRingStartRef = useRef<number | null>(null)
-  
   useEffect(() => {
+    const isEntering = menuAnimState === 'entering'
+    const isExiting = menuAnimState === 'exiting'
+    
+    // Only animate on actual transitions
+    if (!isEntering && !isExiting) {
+      return
+    }
+    
     const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
     const panelOffset = SMALL_NODE_RADIUS + panelSize / 2
     const expandedRingRadius = panelOffset + panelSize / 2
     const collapsedRingRadius = FULL_NODE_RADIUS
     
-    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
-    const targetRadius = isExpanding ? collapsedRingRadius : expandedRingRadius
-    
-    if (submenuRingStartRef.current === null) {
-      submenuRingStartRef.current = animatedSubmenuRingRadius ?? collapsedRingRadius
-    }
-    const startRadius = submenuRingStartRef.current
+    const targetRadius = isExiting ? collapsedRingRadius : expandedRingRadius
+    const startRadius = animatedSubmenuRingRadius ?? collapsedRingRadius
     
     if (Math.abs(targetRadius - startRadius) < 1) {
       setAnimatedSubmenuRingRadius(targetRadius)
-      submenuRingStartRef.current = null
       return
     }
     
     const cleanup = animateValue({
       from: startRadius,
       to: targetRadius,
-      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
       easing: easing.easeOutCubic,
       onUpdate: setAnimatedSubmenuRingRadius,
-      onComplete: () => { submenuRingStartRef.current = null },
     })
     
     return cleanup
@@ -1354,6 +1363,10 @@ export function GraphExplorer({
         snapshotNodePositions()
         // Reset transition progress to 0 IMMEDIATELY to prevent flash
         setFocusTransitionProgress(0)
+        // Reset animated distances for the new focus context
+        setAnimatedChildDistance(null)
+        setAnimatedParentDistance(null)
+        setAnimatedSubmenuRingRadius(null)
         // Set the clicked node as focused - this will re-center the view
         setFocusedCabalId(node.id)
         return

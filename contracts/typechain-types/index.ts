@@ -84,6 +84,8 @@ export type { ActivityFacet } from "./contracts/cabal/diamond/facets/ActivityFac
 export { ActivityFacet__factory } from "./factories/contracts/cabal/diamond/facets/ActivityFacet__factory";
 export type { CabalCreationFacet } from "./contracts/cabal/diamond/facets/CabalCreationFacet";
 export { CabalCreationFacet__factory } from "./factories/contracts/cabal/diamond/facets/CabalCreationFacet__factory";
+export type { ChildCreationFacet } from "./contracts/cabal/diamond/facets/ChildCreationFacet";
+export { ChildCreationFacet__factory } from "./factories/contracts/cabal/diamond/facets/ChildCreationFacet__factory";
 export type { DelegationFacet } from "./contracts/cabal/diamond/facets/DelegationFacet";
 export { DelegationFacet__factory } from "./factories/contracts/cabal/diamond/facets/DelegationFacet__factory";
 export type { DiamondCutFacet } from "./contracts/cabal/diamond/facets/DiamondCutFacet";

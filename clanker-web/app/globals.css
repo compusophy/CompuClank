@@ -730,7 +730,7 @@
 @keyframes radial-bloom {
   0% {
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0);
   }
   100% {
     opacity: 1;
@@ -745,7 +745,7 @@
   }
   100% {
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0);
   }
 }
 
@@ -785,6 +785,11 @@
 /* Bottom panel (index 3) - φ³ delay */
 .radial-panel-enter.radial-delay-3 {
   animation-delay: 100ms; /* 0.1s */
+}
+
+/* Bottom center panel (index 4) - φ⁴ delay */
+.radial-panel-enter.radial-delay-4 {
+  animation-delay: 120ms;
 }
 
 /* Collapse animation - smooth exit, matches node expansion timing */

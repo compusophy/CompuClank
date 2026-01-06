@@ -23,7 +23,8 @@ import { Input } from "@/components/ui/input"
 import dynamic from "next/dynamic"
 import { toast } from "sonner"
 import { haptics } from "@/lib/haptics"
-import { forceCollide } from "d3-force"
+import { formatCompact } from "@/lib/utils"
+import { forceCollide, forceManyBody } from "d3-force"
 
 // Dynamically import force graph to avoid SSR issues
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
@@ -52,6 +53,8 @@ interface GraphNode {
   y?: number
   fx?: number
   fy?: number
+  // Node visual radius - children are smaller than parents
+  nodeRadius?: number
   // Dynamic collision radius - expands when selected
   collisionRadius?: number
 }
@@ -121,6 +124,30 @@ export function GraphExplorer({
   const [animatedRadius, setAnimatedRadius] = useState<number>(0)
   const animationFrameRef = useRef<number | null>(null)
   
+  // Animated child distance for smooth transitions when parent expands/collapses
+  const [animatedChildDistance, setAnimatedChildDistance] = useState<number | null>(null)
+  const childAnimationFrameRef = useRef<number | null>(null)
+  
+  // Animated submenu ring radius for smooth expansion
+  const [animatedSubmenuRingRadius, setAnimatedSubmenuRingRadius] = useState<number | null>(null)
+  const submenuRingAnimationFrameRef = useRef<number | null>(null)
+  
+  // Entrance animation for nodes when they first appear
+  const [nodeEntranceScale, setNodeEntranceScale] = useState<number>(0)
+  const entranceAnimationFrameRef = useRef<number | null>(null)
+  const hasTriggeredEntranceRef = useRef<boolean>(false)
+  
+  // Focused cabal - the node that is centered in the view
+  // Clicking a child "zooms into" it, making it the focused node
+  const [focusedCabalId, setFocusedCabalId] = useState<string>("0")
+  
+  // Animated focus transition (0 = old positions, 1 = new positions)
+  const [focusTransitionProgress, setFocusTransitionProgress] = useState<number>(1)
+  const focusAnimationFrameRef = useRef<number | null>(null)
+  const previousFocusRef = useRef<string>("0")
+  // Store previous node positions for smooth interpolation
+  const previousNodePositionsRef = useRef<Map<string, { x: number; y: number; radius: number }>>(new Map())
+  
   // Calculate UI scale based on container size - used for node and panel sizing
   // Use consistent padding with rest of app (3.5 = 14px / 4)
   const CONTAINER_PADDING = 3.5 * 4 // 14px - matches p-3.5 used throughout app
@@ -128,12 +155,16 @@ export function GraphExplorer({
     ? Math.min(dimensions.width, dimensions.height) / 2 - CONTAINER_PADDING
     : 175
   
-  // Node fills the outer circle by default (gap matches app margins)
-  const FULL_NODE_RADIUS = availableRadius - 14 // 14px gap to outer ring (matches p-3.5)
-  // When expanded with panels, node shrinks to make room for panels INSIDE the outer ring
-  const SMALL_NODE_RADIUS = availableRadius * 0.18
-  // Use small radius for panel calculations - panels must fit inside outer ring
-  const NODE_RADIUS = SMALL_NODE_RADIUS
+  // Scale so expanded panels fit inside availableRadius
+  // Panel outer edge = SMALL_NODE_RADIUS + PANEL_SIZE = SMALL_NODE_RADIUS × 4.236
+  // SMALL_NODE_RADIUS = FULL_NODE_RADIUS × 0.618
+  // So total extent = FULL_NODE_RADIUS × 0.618 × 4.236 = FULL_NODE_RADIUS × 2.618
+  // Therefore: FULL_NODE_RADIUS = availableRadius / 2.618
+  const FULL_NODE_RADIUS = availableRadius / 2.618
+  // When expanded with panels, node shrinks to φ⁻¹ of its size
+  const SMALL_NODE_RADIUS = FULL_NODE_RADIUS * 0.61803
+  // Panels are φ (1.61803) × the shrunken center node
+  const NODE_RADIUS = SMALL_NODE_RADIUS * 1.61803
   
   // Contribution input state
   const [contributionAmount, setContributionAmount] = useState("0.00001")
@@ -191,6 +222,7 @@ export function GraphExplorer({
       .filter(c => c.phase === CabalPhase.Presale)
       .map(c => c.id)
   }, [cabalsData])
+  
   
   // Batch fetch launch status for ALL presale cabals on page load
   const launchStatusContracts = useMemo(() => {
@@ -345,6 +377,22 @@ export function GraphExplorer({
   // ETH Balance for trading
   const { data: ethBalance } = useBalance({ address })
   
+  // Treasury ETH Balance (direct TBA balance check)
+  const { data: tbaEthBalance, refetch: refetchTbaBalance } = useBalance({ 
+    address: selectedCabal?.tbaAddress as `0x${string}` | undefined,
+    query: { enabled: !!selectedCabal?.tbaAddress }
+  })
+  
+  // Treasury WETH Balance (LP fees are paid in WETH)
+  const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as const
+  const { data: tbaWethBalance, refetch: refetchTbaWeth } = useReadContract({
+    address: WETH_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: selectedCabal?.tbaAddress ? [selectedCabal.tbaAddress as `0x${string}`] : undefined,
+    query: { enabled: !!selectedCabal?.tbaAddress }
+  }) as { data: bigint | undefined; refetch: () => void }
+  
   // Token balance for selling (only for active cabals)
   const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
     address: selectedCabal?.tokenAddress,
@@ -380,6 +428,31 @@ export function GraphExplorer({
   const { writeContract: unstakeWrite, data: unstakeHash, isPending: isUnstaking, reset: resetUnstake } = useWriteContract()
   const { isLoading: unstakeConfirming, isSuccess: unstakeSuccess } = useWaitForTransactionReceipt({ hash: unstakeHash })
   
+  // Child creation voting (simple voting like launch voting)
+  const { writeContract: voteChildWrite, data: voteChildHash, isPending: isVotingChild, reset: resetVoteChild } = useWriteContract()
+  const { isLoading: voteChildConfirming, isSuccess: voteChildSuccess } = useWaitForTransactionReceipt({ hash: voteChildHash })
+  
+  const { writeContract: finalizeChildWrite, data: finalizeChildHash, isPending: isFinalizingChild, reset: resetFinalizeChild } = useWriteContract()
+  const { isLoading: finalizeChildConfirming, isSuccess: finalizeChildSuccess } = useWaitForTransactionReceipt({ hash: finalizeChildHash })
+  
+  // Get child creation vote status
+  const { data: childVoteStatus, refetch: refetchChildVoteStatus } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: 'getChildCreationVoteStatus',
+    args: hasSelectedCabal ? [selectedCabalId] : undefined,
+    query: { enabled: hasSelectedCabal && radialMenu.phase === CabalPhase.Active },
+  }) as { data: readonly [bigint, bigint, bigint, bigint, boolean, bigint, bigint] | undefined; refetch: () => void }
+  
+  // Get user's child creation vote
+  const { data: userChildVote, refetch: refetchUserChildVote } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: 'getChildCreationVote',
+    args: hasSelectedCabal && address ? [selectedCabalId, address] : undefined,
+    query: { enabled: hasSelectedCabal && !!address && radialMenu.phase === CabalPhase.Active },
+  }) as { data: bigint | undefined; refetch: () => void }
+  
   // Handle genesis success
   useEffect(() => {
     if (isGenesisSuccess) {
@@ -387,10 +460,9 @@ export function GraphExplorer({
       refetchGenesis()
       // Also refetch cabal data so the graph updates
       setTimeout(() => {
-        refetchHierarchicalIds().then(() => {
+        refetchHierarchicalIds()
           // After IDs are fetched, refetch the cabal data
           setTimeout(() => refetchCabalsData(), 500)
-        })
       }, 1000) // Small delay to ensure blockchain state is updated
     }
   }, [isGenesisSuccess, refetchGenesis, refetchHierarchicalIds, refetchCabalsData])
@@ -427,10 +499,11 @@ export function GraphExplorer({
       toast.success("Bought tokens!")
       refetchTokenBalance()
       refetchSelectedCabal()
+      refetchTbaBalance()
       setTradeAmount('')
       resetBuy()
     }
-  }, [buySuccess, buyHash, refetchTokenBalance, refetchSelectedCabal, resetBuy])
+  }, [buySuccess, buyHash, refetchTokenBalance, refetchSelectedCabal, refetchTbaBalance, resetBuy])
   
   // Handle sell success
   useEffect(() => {
@@ -439,10 +512,11 @@ export function GraphExplorer({
       toast.success("Sold tokens!")
       refetchTokenBalance()
       refetchSelectedCabal()
+      refetchTbaBalance()
       setTradeAmount('')
       resetSell()
     }
-  }, [sellSuccess, sellHash, refetchTokenBalance, refetchSelectedCabal, resetSell])
+  }, [sellSuccess, sellHash, refetchTokenBalance, refetchSelectedCabal, refetchTbaBalance, resetSell])
   
   // Handle approve success - continue with sell
   const executeSell = useCallback(() => {
@@ -486,10 +560,11 @@ export function GraphExplorer({
     }
   }, [radialMenu.isOpen])
   
-  const handleBuy = useCallback(() => {
-    if (!CABAL_DIAMOND_ADDRESS || !address || !tradeAmount) return
+  const handleBuy = useCallback((overrideAmount?: bigint) => {
+    const amountToUse = overrideAmount ?? (tradeAmount ? parseEther(tradeAmount) : 0n)
+    if (!CABAL_DIAMOND_ADDRESS || !address || amountToUse === 0n) return
     
-    const ethAmount = parseEther(tradeAmount)
+    const ethAmount = amountToUse
     const minAmountOut = 0n // TODO: Add slippage
     
     buyWrite({
@@ -511,10 +586,11 @@ export function GraphExplorer({
     })
   }, [radialMenu.cabalId, tradeAmount, address, buyWrite])
   
-  const handleSell = useCallback(() => {
-    if (!CABAL_DIAMOND_ADDRESS || !address || !tradeAmount || !selectedCabal?.tokenAddress) return
+  const handleSell = useCallback((overrideAmount?: bigint) => {
+    const amountToUse = overrideAmount ?? (tradeAmount ? parseEther(tradeAmount) : 0n)
+    if (!CABAL_DIAMOND_ADDRESS || !address || amountToUse === 0n || !selectedCabal?.tokenAddress) return
     
-    const tokenAmount = parseEther(tradeAmount)
+    const tokenAmount = amountToUse
     const currentAllowance = tokenAllowance ?? 0n
     
     // Check if we need approval
@@ -580,6 +656,29 @@ export function GraphExplorer({
     }
   }, [unstakeSuccess, unstakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, resetUnstake])
   
+  // Handle vote child success
+  useEffect(() => {
+    if (voteChildSuccess && voteChildHash) {
+      haptics.success()
+      toast.success("Vote cast for child CABAL creation!")
+      refetchChildVoteStatus()
+      refetchUserChildVote()
+      resetVoteChild()
+    }
+  }, [voteChildSuccess, voteChildHash, refetchChildVoteStatus, refetchUserChildVote, resetVoteChild])
+  
+  // Handle finalize child success
+  useEffect(() => {
+    if (finalizeChildSuccess && finalizeChildHash) {
+      haptics.sacredRhythm()
+      toast.success("Child CABAL created")
+      refetchChildVoteStatus()
+      refetchHierarchicalIds()
+      refetchCabalsData()
+      resetFinalizeChild()
+    }
+  }, [finalizeChildSuccess, finalizeChildHash, refetchChildVoteStatus, refetchHierarchicalIds, refetchCabalsData, resetFinalizeChild])
+  
   // Reset stake state when menu closes
   useEffect(() => {
     if (!radialMenu.isOpen) {
@@ -589,10 +688,25 @@ export function GraphExplorer({
     }
   }, [radialMenu.isOpen])
   
-  const handleStake = useCallback(async () => {
-    if (!CABAL_DIAMOND_ADDRESS || !address || !stakeAmount || !selectedCabal?.tokenAddress) return
+  // Refetch active cabal data when menu opens for an active cabal
+  useEffect(() => {
+    if (radialMenu.isOpen && radialMenu.phase === CabalPhase.Active && hasSelectedCabal) {
+      // Small delay to ensure the menu state is set before refetching
+      const timeout = setTimeout(() => {
+        refetchStakedBalance()
+        refetchTbaBalance()
+        refetchTbaWeth()
+        refetchTokenBalance()
+      }, 100)
+      return () => clearTimeout(timeout)
+    }
+  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchStakedBalance, refetchTbaBalance, refetchTbaWeth, refetchTokenBalance])
+  
+  const handleStake = useCallback(async (overrideAmount?: bigint) => {
+    const amountToUse = overrideAmount ?? (stakeAmount ? parseEther(stakeAmount) : 0n)
+    if (!CABAL_DIAMOND_ADDRESS || !address || amountToUse === 0n || !selectedCabal?.tokenAddress) return
     
-    const amount = parseEther(stakeAmount)
+    const amount = amountToUse
     setIsSigning(true)
     
     try {
@@ -675,10 +789,11 @@ export function GraphExplorer({
     }
   }, [radialMenu.cabalId, stakeAmount, address, selectedCabal?.tokenAddress, chainId, signTypedDataAsync, stakeWrite])
   
-  const handleUnstake = useCallback(() => {
-    if (!CABAL_DIAMOND_ADDRESS || !address || !stakeAmount) return
+  const handleUnstake = useCallback((overrideAmount?: bigint) => {
+    const amountToUse = overrideAmount ?? (stakeAmount ? parseEther(stakeAmount) : 0n)
+    if (!CABAL_DIAMOND_ADDRESS || !address || amountToUse === 0n) return
     
-    const amount = parseEther(stakeAmount)
+    const amount = amountToUse
     
     unstakeWrite({
       address: CABAL_DIAMOND_ADDRESS,
@@ -697,6 +812,50 @@ export function GraphExplorer({
       },
     })
   }, [radialMenu.cabalId, stakeAmount, address, unstakeWrite])
+  
+  // Handle voting to create a child cabal
+  const handleVoteChildCreation = useCallback((support: boolean) => {
+    if (!CABAL_DIAMOND_ADDRESS || !address) return
+    
+    voteChildWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: 'voteCreateChild',
+      args: [BigInt(radialMenu.cabalId), support],
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to vote"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 60))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, address, voteChildWrite])
+  
+  // Handle finalizing child creation
+  const handleFinalizeChildCreation = useCallback(() => {
+    if (!CABAL_DIAMOND_ADDRESS || !address) return
+    
+    finalizeChildWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: 'finalizeChildCreation',
+      args: [BigInt(radialMenu.cabalId)],
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to create child"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 60))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, address, finalizeChildWrite])
   
   const handleStakeAction = useCallback(() => {
     if (stakeTab === 'stake') {
@@ -770,13 +929,23 @@ export function GraphExplorer({
     // Access the d3 force simulation
     const fg = graphRef.current
     
+    // DISABLE the default center force - it pulls all nodes to center!
+    fg.d3Force('center', null)
+    
     // Configure collision force with dynamic radius per node
     fg.d3Force('collision', 
       forceCollide()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .radius((node: any) => node.collisionRadius || FULL_NODE_RADIUS * 1.1)
-        .strength(0.8)
-        .iterations(3)
+        .strength(1)
+        .iterations(5)
+    )
+    
+    // Add strong repulsion to push nodes apart
+    fg.d3Force('charge', 
+      forceManyBody()
+        .strength(-500)
+        .distanceMax(FULL_NODE_RADIUS * 10)
     )
     
     // Reheat simulation to animate the expansion/collapse
@@ -836,6 +1005,214 @@ export function GraphExplorer({
     }
   }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
 
+  // Animate child node distance when parent expands/collapses
+  // Track start distance separately to avoid infinite loops
+  const childDistanceStartRef = useRef<number | null>(null)
+  
+  useEffect(() => {
+    // Calculate expanded and collapsed distances
+    const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
+    const panelOuterEdge = SMALL_NODE_RADIUS + panelSize
+    const childRadius = FULL_NODE_RADIUS * 0.61803
+    const expandedDistance = panelOuterEdge + childRadius
+    const collapsedDistance = FULL_NODE_RADIUS + childRadius
+    
+    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
+    const targetDistance = isExpanding ? collapsedDistance : expandedDistance
+    
+    // Capture start distance once at animation start
+    if (childDistanceStartRef.current === null) {
+      childDistanceStartRef.current = animatedChildDistance ?? collapsedDistance
+    }
+    const startDistance = childDistanceStartRef.current
+    const diff = targetDistance - startDistance
+    
+    if (Math.abs(diff) < 1) {
+      setAnimatedChildDistance(targetDistance)
+      childDistanceStartRef.current = null
+      return
+    }
+    
+    const duration = isExpanding ? 500 : 382
+    const startTime = performance.now()
+    
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = easeOutCubic(progress)
+      
+      setAnimatedChildDistance(startDistance + diff * eased)
+      
+      if (progress < 1) {
+        childAnimationFrameRef.current = requestAnimationFrame(animate)
+      } else {
+        childDistanceStartRef.current = null // Reset for next animation
+      }
+    }
+    
+    if (childAnimationFrameRef.current) {
+      cancelAnimationFrame(childAnimationFrameRef.current)
+    }
+    childAnimationFrameRef.current = requestAnimationFrame(animate)
+    
+    return () => {
+      if (childAnimationFrameRef.current) {
+        cancelAnimationFrame(childAnimationFrameRef.current)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
+
+  // Animate submenu ring radius when menu opens/closes
+  const submenuRingStartRef = useRef<number | null>(null)
+  
+  useEffect(() => {
+    // Calculate collapsed and expanded ring radii
+    const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
+    const panelOffset = SMALL_NODE_RADIUS + panelSize / 2
+    const expandedRingRadius = panelOffset + panelSize / 2
+    const collapsedRingRadius = FULL_NODE_RADIUS
+    
+    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
+    const targetRadius = isExpanding ? collapsedRingRadius : expandedRingRadius
+    
+    // Capture start radius once at animation start
+    if (submenuRingStartRef.current === null) {
+      submenuRingStartRef.current = animatedSubmenuRingRadius ?? collapsedRingRadius
+    }
+    const startRadius = submenuRingStartRef.current
+    const diff = targetRadius - startRadius
+    
+    if (Math.abs(diff) < 1) {
+      setAnimatedSubmenuRingRadius(targetRadius)
+      submenuRingStartRef.current = null
+      return
+    }
+    
+    const duration = isExpanding ? 500 : 382
+    const startTime = performance.now()
+    
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+    
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const easedProgress = easeOutCubic(progress)
+      
+      const newRadius = startRadius + diff * easedProgress
+      setAnimatedSubmenuRingRadius(newRadius)
+      
+      if (progress < 1) {
+        submenuRingAnimationFrameRef.current = requestAnimationFrame(animate)
+      } else {
+        submenuRingStartRef.current = null
+      }
+    }
+    
+    if (submenuRingAnimationFrameRef.current) {
+      cancelAnimationFrame(submenuRingAnimationFrameRef.current)
+    }
+    submenuRingAnimationFrameRef.current = requestAnimationFrame(animate)
+    
+    return () => {
+      if (submenuRingAnimationFrameRef.current) {
+        cancelAnimationFrame(submenuRingAnimationFrameRef.current)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
+
+  // Entrance animation - bloom nodes in when data first loads
+  useEffect(() => {
+    if (cabalsData && cabalsData.length > 0 && !hasTriggeredEntranceRef.current) {
+      hasTriggeredEntranceRef.current = true
+      
+      const duration = 618 // Golden ratio timing
+      const startTime = performance.now()
+      
+      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+      
+      const animate = (currentTime: number) => {
+        const elapsed = currentTime - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        const easedProgress = easeOutCubic(progress)
+        
+        setNodeEntranceScale(easedProgress)
+        
+        if (progress < 1) {
+          entranceAnimationFrameRef.current = requestAnimationFrame(animate)
+        }
+      }
+      
+      entranceAnimationFrameRef.current = requestAnimationFrame(animate)
+      
+      return () => {
+        if (entranceAnimationFrameRef.current) {
+          cancelAnimationFrame(entranceAnimationFrameRef.current)
+        }
+      }
+    }
+  }, [cabalsData])
+
+  // Snapshot current positions before focus changes
+  // Use a ref to track the last computed graph data for snapshotting
+  const lastGraphDataRef = useRef<GraphData>({ nodes: [], links: [] })
+  
+  const snapshotNodePositions = useCallback(() => {
+    const nodes = lastGraphDataRef.current.nodes as GraphNode[]
+    nodes.forEach((n: GraphNode) => {
+      previousNodePositionsRef.current.set(n.id, {
+        x: n.x ?? 0,
+        y: n.y ?? 0,
+        radius: n.nodeRadius ?? FULL_NODE_RADIUS
+      })
+    })
+  }, [FULL_NODE_RADIUS])
+  
+  // Animate focus transitions when navigating between nodes
+  useEffect(() => {
+    if (focusedCabalId !== previousFocusRef.current) {
+      // Start transition from 0 (old positions) to 1 (new positions)
+      // Note: snapshotNodePositions() is called in handleNodeClick BEFORE focus changes
+      setFocusTransitionProgress(0)
+      
+      // Use same duration as submenu animations for consistency
+      const duration = 500
+      const startTime = performance.now()
+      
+      // Smooth ease-out for natural deceleration
+      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+      
+      const animate = (currentTime: number) => {
+        const elapsed = currentTime - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        const easedProgress = easeOutCubic(progress)
+        
+        setFocusTransitionProgress(easedProgress)
+        
+        if (progress < 1) {
+          focusAnimationFrameRef.current = requestAnimationFrame(animate)
+        } else {
+          // Animation complete - update previous focus
+          previousFocusRef.current = focusedCabalId
+        }
+      }
+      
+      if (focusAnimationFrameRef.current) {
+        cancelAnimationFrame(focusAnimationFrameRef.current)
+      }
+      focusAnimationFrameRef.current = requestAnimationFrame(animate)
+      
+      return () => {
+        if (focusAnimationFrameRef.current) {
+          cancelAnimationFrame(focusAnimationFrameRef.current)
+        }
+      }
+    }
+  }, [focusedCabalId])
+
   // Build graph data from hierarchical cabals
   const graphData = useMemo((): GraphData => {
     if (!cabalsData || cabalsData.length === 0) {
@@ -848,48 +1225,133 @@ export function GraphExplorer({
     // Create a set of valid cabal IDs for link validation
     const validIds = new Set(cabalsData.map((c) => c.id.toString()))
 
+    // Find the focused cabal and its parent
+    const focusedCabal = cabalsData.find(c => c.id.toString() === focusedCabalId)
+    const focusedParentId = focusedCabal?.parentCabalId?.toString()
+    
+    // Get children of focused node - sorted by ID for consistent ordering
+    // Exclude the focused node itself (root's parentCabalId might be 0, same as its id)
+    const focusedChildren = cabalsData
+      .filter(c => c.parentCabalId.toString() === focusedCabalId && c.id.toString() !== focusedCabalId)
+      .sort((a, b) => Number(a.id) - Number(b.id))
+    const focusedChildIds = focusedChildren.map(c => c.id.toString())
+    
+    const PHI = 1.61803
+    const PHI_INV = 0.61803
+    
     cabalsData.forEach((cabal) => {
       const nodeId = cabal.id.toString()
       const isSelected = radialMenu.isOpen && radialMenu.cabalId === nodeId
+      const isFocused = nodeId === focusedCabalId
+      const isParentOfFocused = nodeId === focusedParentId
+      const isChildOfFocused = focusedChildIds.includes(nodeId)
       
       // Check if this cabal is in "launching" state
-      // Use batch-loaded status (from page load) OR manually tracked OR current selection
       const isThisLaunching = cabal.phase === CabalPhase.Presale && (
         launchingCabalIdsFromBatch.has(nodeId) ||
         launchingCabalIds.has(nodeId) || 
         (isSelected && isLaunchApproved)
       )
       
+      // Size based on relationship to focused node:
+      // - Focused node: FULL_NODE_RADIUS (standard "main" size)
+      // - Parent of focused: FULL_NODE_RADIUS * PHI (1.618x larger, backdrop)
+      // - Children of focused: FULL_NODE_RADIUS * PHI_INV (0.618x, fractal)
+      // - Others: hide or very small
+      let targetRadius: number
+      if (isFocused) {
+        targetRadius = FULL_NODE_RADIUS
+      } else if (isParentOfFocused) {
+        targetRadius = FULL_NODE_RADIUS * PHI
+      } else if (isChildOfFocused) {
+        targetRadius = FULL_NODE_RADIUS * PHI_INV
+      } else {
+        // Not in immediate hierarchy - very small or hidden
+        targetRadius = FULL_NODE_RADIUS * PHI_INV * PHI_INV
+      }
+      
+      // Use target radius directly - entrance animation handles initial load
+      const thisNodeRadius = targetRadius
+      
+      // Calculate TARGET position based on current focus
+      let targetX = 0, targetY = 0
+      
+      if (isFocused) {
+        targetX = 0
+        targetY = 0
+      } else if (isParentOfFocused) {
+        const distanceFromCenter = FULL_NODE_RADIUS + thisNodeRadius
+        const angle = Math.PI / 2 // Bottom
+        targetX = Math.cos(angle) * distanceFromCenter
+        targetY = Math.sin(angle) * distanceFromCenter
+      } else if (isChildOfFocused) {
+        const focusedIsSelected = radialMenu.isOpen && radialMenu.cabalId === focusedCabalId
+        
+        let distanceFromCenter: number
+        if (focusedIsSelected && animatedChildDistance !== null) {
+          distanceFromCenter = animatedChildDistance
+        } else if (focusedIsSelected) {
+          const panelSize = SMALL_NODE_RADIUS * 2 * PHI
+          const panelOuterEdge = SMALL_NODE_RADIUS + panelSize
+          distanceFromCenter = panelOuterEdge + thisNodeRadius
+        } else {
+          distanceFromCenter = FULL_NODE_RADIUS + thisNodeRadius
+        }
+        
+        const childIndex = focusedChildIds.indexOf(nodeId)
+        const goldenAngle = 137.5 * (Math.PI / 180)
+        const angle = -Math.PI / 2 + childIndex * goldenAngle
+        
+        targetX = Math.cos(angle) * distanceFromCenter
+        targetY = Math.sin(angle) * distanceFromCenter
+      } else {
+        // Other nodes - hide off-screen
+        targetX = 9999
+        targetY = 9999
+      }
+      
+      // Get previous position for interpolation
+      const prevPos = previousNodePositionsRef.current.get(nodeId)
+      const prevX = prevPos?.x ?? targetX
+      const prevY = prevPos?.y ?? targetY
+      const prevRadius = prevPos?.radius ?? thisNodeRadius
+      
+      // Interpolate between previous and target based on transition progress
+      const t = focusTransitionProgress
+      const currentX = prevX + (targetX - prevX) * t
+      const currentY = prevY + (targetY - prevY) * t
+      const currentRadius = prevRadius + (thisNodeRadius - prevRadius) * t
+      
       const node: GraphNode = {
         id: nodeId,
         label: nodeId,
         phase: cabal.phase,
         isLaunching: isThisLaunching,
-        // When selected, expand collision radius to make room for radial menu
-        // Use a large multiplier to push other nodes away
-        collisionRadius: isSelected ? FULL_NODE_RADIUS * 1.5 : FULL_NODE_RADIUS * 1.1,
-      }
-      
-      // CABAL0 (root with no parent) is ALWAYS fixed at center
-      if (cabal.parentCabalId === 0n) {
-        node.fx = 0
-        node.fy = 0
+        nodeRadius: currentRadius,
+        collisionRadius: isSelected ? currentRadius * 1.5 : currentRadius * 1.1,
+        x: currentX,
+        y: currentY,
+        fx: currentX,
+        fy: currentY,
       }
       
       nodes.push(node)
 
-      // Add link to parent if this cabal has one and parent exists in our data
-      const parentId = cabal.parentCabalId
-      if (parentId > 0n && validIds.has(parentId.toString())) {
+      // Add link to parent if this is a child cabal (not the root)
+      // CABAL1's parent is CABAL0 (id=0), so we can't use parentId > 0
+      if (cabal.id !== 0n && validIds.has(cabal.parentCabalId.toString())) {
         links.push({
-          source: parentId.toString(),
+          source: cabal.parentCabalId.toString(),
           target: cabal.id.toString(),
         })
       }
     })
 
-    return { nodes, links }
-  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch])
+    const result = { nodes, links }
+    // Store for snapshotting before focus transitions
+    lastGraphDataRef.current = result
+    return result
+  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch, animatedChildDistance, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, focusedCabalId, focusTransitionProgress])
 
 
   const closeRadialMenu = useCallback(() => {
@@ -932,7 +1394,22 @@ export function GraphExplorer({
       // Haptic feedback on tap
       haptics.cardTap()
       
-      // If clicking the same node that's already expanded, collapse it
+      // If clicking a non-focused node, zoom into it (make it focused)
+      if (node.id !== focusedCabalId) {
+        // Close any open menu first
+        if (radialMenu.isOpen) {
+          closeRadialMenu()
+        }
+        // Snapshot current positions BEFORE changing focus
+        snapshotNodePositions()
+        // Reset transition progress to 0 IMMEDIATELY to prevent flash
+        setFocusTransitionProgress(0)
+        // Set the clicked node as focused - this will re-center the view
+        setFocusedCabalId(node.id)
+        return
+      }
+      
+      // Clicking the focused node - toggle radial menu
       if (radialMenu.isOpen && radialMenu.cabalId === node.id) {
         closeRadialMenu()
         return
@@ -941,17 +1418,9 @@ export function GraphExplorer({
       // Convert node's graph coordinates to screen coordinates
       if (!graphRef.current) return
       
-      let screenX: number, screenY: number
-      
-      // For the root node at (0,0), use container center for perfect centering
-      if (node.fx === 0 && node.fy === 0) {
-        screenX = dimensions.width / 2
-        screenY = dimensions.height / 2
-      } else {
-        const coords = graphRef.current.graph2ScreenCoords(node.x || 0, node.y || 0)
-        screenX = coords.x
-        screenY = coords.y
-      }
+      // Focused node is always at center (0,0)
+      const screenX = dimensions.width / 2
+      const screenY = dimensions.height / 2
       
       // Clear any pending exit animation
       if (menuAnimTimeoutRef.current) {
@@ -973,7 +1442,7 @@ export function GraphExplorer({
         setMenuAnimState('entered')
       }, 400) // Match animation duration (0.382s + buffer)
     },
-    [dimensions.width, dimensions.height, radialMenu.isOpen, radialMenu.cabalId, closeRadialMenu]
+    [dimensions.width, dimensions.height, radialMenu.isOpen, radialMenu.cabalId, closeRadialMenu, focusedCabalId, snapshotNodePositions]
   )
   
   // Track if we just handled a touch to prevent click handler from closing menu
@@ -1163,18 +1632,38 @@ export function GraphExplorer({
     )
   }
 
-  // Panel sizes - sacred geometry ratios, panels tangent to outer ring
-  const OUTER_CIRCLE_RADIUS = availableRadius
-  // Gap between center node edge and panel edge = 0.61803× (φ-1) of center node diameter
-  const PANEL_GAP = NODE_RADIUS * 2 * (PHI - 1) // Sacred ratio gap
-  // Panel size so outer edge touches outer ring: PANEL_OFFSET + PANEL_SIZE/2 = OUTER_CIRCLE_RADIUS
-  // PANEL_OFFSET = NODE_RADIUS + PANEL_GAP + PANEL_SIZE/2
-  // So: NODE_RADIUS + PANEL_GAP + PANEL_SIZE/2 + PANEL_SIZE/2 = OUTER_CIRCLE_RADIUS
-  // PANEL_SIZE = OUTER_CIRCLE_RADIUS - NODE_RADIUS - PANEL_GAP
-  const PANEL_SIZE = OUTER_CIRCLE_RADIUS - NODE_RADIUS - PANEL_GAP
-  const PANEL_OFFSET = NODE_RADIUS + PANEL_GAP + PANEL_SIZE / 2
-  // Diagonal offset for 45° rotated layout (square arrangement)
-  const DIAG = PANEL_OFFSET / Math.SQRT2
+  // Panel sizes - φ (1.61803) × shrunken center diameter, touching (no gap)
+  const PANEL_SIZE = SMALL_NODE_RADIUS * 2 * 1.61803 // φ × shrunken diameter
+  // Panels tangent to center node (no gap)
+  const PANEL_OFFSET = SMALL_NODE_RADIUS + PANEL_SIZE / 2
+  
+  // Ring tangent to the OUTER EDGE of child nodes (top of CABAL1)
+  // Animates with CABAL1 when parent expands/collapses
+  const childRadius = FULL_NODE_RADIUS * 0.61803
+  const defaultChildCenterDistance = FULL_NODE_RADIUS + childRadius
+  // Use animated distance if available, otherwise use default
+  const currentChildCenterDistance = animatedChildDistance ?? defaultChildCenterDistance
+  const OUTER_CIRCLE_RADIUS = currentChildCenterDistance + childRadius
+  
+  // Pentagon layout - 5 equidistant panels (72° apart)
+  // Angles in degrees from positive X-axis (right), clockwise
+  // Position 0: Upper-left (234°) - Treasury
+  // Position 1: Upper-right (306°) - Staked Balance
+  // Position 2: Lower-right (18°) - Proposals
+  // Position 3: Lower-left (162°) - Trade (Buy/Sell)
+  // Position 4: Bottom (90°) - Stake/Unstake
+  const getPanelPosition = (index: number) => {
+    // Pentagon angles: start from upper-left going clockwise
+    const angles = [234, 306, 18, 162, 90] // degrees
+    const angle = angles[index] * (Math.PI / 180)
+    return {
+      x: PANEL_OFFSET * Math.cos(angle),
+      y: PANEL_OFFSET * Math.sin(angle),
+    }
+  }
+  
+  // Pre-calculate positions
+  const panelPositions = [0, 1, 2, 3, 4].map(getPanelPosition)
   
   const isPresale = radialMenu.phase === CabalPhase.Presale
   const isActive = radialMenu.phase === CabalPhase.Active
@@ -1244,6 +1733,7 @@ export function GraphExplorer({
               stroke="rgba(180, 140, 80, 0.1)"
               strokeWidth="1"
               strokeDasharray="4 4"
+              style={{ opacity: nodeEntranceScale }}
             />
             {/* Y axis at x=0 (center) */}
             <line
@@ -1254,15 +1744,32 @@ export function GraphExplorer({
               stroke="rgba(180, 140, 80, 0.1)"
               strokeWidth="1"
               strokeDasharray="4 4"
+              style={{ opacity: nodeEntranceScale }}
             />
-            {/* Container circle - fits within viewport with consistent padding */}
+            {/* Container circle - passes through center of child nodes / panels */}
             <circle
               cx={dimensions.width / 2}
               cy={dimensions.height / 2}
-              r={OUTER_CIRCLE_RADIUS}
+              r={OUTER_CIRCLE_RADIUS * nodeEntranceScale}
               fill="none"
               stroke={`rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.15)`}
               strokeWidth="1"
+              style={{
+                opacity: nodeEntranceScale,
+              }}
+            />
+            {/* Outer ring around expanded panels - grows outward with menu */}
+            <circle
+              cx={dimensions.width / 2}
+              cy={dimensions.height / 2}
+              r={animatedSubmenuRingRadius ?? FULL_NODE_RADIUS}
+              fill="none"
+              stroke={`rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.25)`}
+              strokeWidth="1"
+              style={{
+                opacity: menuAnimState === 'entered' || menuAnimState === 'entering' ? 1 : 0,
+                transition: 'opacity 382ms cubic-bezier(0.33, 1, 0.68, 1)'
+              }}
             />
           </svg>
         )}
@@ -1274,8 +1781,8 @@ export function GraphExplorer({
             height={dimensions.height}
             nodeLabel=""
             nodeRelSize={4}
-            linkColor={() => SACRED_COLORS.linkColor}
-            linkWidth={1.5}
+            linkColor={() => 'transparent'}
+            linkWidth={0}
             linkDirectionalArrowLength={0} 
             onNodeClick={handleNodeClick as (node: object) => void}
             enablePointerInteraction={true}
@@ -1302,11 +1809,15 @@ export function GraphExplorer({
             const label = n.label
             const isSelected = radialMenu.isOpen && radialMenu.cabalId === n.id
             
-            // Selected nodes use animated radius for smooth transitions
-            const baseRadius = isSelected ? (animatedRadius || SMALL_NODE_RADIUS) : FULL_NODE_RADIUS
-            const radius = baseRadius / globalScale
-            // Bigger font - 40% of radius for good visibility
-            const fontSize = (baseRadius * 0.4) / globalScale
+            // Use node's own radius (children are 0.618x parent)
+            const nodeBaseRadius = n.nodeRadius || FULL_NODE_RADIUS
+            // Selected nodes shrink for radial menu
+            const baseRadius = isSelected ? (animatedRadius || nodeBaseRadius * 0.35) : nodeBaseRadius
+            // Apply entrance animation scale (blooms from 0 to 1)
+            const scaledRadius = baseRadius * nodeEntranceScale
+            const radius = scaledRadius / globalScale
+            // Font size is φ⁻¹ (0.618) of the circle radius, also scaled for entrance
+            const fontSize = (scaledRadius * 0.61803) / globalScale
             const x = n.x || 0
             const y = n.y || 0
             
@@ -1321,15 +1832,15 @@ export function GraphExplorer({
             ctx.lineWidth = 1 / globalScale
             ctx.stroke()
 
-            // Label
-            ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`
+            // Label - use Geist Mono for slashed zeros like submenu panels
+            ctx.font = `600 ${fontSize}px "Geist Mono", ui-monospace, monospace`
             ctx.textAlign = "center"
             ctx.textBaseline = "middle"
             ctx.fillStyle = SACRED_COLORS.labelColor
             ctx.fillText(label, x, y)
           }}
           backgroundColor="transparent"
-          cooldownTicks={graphData.nodes.length === 1 ? 0 : 100}
+          cooldownTicks={0}
           warmupTicks={0}
           onEngineStop={() => {
             if (graphRef.current) {
@@ -1354,7 +1865,7 @@ export function GraphExplorer({
             onClick={(e) => e.stopPropagation()}
           >
             
-            {/* TOP-LEFT PANEL - Total Raised (Read) */}
+            {/* PANEL 0: UPPER-LEFT - Treasury ETH (Active) or Raised (Presale) */}
             <div 
               className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
                 menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-0' : 
@@ -1363,24 +1874,39 @@ export function GraphExplorer({
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: -DIAG - PANEL_SIZE / 2,
-                top: -DIAG - PANEL_SIZE / 2,
+                left: panelPositions[0].x - PANEL_SIZE / 2,
+                top: panelPositions[0].y - PANEL_SIZE / 2,
+                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[0].x}px ${PANEL_SIZE / 2 - panelPositions[0].y}px`,
               }}
             >
               {selectedCabal ? (
                 <div className="px-2 flex flex-col items-center">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Raised</p>
-                  <p className="text-base font-bold font-mono leading-tight">
-                    <TokenAmount amount={selectedCabal.totalRaised} decimals={4} />
-                  </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>
+                  {isActive ? (
+                    // Active: Show ETH + WETH combined (LP fees are in WETH)
+                    <>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Treasury</p>
+                      <p className="text-sm font-bold font-mono leading-tight">
+                        <TokenAmount amount={(tbaEthBalance?.value ?? 0n) + (tbaWethBalance ?? 0n)} decimals={6} />
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>
+                    </>
+                  ) : (
+                    // Presale: Show raised
+                    <>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Raised</p>
+                      <p className="text-base font-bold font-mono leading-tight">
+                        <TokenAmount amount={selectedCabal.totalRaised} decimals={6} />
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               )}
             </div>
             
-            {/* TOP-RIGHT PANEL - Your Position (Read) */}
+            {/* PANEL 1: UPPER-RIGHT - Your Position (Read) */}
             <div 
               className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
                 menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-1' : 
@@ -1389,34 +1915,65 @@ export function GraphExplorer({
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: DIAG - PANEL_SIZE / 2,
-                top: -DIAG - PANEL_SIZE / 2,
+                left: panelPositions[1].x - PANEL_SIZE / 2,
+                top: panelPositions[1].y - PANEL_SIZE / 2,
+                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[1].x}px ${PANEL_SIZE / 2 - panelPositions[1].y}px`,
               }}
             >
-              <div className="px-2 flex flex-col items-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">You</p>
-                <p className="text-base font-bold font-mono leading-tight">
-                  {hasContributed ? (
-                    <TokenAmount amount={userContribution} decimals={4} />
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </p>
-                {hasContributed && <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>}
+              <div className="px-2 flex flex-col items-center w-full">
+                {isActive ? (
+                  // Active: Show wallet, staked token balances, and voting power
+                  <div className="text-center w-full">
+                    <div className="text-[11px] font-mono space-y-0.5">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Wallet:</span>
+                        <span>{formatCompact(Number(formatEther(tokenBalance ?? 0n)))}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Staked:</span>
+                        <span>{formatCompact(Number(formatEther(stakedBalance ?? 0n)))}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Power:</span>
+                        <span>{(() => {
+                          const totalStaked = selectedCabal?.totalStaked ?? 0n
+                          const userStaked = stakedBalance ?? 0n
+                          if (totalStaked === 0n) return "0.00%"
+                          const pct = Number((userStaked * 10000n) / totalStaked) / 100
+                          return pct.toFixed(2) + "%"
+                        })()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Presale: Show ETH contribution
+                  <>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">You</p>
+                    <p className="text-base font-bold font-mono leading-tight">
+                      {hasContributed ? (
+                        <TokenAmount amount={userContribution} decimals={4} />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </p>
+                    {hasContributed && <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>}
+                  </>
+                )}
               </div>
             </div>
             
-            {/* BOTTOM-LEFT PANEL - Contribute (Presale) or Trade (Active) - Circle */}
+            {/* PANEL 3: LOWER-LEFT - Contribute (Presale) or Trade (Active) */}
             <div 
               className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-2' : 
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-3' : 
                 menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
               }`}
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: -DIAG - PANEL_SIZE / 2,
-                top: DIAG - PANEL_SIZE / 2,
+                left: panelPositions[3].x - PANEL_SIZE / 2,
+                top: panelPositions[3].y - PANEL_SIZE / 2,
+                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[3].x}px ${PANEL_SIZE / 2 - panelPositions[3].y}px`,
               }}
             >
               {isPresale ? (
@@ -1434,7 +1991,7 @@ export function GraphExplorer({
                         value={contributionAmount}
                         onChange={(e) => setContributionAmount(e.target.value)}
                         className="font-mono text-center text-xs h-7 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-disabled={isContributeLoading}
+                        disabled={isContributeLoading}
                       />
                     <Button
                       onClick={handleContribute}
@@ -1451,17 +2008,17 @@ disabled={isContributeLoading}
                   </div>
                 )
               ) : isActive ? (
-                // Trade Panel - inline buy/sell
+                // Trade Panel - simplified Min Buy / Max Sell
                 !isConnected ? (
                   <div className="px-2 space-y-1">
                     <p className="text-xs text-muted-foreground">Connect to trade</p>
                   </div>
                 ) : (
-                  <div className="px-3 py-2 space-y-1 w-full text-center">
+                  <div className="px-3 py-2 space-y-1.5 w-full text-center">
                     {/* Buy/Sell Toggle */}
                     <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
                       <button
-                        onClick={() => { setTradeTab('buy'); setTradeAmount(''); }}
+                        onClick={() => setTradeTab('buy')}
                         className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
                           tradeTab === 'buy'
                             ? 'bg-foreground text-background'
@@ -1471,7 +2028,7 @@ disabled={isContributeLoading}
                         Buy
                       </button>
                       <button
-                        onClick={() => { setTradeTab('sell'); setTradeAmount(''); }}
+                        onClick={() => setTradeTab('sell')}
                         className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
                           tradeTab === 'sell'
                             ? 'bg-foreground text-background'
@@ -1481,34 +2038,25 @@ disabled={isContributeLoading}
                         Sell
                       </button>
                     </div>
-                    {/* Amount Input */}
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      placeholder="0.0"
-                      value={tradeAmount}
-                      onChange={(e) => setTradeAmount(e.target.value)}
-                      className="font-mono text-center text-xs h-7 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      disabled={isTradeLoading}
-                    />
-                    <p className="text-[9px] text-muted-foreground truncate">
-                      {tradeTab === 'buy' 
-                        ? `${Number(formatEther(ethBalance?.value ?? 0n)).toFixed(4)} ETH`
-                        : `${Number(formatEther(tokenBalance ?? 0n)).toFixed(2)} ${selectedCabal?.symbol ?? ''}`
-                      }
-                    </p>
-                    {/* Trade Button */}
+                    {/* Min Buy / Max Sell Button */}
                     <Button
-                      onClick={handleTrade}
-                      disabled={isTradeLoading || !tradeAmount || Number(tradeAmount) <= 0}
+                      onClick={() => {
+                        if (tradeTab === 'buy') {
+                          // Min buy = 0.00001 ETH
+                          handleBuy(parseEther('0.00001'))
+                        } else {
+                          // Max sell = full token balance
+                          handleSell(tokenBalance ?? 0n)
+                        }
+                      }}
+                      disabled={isTradeLoading || (tradeTab === 'sell' && (tokenBalance ?? 0n) === 0n)}
                       className="w-full h-7 text-xs"
                       size="sm"
                     >
                       {isTradeLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        tradeTab === 'buy' ? 'Buy' : 'Sell'
+                        tradeTab === 'buy' ? 'Min Buy' : 'Max Sell'
                       )}
                     </Button>
                   </div>
@@ -1520,17 +2068,18 @@ disabled={isContributeLoading}
               )}
             </div>
             
-            {/* BOTTOM-RIGHT PANEL - Vote/Launch (Presale) or Info (Active) - Circle */}
+            {/* PANEL 2: LOWER-RIGHT - Vote/Launch (Presale) or Proposals (Active) */}
             <div 
               className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-3' : 
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-2' : 
                 menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
               }`}
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: DIAG - PANEL_SIZE / 2,
-                top: DIAG - PANEL_SIZE / 2,
+                left: panelPositions[2].x - PANEL_SIZE / 2,
+                top: panelPositions[2].y - PANEL_SIZE / 2,
+                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[2].x}px ${PANEL_SIZE / 2 - panelPositions[2].y}px`,
               }}
             >
               {isPresale ? (
@@ -1600,17 +2149,131 @@ disabled={isContributeLoading}
                   </div>
                 )
               ) : isActive ? (
-                // Stake Panel - inline stake/unstake
+                // Child Creation Voting Panel (like launch voting)
                 !isConnected ? (
+                  <div className="px-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Connect wallet</p>
+                  </div>
+                ) : (() => {
+                  const treasuryBalance = (tbaEthBalance?.value ?? 0n) + (tbaWethBalance ?? 0n)
+                  const minRequired = parseEther('0.00001')
+                  const hasStake = (stakedBalance ?? 0n) > 0n
+                  const hasTreasuryFunds = treasuryBalance >= minRequired
+                  
+                  // Parse child vote status
+                  const votesFor = childVoteStatus?.[0] ?? 0n
+                  const totalStaked = childVoteStatus?.[2] ?? 0n
+                  const majorityMet = childVoteStatus?.[4] ?? false
+                  const approvedAt = childVoteStatus?.[5] ?? 0n
+                  const finalizableAt = childVoteStatus?.[6] ?? 0n
+                  
+                  const childYesPercent = totalStaked > 0n 
+                    ? Number((votesFor * 100n) / totalStaked) 
+                    : 0
+                  
+                  const userVotedChildYes = userChildVote === 1n
+                  const nowSeconds = Math.floor(Date.now() / 1000)
+                  const isChildFinalizable = majorityMet && finalizableAt > 0n && nowSeconds >= Number(finalizableAt)
+                  
+                  const isChildVoteLoading = isVotingChild || voteChildConfirming
+                  const isChildFinalizeLoading = isFinalizingChild || finalizeChildConfirming
+                  
+                  // Time remaining until finalizable
+                  const childTimeRemaining = finalizableAt > 0n ? Math.max(0, Number(finalizableAt) - nowSeconds) : 0
+                  const childMinsRemaining = Math.ceil(childTimeRemaining / 60)
+                  
+                  return (
+                    <div className="px-3 py-2 space-y-1.5 w-full text-center">
+                      {!hasStake ? (
+                        <p className="text-xs text-muted-foreground">Stake to vote</p>
+                      ) : !hasTreasuryFunds ? (
+                        <p className="text-xs text-muted-foreground">Treasury empty</p>
+                      ) : majorityMet ? (
+                        // Vote passed - show finalize or countdown
+                        isChildFinalizable ? (
+                          <Button
+                            onClick={handleFinalizeChildCreation}
+                            disabled={isChildFinalizeLoading}
+                            className="w-full h-8 text-xs"
+                            size="sm"
+                          >
+                            {isChildFinalizeLoading ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "Create CABAL"
+                            )}
+                          </Button>
+                        ) : (
+                          <>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Creating in</p>
+                            <p className="text-lg font-mono font-bold">{childMinsRemaining} min</p>
+                          </>
+                        )
+                      ) : (
+                        // Voting in progress
+                        <>
+                          {/* Vote Progress */}
+                          <div className="space-y-1">
+                            <div className="h-2 bg-muted rounded-full overflow-hidden relative">
+                              <div 
+                                className="absolute left-0 top-0 bottom-0 bg-primary rounded-l-full transition-all"
+                                style={{ width: `${childYesPercent}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {childYesPercent.toFixed(0)}% / 51%
+                            </p>
+                          </div>
+                          {/* Vote Button */}
+                    <Button
+                            onClick={() => handleVoteChildCreation(true)}
+                            disabled={isChildVoteLoading || userVotedChildYes}
+                      className="w-full h-7 text-xs"
+                      size="sm"
+                    >
+                            {isChildVoteLoading ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              userVotedChildYes ? "✓ Voted" : "Create CABAL"
+                            )}
+                    </Button>
+                        </>
+                      )}
+                  </div>
+                )
+                })()
+              ) : (
+                <div className="px-2">
+                  <p className="text-xs text-muted-foreground">—</p>
+                </div>
+              )}
+            </div>
+            
+            {/* PANEL 4: BOTTOM CENTER - Stake (Active only) */}
+            {isActive && (
+              <div 
+                className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
+                  menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-4' : 
+                  menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
+                }`}
+                style={{
+                  width: PANEL_SIZE,
+                  height: PANEL_SIZE,
+                  left: panelPositions[4].x - PANEL_SIZE / 2,
+                  top: panelPositions[4].y - PANEL_SIZE / 2,
+                  transformOrigin: `${PANEL_SIZE / 2 - panelPositions[4].x}px ${PANEL_SIZE / 2 - panelPositions[4].y}px`,
+                }}
+              >
+                {!isConnected ? (
                   <div className="px-2 space-y-1">
                     <p className="text-xs text-muted-foreground">Connect to stake</p>
                   </div>
                 ) : (
-                  <div className="px-3 py-2 space-y-1 w-full text-center">
+                  <div className="px-3 py-2 space-y-1.5 w-full text-center">
                     {/* Stake/Unstake Toggle */}
                     <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
                       <button
-                        onClick={() => { setStakeTab('stake'); setStakeAmount(''); }}
+                        onClick={() => setStakeTab('stake')}
                         className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
                           stakeTab === 'stake'
                             ? 'bg-foreground text-background'
@@ -1620,7 +2283,7 @@ disabled={isContributeLoading}
                         Stake
                       </button>
                       <button
-                        onClick={() => { setStakeTab('unstake'); setStakeAmount(''); }}
+                        onClick={() => setStakeTab('unstake')}
                         className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
                           stakeTab === 'unstake'
                             ? 'bg-foreground text-background'
@@ -1630,44 +2293,32 @@ disabled={isContributeLoading}
                         Unstake
                       </button>
                     </div>
-                    {/* Amount Input */}
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      placeholder="0.0"
-                      value={stakeAmount}
-                      onChange={(e) => setStakeAmount(e.target.value)}
-                      className="font-mono text-center text-xs h-7 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      disabled={isStakeLoading}
-                    />
-                    <p className="text-[9px] text-muted-foreground truncate">
-                      {stakeTab === 'stake' 
-                        ? `${Number(formatEther(tokenBalance ?? 0n)).toFixed(2)} ${selectedCabal?.symbol ?? ''}`
-                        : `${Number(formatEther(stakedBalance ?? 0n)).toFixed(2)} staked`
-                      }
-                    </p>
-                    {/* Stake Button */}
+                    {/* Max Stake/Unstake Button */}
                     <Button
-                      onClick={handleStakeAction}
-                      disabled={isStakeLoading || !stakeAmount || Number(stakeAmount) <= 0}
+                      onClick={() => {
+                        const maxAmount = stakeTab === 'stake' 
+                          ? tokenBalance ?? 0n
+                          : stakedBalance ?? 0n
+                        if (stakeTab === 'stake') {
+                          handleStake(maxAmount)
+                        } else {
+                          handleUnstake(maxAmount)
+                        }
+                      }}
+                      disabled={isStakeLoading || (stakeTab === 'stake' ? (tokenBalance ?? 0n) === 0n : (stakedBalance ?? 0n) === 0n)}
                       className="w-full h-7 text-xs"
                       size="sm"
                     >
                       {isStakeLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        stakeTab === 'stake' ? 'Stake' : 'Unstake'
+                        stakeTab === 'stake' ? 'Max Stake' : 'Max Unstake'
                       )}
                     </Button>
                   </div>
-                )
-              ) : (
-                <div className="px-2">
-                  <p className="text-xs text-muted-foreground">—</p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
         

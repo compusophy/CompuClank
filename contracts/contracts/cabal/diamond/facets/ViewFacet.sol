@@ -294,8 +294,9 @@ contract ViewFacet {
         for (uint256 i = 0; i < allIds.length; i++) {
             uint256 cabalId = allIds[i];
             CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
-            // Include if: is root cabal OR has a parent (part of hierarchy)
-            if (cabalId == rootId || cabal.parentCabalId > 0) {
+            // Include if: is root cabal OR is a child of any cabal (check childCabalIds)
+            // Use TBA address as indicator - hierarchical cabals have valid TBAs
+            if (cabalId == rootId || cabal.tbaAddress != address(0)) {
                 count++;
             }
         }
@@ -306,7 +307,7 @@ contract ViewFacet {
         for (uint256 i = 0; i < allIds.length; i++) {
             uint256 cabalId = allIds[i];
             CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
-            if (cabalId == rootId || cabal.parentCabalId > 0) {
+            if (cabalId == rootId || cabal.tbaAddress != address(0)) {
                 ids[idx++] = cabalId;
             }
         }

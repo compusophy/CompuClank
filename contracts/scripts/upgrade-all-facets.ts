@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 
-const DIAMOND_ADDRESS = "0x2c37109E089a274fD3e7029a4F379558d44937e3";
+const DIAMOND_ADDRESS = "0xaEEc898Fcf7c66D7C4573C174ce529Df96d842e9";
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -17,6 +17,7 @@ const FACETS_TO_UPGRADE: FacetUpgrade[] = [
   { name: "SwapFacet", contractName: "SwapFacet" },
   { name: "GovernanceFacet", contractName: "GovernanceFacet" },
   { name: "ViewFacet", contractName: "ViewFacet" },
+  { name: "ChildCreationFacet", contractName: "ChildCreationFacet" },
 ];
 
 async function main() {

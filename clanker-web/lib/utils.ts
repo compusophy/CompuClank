@@ -40,3 +40,28 @@ export function formatTokenAmount(amount: bigint | undefined, decimals: number =
 
   return `${whole}.${decimal.slice(0, decimals)}`;
 }
+
+/**
+ * Format a number in compact notation (e.g., 1.2K, 3.5M, 1.2B)
+ */
+export function formatCompact(value: number): string {
+  if (value === 0) return '0';
+  
+  const absValue = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  
+  if (absValue >= 1_000_000_000) {
+    return `${sign}${(absValue / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+  }
+  if (absValue >= 1_000_000) {
+    return `${sign}${(absValue / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (absValue >= 1_000) {
+    return `${sign}${(absValue / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  }
+  if (absValue >= 1) {
+    return `${sign}${absValue.toFixed(2).replace(/\.00$/, '')}`;
+  }
+  // Small decimals - show up to 4 significant digits
+  return `${sign}${absValue.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}`;
+}

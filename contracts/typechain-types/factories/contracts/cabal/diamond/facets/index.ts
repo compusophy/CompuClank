@@ -7,6 +7,7 @@ export * as swapFacetSol from "./SwapFacet.sol";
 export * as treasuryFacetSol from "./TreasuryFacet.sol";
 export { ActivityFacet__factory } from "./ActivityFacet__factory";
 export { CabalCreationFacet__factory } from "./CabalCreationFacet__factory";
+export { ChildCreationFacet__factory } from "./ChildCreationFacet__factory";
 export { DelegationFacet__factory } from "./DelegationFacet__factory";
 export { DiamondCutFacet__factory } from "./DiamondCutFacet__factory";
 export { DiamondLoupeFacet__factory } from "./DiamondLoupeFacet__factory";

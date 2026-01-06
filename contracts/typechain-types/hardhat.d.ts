@@ -170,6 +170,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.CabalCreationFacet__factory>;
     getContractFactory(
+      name: "ChildCreationFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ChildCreationFacet__factory>;
+    getContractFactory(
       name: "DelegationFacet",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.DelegationFacet__factory>;
@@ -494,6 +498,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.CabalCreationFacet>;
     getContractAt(
+      name: "ChildCreationFacet",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ChildCreationFacet>;
+    getContractAt(
       name: "DelegationFacet",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -811,6 +820,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.CabalCreationFacet>;
     deployContract(
+      name: "ChildCreationFacet",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ChildCreationFacet>;
+    deployContract(
       name: "DelegationFacet",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.DelegationFacet>;
@@ -1134,6 +1147,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.CabalCreationFacet>;
+    deployContract(
+      name: "ChildCreationFacet",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ChildCreationFacet>;
     deployContract(
       name: "DelegationFacet",
       args: any[],

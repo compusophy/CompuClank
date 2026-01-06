@@ -10,12 +10,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { CABAL_ABI, CabalInfo, CabalPhase } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import { TokenAmount } from "@/components/TokenAmount"
-import { Plus, Users, Coins, TrendingUp, Wallet, Check, Search, X } from "lucide-react"
+import { Users, Coins, TrendingUp, Wallet, Check, Search, X } from "lucide-react"
 import { CabalDetailsContent } from "@/components/CabalDetailsContent"
 import { Ticker } from "@/components/Ticker"
 import { Footer } from "@/components/layout/Footer"
 import { PrimaryCTA } from "@/components/layout/PrimaryCTA"
-import { CreateModal } from "@/components/CreateModal"
 import { TradeModal } from "@/components/TradeModal"
 import { haptics } from "@/lib/haptics"
 import { useHierarchicalCabals } from "@/hooks/useHierarchicalCabals"
@@ -220,7 +219,6 @@ export default function HomePage() {
   const [showOwned, setShowOwned] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false)
 
@@ -387,15 +385,6 @@ export default function HomePage() {
               CABAL
             </button>
             <div className="flex items-center gap-3">
-              <Button 
-                size="sm" 
-                className="gap-1.5 button-shimmer-effect active-press font-semibold" 
-                onClick={() => setIsCreateModalOpen(true)}
-                haptic="golden"
-              >
-                <Plus className="h-4 w-4" />
-                <span>CREATE</span>
-              </Button>
               <WalletButton />
               <SettingsModal />
             </div>
@@ -591,13 +580,6 @@ export default function HomePage() {
         onActivityClick={() => setIsActivityModalOpen(true)} 
         viewTab={viewTab}
         onViewTabChange={setViewTab}
-      />
-
-      {/* Create Modal (for header button when viewing details) */}
-      <CreateModal 
-        isOpen={isCreateModalOpen} 
-        onOpenChange={setIsCreateModalOpen}
-        onSuccess={handleCreateSuccess}
       />
 
       {/* Trade Modal for Primary CTA */}

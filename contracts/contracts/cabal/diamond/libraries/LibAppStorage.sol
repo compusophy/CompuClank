@@ -157,6 +157,13 @@ library LibAppStorage {
     bytes32 constant ROOT_CABAL_ID_POSITION = keccak256("cabal.root.id");
     bytes32 constant GENESIS_INITIALIZED_POSITION = keccak256("cabal.genesis.initialized");
 
+    // Child creation voting (simple voting like launch voting)
+    bytes32 constant CHILD_CREATION_VOTES_FOR_POSITION = keccak256("cabal.child.votes.for");
+    bytes32 constant CHILD_CREATION_VOTES_AGAINST_POSITION = keccak256("cabal.child.votes.against");
+    bytes32 constant CHILD_CREATION_APPROVED_AT_POSITION = keccak256("cabal.child.approved.at");
+    bytes32 constant CHILD_CREATION_VOTED_POSITION = keccak256("cabal.child.voted");
+    bytes32 constant CHILD_CREATION_VOTE_WEIGHT_POSITION = keccak256("cabal.child.vote.weight");
+
     function appStorage() internal pure returns (AppStorage storage s) {
         bytes32 position = APP_STORAGE_POSITION;
         assembly {
@@ -448,5 +455,105 @@ library LibAppStorage {
 
     function isRootCabal(uint256 cabalId) internal view returns (bool) {
         return cabalId == getRootCabalId();
+    }
+
+    // ============ Child Creation Voting ============
+    // Simple voting for active cabals to create children (like launch voting)
+    // Vote values: 0 = not voted, 1 = voted YES, 2 = voted NO
+    
+    function getChildCreationVotesFor(uint256 cabalId) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_VOTES_FOR_POSITION, cabalId));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function setChildCreationVotesFor(uint256 cabalId, uint256 amount) internal {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_VOTES_FOR_POSITION, cabalId));
+        assembly {
+            sstore(position, amount)
+        }
+    }
+    
+    function getChildCreationVotesAgainst(uint256 cabalId) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_VOTES_AGAINST_POSITION, cabalId));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function setChildCreationVotesAgainst(uint256 cabalId, uint256 amount) internal {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_VOTES_AGAINST_POSITION, cabalId));
+        assembly {
+            sstore(position, amount)
+        }
+    }
+    
+    function getChildCreationApprovedAt(uint256 cabalId) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_APPROVED_AT_POSITION, cabalId));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function setChildCreationApprovedAt(uint256 cabalId, uint256 approvedTimestamp) internal {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_APPROVED_AT_POSITION, cabalId));
+        assembly {
+            sstore(position, approvedTimestamp)
+        }
+    }
+    
+    function getChildCreationVote(uint256 cabalId, address user) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_VOTED_POSITION, cabalId, user));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function hasVotedChildCreation(uint256 cabalId, address user) internal view returns (bool) {
+        return getChildCreationVote(cabalId, user) != 0;
+    }
+    
+    function setChildCreationVote(uint256 cabalId, address user, bool support, uint256 weight) internal {
+        bytes32 votePosition = keccak256(abi.encodePacked(CHILD_CREATION_VOTED_POSITION, cabalId, user));
+        bytes32 weightPosition = keccak256(abi.encodePacked(CHILD_CREATION_VOTE_WEIGHT_POSITION, cabalId, user));
+        uint256 value = support ? 1 : 2; // 1 = YES, 2 = NO
+        assembly {
+            sstore(votePosition, value)
+            sstore(weightPosition, weight)
+        }
+    }
+    
+    function getChildCreationVoteWeight(uint256 cabalId, address user) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_VOTE_WEIGHT_POSITION, cabalId, user));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function clearChildCreationVote(uint256 cabalId, address user) internal {
+        bytes32 votePosition = keccak256(abi.encodePacked(CHILD_CREATION_VOTED_POSITION, cabalId, user));
+        bytes32 weightPosition = keccak256(abi.encodePacked(CHILD_CREATION_VOTE_WEIGHT_POSITION, cabalId, user));
+        assembly {
+            sstore(votePosition, 0)
+            sstore(weightPosition, 0)
+        }
+    }
+    
+    function resetChildCreationVoting(uint256 cabalId) internal {
+        // Reset vote totals and approval timestamp for next child creation vote
+        setChildCreationVotesFor(cabalId, 0);
+        setChildCreationVotesAgainst(cabalId, 0);
+        setChildCreationApprovedAt(cabalId, 0);
     }
 }

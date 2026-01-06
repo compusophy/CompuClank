@@ -12,7 +12,7 @@ contract GovernanceFacet {
     // ============ Constants ============
     
     uint256 constant BPS_DENOMINATOR = 10000;
-    uint256 constant PROPOSAL_COOLDOWN = 24 hours; // Time after launch before proposals can be created
+    uint256 constant PROPOSAL_COOLDOWN = 10 minutes; // Time after launch before proposals can be created (TESTING: reduced from 24 hours)
 
     // ============ Enums ============
     

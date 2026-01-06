@@ -11,6 +11,7 @@ import type * as treasuryFacetSol from "./TreasuryFacet.sol";
 export type { treasuryFacetSol };
 export type { ActivityFacet } from "./ActivityFacet";
 export type { CabalCreationFacet } from "./CabalCreationFacet";
+export type { ChildCreationFacet } from "./ChildCreationFacet";
 export type { DelegationFacet } from "./DelegationFacet";
 export type { DiamondCutFacet } from "./DiamondCutFacet";
 export type { DiamondLoupeFacet } from "./DiamondLoupeFacet";

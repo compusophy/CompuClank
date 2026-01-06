@@ -37,8 +37,14 @@ export function SettingsModal() {
     localStorage.setItem("ui-scale", uiScale.toString())
   }, [uiScale, mounted])
 
+  // Show identical button during SSR/hydration - just not interactive yet
   if (!mounted) {
-    return null
+    return (
+      <Button variant="ghost" size="icon" className="rounded-full focus-visible:ring-0">
+        <Settings className="h-5 w-5" />
+        <span className="sr-only">Settings</span>
+      </Button>
+    )
   }
 
   return (

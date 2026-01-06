@@ -919,6 +919,91 @@ export const CABAL_ABI = [
     type: "event",
   },
 
+  // ============ ChildCreationFacet - Simple Voting ============
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "support", type: "bool" },
+    ],
+    name: "voteCreateChild",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "finalizeChildCreation",
+    outputs: [{ name: "childCabalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "cabalId", type: "uint256" }],
+    name: "getChildCreationVoteStatus",
+    outputs: [
+      { name: "votesFor", type: "uint256" },
+      { name: "votesAgainst", type: "uint256" },
+      { name: "totalStaked", type: "uint256" },
+      { name: "majorityRequired", type: "uint256" },
+      { name: "majorityMet", type: "bool" },
+      { name: "approvedAt", type: "uint256" },
+      { name: "finalizableAt", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "hasVotedChildCreation",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "user", type: "address" },
+    ],
+    name: "getChildCreationVote",
+    outputs: [{ name: "vote", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  // Child creation events
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: true, name: "voter", type: "address" },
+      { indexed: false, name: "support", type: "bool" },
+      { indexed: false, name: "weight", type: "uint256" },
+    ],
+    name: "ChildCreationVoteCast",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "cabalId", type: "uint256" },
+      { indexed: false, name: "finalizableAt", type: "uint256" },
+    ],
+    name: "ChildCreationApproved",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "parentCabalId", type: "uint256" },
+      { indexed: true, name: "childCabalId", type: "uint256" },
+      { indexed: false, name: "childTbaAddress", type: "address" },
+    ],
+    name: "ChildCabalCreated",
+    type: "event",
+  },
+
 ] as const;
 
 // Cabal phase enum

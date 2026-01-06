@@ -24,6 +24,7 @@ import dynamic from "next/dynamic"
 import { toast } from "sonner"
 import { haptics } from "@/lib/haptics"
 import { formatCompact } from "@/lib/utils"
+import { animateValue, ANIM_DURATION, easing } from "@/lib/animations"
 import { forceCollide, forceManyBody } from "d3-force"
 
 // Dynamically import force graph to avoid SSR issues
@@ -127,6 +128,9 @@ export function GraphExplorer({
   // Animated child distance for smooth transitions when parent expands/collapses
   const [animatedChildDistance, setAnimatedChildDistance] = useState<number | null>(null)
   const childAnimationFrameRef = useRef<number | null>(null)
+  
+  // Animated parent distance for smooth transitions when focused node's menu expands
+  const [animatedParentDistance, setAnimatedParentDistance] = useState<number | null>(null)
   
   // Animated submenu ring radius for smooth expansion
   const [animatedSubmenuRingRadius, setAnimatedSubmenuRingRadius] = useState<number | null>(null)
@@ -966,51 +970,28 @@ export function GraphExplorer({
     const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
     const targetRadius = isExpanding ? FULL_NODE_RADIUS : SMALL_NODE_RADIUS
     const startRadius = animatedRadius || FULL_NODE_RADIUS
-    const diff = targetRadius - startRadius
     
-    if (Math.abs(diff) < 1) {
+    if (Math.abs(targetRadius - startRadius) < 1) {
       setAnimatedRadius(targetRadius)
       return
     }
     
-    // Longer duration for expand (more noticeable), shorter for shrink
-    const duration = isExpanding ? 500 : 382
-    const startTime = performance.now()
+    const cleanup = animateValue({
+      from: startRadius,
+      to: targetRadius,
+      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      easing: easing.easeOutCubic,
+      onUpdate: setAnimatedRadius,
+    })
     
-    // Easing function - cubic bezier approximation for smooth feel
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
-    
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const easedProgress = easeOutCubic(progress)
-      
-      const newRadius = startRadius + diff * easedProgress
-      setAnimatedRadius(newRadius)
-      
-      if (progress < 1) {
-        animationFrameRef.current = requestAnimationFrame(animate)
-      }
-    }
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-    }
-    animationFrameRef.current = requestAnimationFrame(animate)
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
+    return cleanup
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
 
   // Animate child node distance when parent expands/collapses
-  // Track start distance separately to avoid infinite loops
   const childDistanceStartRef = useRef<number | null>(null)
   
   useEffect(() => {
-    // Calculate expanded and collapsed distances
     const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
     const panelOuterEdge = SMALL_NODE_RADIUS + panelSize
     const childRadius = FULL_NODE_RADIUS * 0.61803
@@ -1020,48 +1001,68 @@ export function GraphExplorer({
     const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
     const targetDistance = isExpanding ? collapsedDistance : expandedDistance
     
-    // Capture start distance once at animation start
     if (childDistanceStartRef.current === null) {
       childDistanceStartRef.current = animatedChildDistance ?? collapsedDistance
     }
     const startDistance = childDistanceStartRef.current
-    const diff = targetDistance - startDistance
     
-    if (Math.abs(diff) < 1) {
+    if (Math.abs(targetDistance - startDistance) < 1) {
       setAnimatedChildDistance(targetDistance)
       childDistanceStartRef.current = null
       return
     }
     
-    const duration = isExpanding ? 500 : 382
-    const startTime = performance.now()
+    const cleanup = animateValue({
+      from: startDistance,
+      to: targetDistance,
+      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      easing: easing.easeOutCubic,
+      onUpdate: setAnimatedChildDistance,
+      onComplete: () => { childDistanceStartRef.current = null },
+    })
     
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+    return cleanup
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
+
+  // Animate parent node distance when focused node's menu expands/collapses
+  const parentDistanceStartRef = useRef<number | null>(null)
+  
+  useEffect(() => {
+    const PHI = 1.61803
+    const parentRadius = FULL_NODE_RADIUS * PHI
+    const panelSize = SMALL_NODE_RADIUS * 2 * PHI
+    const ringRadius = SMALL_NODE_RADIUS + panelSize
     
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = easeOutCubic(progress)
-      
-      setAnimatedChildDistance(startDistance + diff * eased)
-      
-      if (progress < 1) {
-        childAnimationFrameRef.current = requestAnimationFrame(animate)
-      } else {
-        childDistanceStartRef.current = null // Reset for next animation
-      }
+    // Expanded: parent pushed down so ring bottom is tangent to parent top
+    const expandedDistance = ringRadius + parentRadius
+    // Collapsed: parent tangent to focused node
+    const collapsedDistance = FULL_NODE_RADIUS + parentRadius
+    
+    const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
+    const targetDistance = isExpanding ? collapsedDistance : expandedDistance
+    
+    if (parentDistanceStartRef.current === null) {
+      parentDistanceStartRef.current = animatedParentDistance ?? collapsedDistance
+    }
+    const startDistance = parentDistanceStartRef.current
+    
+    if (Math.abs(targetDistance - startDistance) < 1) {
+      setAnimatedParentDistance(targetDistance)
+      parentDistanceStartRef.current = null
+      return
     }
     
-    if (childAnimationFrameRef.current) {
-      cancelAnimationFrame(childAnimationFrameRef.current)
-    }
-    childAnimationFrameRef.current = requestAnimationFrame(animate)
+    const cleanup = animateValue({
+      from: startDistance,
+      to: targetDistance,
+      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      easing: easing.easeOutCubic,
+      onUpdate: setAnimatedParentDistance,
+      onComplete: () => { parentDistanceStartRef.current = null },
+    })
     
-    return () => {
-      if (childAnimationFrameRef.current) {
-        cancelAnimationFrame(childAnimationFrameRef.current)
-      }
-    }
+    return cleanup
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
 
@@ -1069,7 +1070,6 @@ export function GraphExplorer({
   const submenuRingStartRef = useRef<number | null>(null)
   
   useEffect(() => {
-    // Calculate collapsed and expanded ring radii
     const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
     const panelOffset = SMALL_NODE_RADIUS + panelSize / 2
     const expandedRingRadius = panelOffset + panelSize / 2
@@ -1078,49 +1078,27 @@ export function GraphExplorer({
     const isExpanding = menuAnimState === 'exiting' || menuAnimState === 'exited'
     const targetRadius = isExpanding ? collapsedRingRadius : expandedRingRadius
     
-    // Capture start radius once at animation start
     if (submenuRingStartRef.current === null) {
       submenuRingStartRef.current = animatedSubmenuRingRadius ?? collapsedRingRadius
     }
     const startRadius = submenuRingStartRef.current
-    const diff = targetRadius - startRadius
     
-    if (Math.abs(diff) < 1) {
+    if (Math.abs(targetRadius - startRadius) < 1) {
       setAnimatedSubmenuRingRadius(targetRadius)
       submenuRingStartRef.current = null
       return
     }
     
-    const duration = isExpanding ? 500 : 382
-    const startTime = performance.now()
+    const cleanup = animateValue({
+      from: startRadius,
+      to: targetRadius,
+      duration: isExpanding ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
+      easing: easing.easeOutCubic,
+      onUpdate: setAnimatedSubmenuRingRadius,
+      onComplete: () => { submenuRingStartRef.current = null },
+    })
     
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
-    
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const easedProgress = easeOutCubic(progress)
-      
-      const newRadius = startRadius + diff * easedProgress
-      setAnimatedSubmenuRingRadius(newRadius)
-      
-      if (progress < 1) {
-        submenuRingAnimationFrameRef.current = requestAnimationFrame(animate)
-      } else {
-        submenuRingStartRef.current = null
-      }
-    }
-    
-    if (submenuRingAnimationFrameRef.current) {
-      cancelAnimationFrame(submenuRingAnimationFrameRef.current)
-    }
-    submenuRingAnimationFrameRef.current = requestAnimationFrame(animate)
-    
-    return () => {
-      if (submenuRingAnimationFrameRef.current) {
-        cancelAnimationFrame(submenuRingAnimationFrameRef.current)
-      }
-    }
+    return cleanup
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
 
@@ -1129,30 +1107,13 @@ export function GraphExplorer({
     if (cabalsData && cabalsData.length > 0 && !hasTriggeredEntranceRef.current) {
       hasTriggeredEntranceRef.current = true
       
-      const duration = 618 // Golden ratio timing
-      const startTime = performance.now()
-      
-      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
-      
-      const animate = (currentTime: number) => {
-        const elapsed = currentTime - startTime
-        const progress = Math.min(elapsed / duration, 1)
-        const easedProgress = easeOutCubic(progress)
-        
-        setNodeEntranceScale(easedProgress)
-        
-        if (progress < 1) {
-          entranceAnimationFrameRef.current = requestAnimationFrame(animate)
-        }
-      }
-      
-      entranceAnimationFrameRef.current = requestAnimationFrame(animate)
-      
-      return () => {
-        if (entranceAnimationFrameRef.current) {
-          cancelAnimationFrame(entranceAnimationFrameRef.current)
-        }
-      }
+      return animateValue({
+        from: 0,
+        to: 1,
+        duration: ANIM_DURATION.slow,
+        easing: easing.easeOutCubic,
+        onUpdate: setNodeEntranceScale,
+      })
     }
   }, [cabalsData])
 
@@ -1174,42 +1135,17 @@ export function GraphExplorer({
   // Animate focus transitions when navigating between nodes
   useEffect(() => {
     if (focusedCabalId !== previousFocusRef.current) {
-      // Start transition from 0 (old positions) to 1 (new positions)
-      // Note: snapshotNodePositions() is called in handleNodeClick BEFORE focus changes
-      setFocusTransitionProgress(0)
+      // Note: snapshotNodePositions() and setFocusTransitionProgress(0) 
+      // are called in handleNodeClick BEFORE focus changes
       
-      // Use same duration as submenu animations for consistency
-      const duration = 500
-      const startTime = performance.now()
-      
-      // Smooth ease-out for natural deceleration
-      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
-      
-      const animate = (currentTime: number) => {
-        const elapsed = currentTime - startTime
-        const progress = Math.min(elapsed / duration, 1)
-        const easedProgress = easeOutCubic(progress)
-        
-        setFocusTransitionProgress(easedProgress)
-        
-        if (progress < 1) {
-          focusAnimationFrameRef.current = requestAnimationFrame(animate)
-        } else {
-          // Animation complete - update previous focus
-          previousFocusRef.current = focusedCabalId
-        }
-      }
-      
-      if (focusAnimationFrameRef.current) {
-        cancelAnimationFrame(focusAnimationFrameRef.current)
-      }
-      focusAnimationFrameRef.current = requestAnimationFrame(animate)
-      
-      return () => {
-        if (focusAnimationFrameRef.current) {
-          cancelAnimationFrame(focusAnimationFrameRef.current)
-        }
-      }
+      return animateValue({
+        from: 0,
+        to: 1,
+        duration: ANIM_DURATION.relaxed,
+        easing: easing.easeOutCubic,
+        onUpdate: setFocusTransitionProgress,
+        onComplete: () => { previousFocusRef.current = focusedCabalId },
+      })
     }
   }, [focusedCabalId])
 
@@ -1280,7 +1216,21 @@ export function GraphExplorer({
         targetX = 0
         targetY = 0
       } else if (isParentOfFocused) {
-        const distanceFromCenter = FULL_NODE_RADIUS + thisNodeRadius
+        // Use animated distance for smooth transitions when focused node's menu opens
+        const focusedHasMenuOpen = radialMenu.isOpen && radialMenu.cabalId === focusedCabalId
+        
+        let distanceFromCenter: number
+        if (focusedHasMenuOpen && animatedParentDistance !== null) {
+          distanceFromCenter = animatedParentDistance
+        } else if (focusedHasMenuOpen) {
+          // Fallback: expanded position
+          const panelSize = SMALL_NODE_RADIUS * 2 * PHI
+          const ringRadius = SMALL_NODE_RADIUS + panelSize
+          distanceFromCenter = ringRadius + thisNodeRadius
+        } else {
+          distanceFromCenter = FULL_NODE_RADIUS + thisNodeRadius
+        }
+        
         const angle = Math.PI / 2 // Bottom
         targetX = Math.cos(angle) * distanceFromCenter
         targetY = Math.sin(angle) * distanceFromCenter
@@ -1351,7 +1301,7 @@ export function GraphExplorer({
     // Store for snapshotting before focus transitions
     lastGraphDataRef.current = result
     return result
-  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch, animatedChildDistance, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, focusedCabalId, focusTransitionProgress])
+  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch, animatedChildDistance, animatedParentDistance, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, focusedCabalId, focusTransitionProgress])
 
 
   const closeRadialMenu = useCallback(() => {
@@ -1643,30 +1593,45 @@ export function GraphExplorer({
   const defaultChildCenterDistance = FULL_NODE_RADIUS + childRadius
   // Use animated distance if available, otherwise use default
   const currentChildCenterDistance = animatedChildDistance ?? defaultChildCenterDistance
-  const OUTER_CIRCLE_RADIUS = currentChildCenterDistance + childRadius
+  // Outer ring is fixed at child node outer edge (fractal consistency)
+  // This doesn't change with menu expansion - children push outward but ring stays fixed
+  const OUTER_CIRCLE_RADIUS = FULL_NODE_RADIUS + childRadius * 2
   
-  // Pentagon layout - 5 equidistant panels (72° apart)
-  // Angles in degrees from positive X-axis (right), clockwise
-  // Position 0: Upper-left (234°) - Treasury
-  // Position 1: Upper-right (306°) - Staked Balance
-  // Position 2: Lower-right (18°) - Proposals
-  // Position 3: Lower-left (162°) - Trade (Buy/Sell)
-  // Position 4: Bottom (90°) - Stake/Unstake
+  const isPresale = radialMenu.phase === CabalPhase.Presale
+  const isActive = radialMenu.phase === CabalPhase.Active
+  
+  // Layout depends on phase:
+  // - Presale: 4 panels (square) - no Governance panel
+  // - Active: 5 panels (pentagon) - includes Governance
+  // Position mapping:
+  // 0: Upper-left - Treasury/Raised
+  // 1: Upper-right - Your Position
+  // 2: Lower-right - Vote/Proposals  
+  // 3: Lower-left - Contribute/Trade
+  // 4: Bottom - Governance (Active only)
   const getPanelPosition = (index: number) => {
-    // Pentagon angles: start from upper-left going clockwise
-    const angles = [234, 306, 18, 162, 90] // degrees
-    const angle = angles[index] * (Math.PI / 180)
-    return {
-      x: PANEL_OFFSET * Math.cos(angle),
-      y: PANEL_OFFSET * Math.sin(angle),
+    if (isPresale) {
+      // Square layout (4 panels, 90° apart)
+      // Rotated so corners are at top-left, top-right, bottom-left, bottom-right
+      const squareAngles = [225, 315, 45, 135] // degrees: TL, TR, BR, BL
+      const angle = squareAngles[index] * (Math.PI / 180)
+      return {
+        x: PANEL_OFFSET * Math.cos(angle),
+        y: PANEL_OFFSET * Math.sin(angle),
+      }
+    } else {
+      // Pentagon layout (5 panels, 72° apart)
+      const pentagonAngles = [234, 306, 18, 162, 90] // degrees
+      const angle = pentagonAngles[index] * (Math.PI / 180)
+      return {
+        x: PANEL_OFFSET * Math.cos(angle),
+        y: PANEL_OFFSET * Math.sin(angle),
+      }
     }
   }
   
   // Pre-calculate positions
   const panelPositions = [0, 1, 2, 3, 4].map(getPanelPosition)
-  
-  const isPresale = radialMenu.phase === CabalPhase.Presale
-  const isActive = radialMenu.phase === CabalPhase.Active
   
   // Vote status parsing (isLaunchApproved defined earlier for graph node coloring)
   const votesFor = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[0] ?? 0n
@@ -1745,18 +1710,6 @@ export function GraphExplorer({
               strokeWidth="1"
               strokeDasharray="4 4"
               style={{ opacity: nodeEntranceScale }}
-            />
-            {/* Container circle - passes through center of child nodes / panels */}
-            <circle
-              cx={dimensions.width / 2}
-              cy={dimensions.height / 2}
-              r={OUTER_CIRCLE_RADIUS * nodeEntranceScale}
-              fill="none"
-              stroke={`rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.15)`}
-              strokeWidth="1"
-              style={{
-                opacity: nodeEntranceScale,
-              }}
             />
             {/* Outer ring around expanded panels - grows outward with menu */}
             <circle

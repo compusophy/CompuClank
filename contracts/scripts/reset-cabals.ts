@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
 
-const DIAMOND_ADDRESS = "0x2c37109E089a274fD3e7029a4F379558d44937e3";
+const DIAMOND_ADDRESS = "0xaEEc898Fcf7c66D7C4573C174ce529Df96d842e9";
 
 async function main() {
   const [deployer] = await ethers.getSigners();

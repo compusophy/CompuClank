@@ -110,7 +110,7 @@ function formatAmount(type: ActivityType, amount: bigint): string {
   const num = parseFloat(formatted)
   
   if (num === 0) return ""
-  if (num < 0.001) return "<0.001 ETH"
+  if (num < 0.00001) return "<0.00001 ETH"
   return `${num.toFixed(3)} ETH`
 }
 

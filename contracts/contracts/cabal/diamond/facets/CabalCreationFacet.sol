@@ -43,7 +43,7 @@ contract CabalCreationFacet {
     uint256 constant BPS_DENOMINATOR = 10000;     // 1% + 33% + 66% devBuy = 100%
     bytes32 constant TBA_SALT = bytes32(0);
     
-    // Minimum amounts to prevent spam (TESTING: reduced for dev)
+    // Minimum amounts to prevent spam
     uint256 constant MIN_CREATION_FEE = 0.00001 ether;  // ~$0.03
     uint256 constant MIN_CONTRIBUTION = 0.00001 ether;  // ~$0.03
     
@@ -400,6 +400,7 @@ contract CabalCreationFacet {
             cabal.name, cabal.symbol, cabal.image, cabal.tbaAddress, devBuyAmount, s, c
         );
 
+        // Deploy token - send devBuyAmount ETH for the devBuy extension
         bytes memory result = CabalTBA(payable(cabal.tbaAddress)).executeCall(
             s.clankerFactory,
             devBuyAmount,
@@ -409,7 +410,9 @@ contract CabalCreationFacet {
         if (result.length < 32) revert DeploymentFailed();
         tokenAddress = abi.decode(result, (address));
 
+        // Check TBA token balance from devBuy
         uint256 tokensReceived = IERC20(tokenAddress).balanceOf(cabal.tbaAddress);
+        // Split: 50% to treasury (held), 50% to contributors (staked for voting)
         contributorTokens = tokensReceived - (tokensReceived * TREASURY_TOKEN_BPS) / BPS_DENOMINATOR;
     }
 
@@ -563,15 +566,16 @@ contract CabalCreationFacet {
         });
         
         // Pool config (pair with WETH)
-        // poolData contains hook configuration for swap fees
-        // The hex encodes: clankerFee = 10000 BPS (1%), pairedFee = 10000 BPS (1%)
-        // These are collected in ClankerFeeLocker and distributed to rewardRecipients
+        // poolData for DYNAMIC fee hook V2 encodes: PoolInitializationData { extension, extensionData, feeData }
+        // where feeData = [baseFee, maxLpFee, refPeriod, resetPeriod, resetTick, control, decay]
+        // Values from SDK: baseFee=10000, maxLpFee=100000, refPeriod=600, resetPeriod=86400, resetTick=200, control=1000000, decay=9500
+        // Copied directly from clanker-sdk getDeployTransaction output
         IClankerFactory.PoolConfig memory poolConfig = IClankerFactory.PoolConfig({
             hook: c.hook,
             pairedToken: s.weth,
             tickIfToken0IsClanker: DEFAULT_TICK,
             tickSpacing: DEFAULT_TICK_SPACING,
-            poolData: hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000002710"
+            poolData: hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000186a00000000000000000000000000000000000000000000000000000000000000258000000000000000000000000000000000000000000000000000000000001518000000000000000000000000000000000000000000000000000000000000000c800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000251c"
         });
         
         // Locker config - Split fees between cabal TBA and CABAL0 protocol treasury
@@ -632,10 +636,13 @@ contract CabalCreationFacet {
             lockerData: hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
         });
         
-        // MEV module config with standard parameters
+        // MEV module config (Sniper Auction) with standard parameters
+        // Encodes: { startingFee, endingFee, secondsToDecay }
+        // Values from SDK: startingFee=100000 (1000%), endingFee=30000 (300%), secondsToDecay=15
+        // Copied directly from clanker-sdk getDeployTransaction output
         IClankerFactory.MevModuleConfig memory mevConfig = IClankerFactory.MevModuleConfig({
             mevModule: c.mevModule,
-            mevModuleData: hex"00000000000000000000000000000000000000000000000000000000000a2c99000000000000000000000000000000000000000000000000000000000000a2c9000000000000000000000000000000000000000000000000000000000000000f"
+            mevModuleData: hex"00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000000000000000000000000000000000000000007530000000000000000000000000000000000000000000000000000000000000000f"
         });
         
         // Extension config for devBuy - buys tokens with raised ETH
@@ -661,7 +668,7 @@ contract CabalCreationFacet {
             extensions[0] = IClankerFactory.ExtensionConfig({
                 extension: c.devBuyExtension,
                 msgValue: devBuyAmount,
-                extensionBps: 0,
+                extensionBps: 0,  // We don't need token allocation from supply, we buy from pool
                 extensionData: abi.encode(devBuyData)
             });
         } else {

@@ -228,22 +228,22 @@ function LaunchSection({
             </span>
           </div>
           {!isLaunchable && (
-            <div className="space-y-1">
+          <div className="space-y-1">
               <p className="text-2xl font-bold font-mono">
                 {Math.max(0, Math.ceil((Number(launchableAt) - Date.now() / 1000) / 60))} min
               </p>
               <p className="text-xs text-muted-foreground">until launch available</p>
-            </div>
+          </div>
           )}
-          <Button
-            onClick={handleFinalize}
+            <Button
+              onClick={handleFinalize}
             disabled={!isLaunchable || isFinalizing || isFinalizeConfirming}
-            className="w-full h-12 text-base gap-2"
-            size="lg"
-          >
-            {(isFinalizing || isFinalizeConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
+              className="w-full h-12 text-base gap-2"
+              size="lg"
+            >
+              {(isFinalizing || isFinalizeConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
             {isFinalizing || isFinalizeConfirming ? "Launching..." : isLaunchable ? "Launch Now" : "Waiting..."}
-          </Button>
+            </Button>
         </div>
       )}
 
@@ -1355,12 +1355,12 @@ export function CabalDetailsContent({ cabalId, initialCabal, onOpenTradeModal }:
     isLaunching
       ? "bg-orange-500/10 text-orange-500 border-orange-500/30"
       : cabal.phase === CabalPhase.Presale
-        ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
-        : cabal.phase === CabalPhase.Active
-          ? "bg-green-500/10 text-green-500 border-green-500/30"
-          : isClosed
-            ? "bg-gray-500/10 text-gray-500 border-gray-500/30"
-            : "bg-red-500/10 text-red-500 border-red-500/30"
+      ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
+      : cabal.phase === CabalPhase.Active
+        ? "bg-green-500/10 text-green-500 border-green-500/30"
+        : isClosed
+          ? "bg-gray-500/10 text-gray-500 border-gray-500/30"
+          : "bg-red-500/10 text-red-500 border-red-500/30"
 
   // Calculate staked percentage
   const stakedPercent =

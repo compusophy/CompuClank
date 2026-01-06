@@ -238,6 +238,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.SwapFacet__factory>;
     getContractFactory(
+      name: "TokenReceiverFacet",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.TokenReceiverFacet__factory>;
+    getContractFactory(
       name: "IClankerFeeLocker",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IClankerFeeLocker__factory>;
@@ -575,6 +579,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.SwapFacet>;
     getContractAt(
+      name: "TokenReceiverFacet",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.TokenReceiverFacet>;
+    getContractAt(
       name: "IClankerFeeLocker",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -870,6 +879,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.SwapFacet>;
     deployContract(
+      name: "TokenReceiverFacet",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.TokenReceiverFacet>;
+    deployContract(
       name: "IClankerFeeLocker",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IClankerFeeLocker>;
@@ -1206,6 +1219,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.SwapFacet>;
+    deployContract(
+      name: "TokenReceiverFacet",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.TokenReceiverFacet>;
     deployContract(
       name: "IClankerFeeLocker",
       args: any[],

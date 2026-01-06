@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import { LibAppStorage, AppStorage, CabalData, CabalPhase, GovernanceSettings } from "../libraries/LibAppStorage.sol";
+import { LibAppStorage, AppStorage, CabalData, CabalPhase, GovernanceSettings, ActivityType } from "../libraries/LibAppStorage.sol";
 import { LibDiamond } from "../libraries/LibDiamond.sol";
 import "../../CabalNFT.sol";
 import "../../CabalTBA.sol";
@@ -18,7 +18,7 @@ contract GenesisFacet {
     // ============ Constants ============
     
     bytes32 constant TBA_SALT = bytes32(0);
-    uint256 constant MIN_CONTRIBUTION = 0.00001 ether;  // Same as regular cabals
+    uint256 constant MIN_CONTRIBUTION = 0.00001 ether;  // ~$0.03
     
     // ============ Events ============
     
@@ -102,6 +102,9 @@ contract GenesisFacet {
         
         emit GenesisInitialized(cabalId, tbaAddress);
         emit GenesisContributed(cabalId, msg.sender, msg.value);
+        
+        // Log activity for the activity feed
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.CabalCreated, msg.value);
     }
 
     /**
@@ -129,30 +132,8 @@ contract GenesisFacet {
         if (!success) revert TransferFailed();
         
         emit GenesisContributed(cabalId, msg.sender, msg.value);
-    }
-
-    // ============ View Functions ============
-
-    /**
-     * @notice Check if genesis has been initialized
-     */
-    function isGenesisInitialized() external view returns (bool) {
-        return LibAppStorage.isGenesisInitialized();
-    }
-
-    /**
-     * @notice Get the root cabal ID
-     */
-    function getRootCabalId() external view returns (uint256) {
-        return LibAppStorage.getRootCabalId();
-    }
-
-    /**
-     * @notice Get the root cabal's TBA address (protocol fee recipient)
-     */
-    function getProtocolTreasury() external view returns (address) {
-        if (!LibAppStorage.isGenesisInitialized()) return address(0);
-        uint256 rootId = LibAppStorage.getRootCabalId();
-        return LibAppStorage.getCabalData(rootId).tbaAddress;
+        
+        // Log activity for the activity feed
+        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Contributed, msg.value);
     }
 }

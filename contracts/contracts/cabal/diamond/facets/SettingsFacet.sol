@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import { LibAppStorage, AppStorage, CabalData, CabalPhase, GovernanceSettings, ClankerV4Settings } from "../libraries/LibAppStorage.sol";
 import { LibDiamond } from "../libraries/LibDiamond.sol";
+import "../../CabalTBA.sol";
 
 /**
  * @title SettingsFacet
@@ -198,6 +199,67 @@ contract SettingsFacet {
         s.nextCabalId = 0;
         
         emit AllCabalsReset(previousCount);
+    }
+    
+    /**
+     * @notice Re-add a cabal to the index (owner only)
+     * @dev Used to fix index after reset if cabal data still exists
+     */
+    function reindexCabal(uint256 cabalId) external {
+        LibDiamond.enforceIsContractOwner();
+        
+        AppStorage storage s = LibAppStorage.appStorage();
+        
+        // Check cabal exists (has a TBA)
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        require(cabal.tbaAddress != address(0), "Cabal does not exist");
+        
+        // Check not already indexed
+        for (uint256 i = 0; i < s.allCabalIds.length; i++) {
+            if (s.allCabalIds[i] == cabalId) {
+                revert("Already indexed");
+            }
+        }
+        
+        // Add to index
+        s.allCabalIds.push(cabalId);
+        
+        // Update nextCabalId if needed
+        if (cabalId >= s.nextCabalId) {
+            s.nextCabalId = cabalId + 1;
+        }
+    }
+    
+    /**
+     * @notice Emergency recovery of ETH from a cabal's TBA (owner only)
+     * @dev Only use for recovery purposes - this bypasses normal governance
+     */
+    function recoverETHFromCabal(uint256 cabalId, address payable recipient, uint256 amount) external {
+        LibDiamond.enforceIsContractOwner();
+        
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        require(cabal.tbaAddress != address(0), "Cabal does not exist");
+        
+        // Execute ETH transfer from TBA
+        CabalTBA(payable(cabal.tbaAddress)).executeCall(recipient, amount, "");
+    }
+    
+    /**
+     * @notice Emergency recovery of tokens from a cabal's TBA (owner only)
+     * @dev Only use for recovery purposes - this bypasses normal governance
+     */
+    function recoverTokensFromCabal(uint256 cabalId, address token, address recipient, uint256 amount) external {
+        LibDiamond.enforceIsContractOwner();
+        
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        require(cabal.tbaAddress != address(0), "Cabal does not exist");
+        
+        // Execute token transfer from TBA
+        CabalTBA(payable(cabal.tbaAddress)).executeCall(
+            token,
+            0,
+            abi.encodeWithSignature("transfer(address,uint256)", recipient, amount)
+        );
     }
 
     /**

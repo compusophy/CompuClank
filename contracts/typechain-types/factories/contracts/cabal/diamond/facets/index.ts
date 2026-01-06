@@ -16,4 +16,5 @@ export { ReceiverFacet__factory } from "./ReceiverFacet__factory";
 export { SettingsFacet__factory } from "./SettingsFacet__factory";
 export { StakingFacet__factory } from "./StakingFacet__factory";
 export { StorageRepairFacet__factory } from "./StorageRepairFacet__factory";
+export { TokenReceiverFacet__factory } from "./TokenReceiverFacet__factory";
 export { ViewFacet__factory } from "./ViewFacet__factory";

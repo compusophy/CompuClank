@@ -1,11 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount } from "wagmi"
-import { parseEther } from "viem"
+import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount, useBalance, useSignTypedData, useChainId } from "wagmi"
+import { parseEther, formatEther, erc20Abi, hexToSignature } from "viem"
+import { readContract } from "@wagmi/core"
+import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles, Vote, ArrowLeftRight, Rocket } from "lucide-react"
+import { Loader2, Sparkles, Vote, Rocket } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -64,17 +66,6 @@ interface GraphData {
   links: GraphLink[]
 }
 
-// Status indicator colors (small dots)
-const PHASE_COLORS = {
-  [CabalPhase.Presale]: "#eab308", // yellow
-  [CabalPhase.Active]: "#22c55e", // green
-  [CabalPhase.Paused]: "#ef4444", // red
-  3: "#6b7280", // gray for Closed
-}
-
-// Launching status color (presale + approved for launch)
-const LAUNCHING_COLOR = "#f97316" // orange
-
 // Match the EXACT color used by border-primary in dark mode
 // Dark mode --primary: oklch(0.75 0.18 50) = rgb(212, 146, 54)
 // Verified by color picker on the actual rendered UI panels
@@ -91,8 +82,8 @@ const SACRED_COLORS = {
   linkColor: `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.3)`,
 }
 
-// Initial contribution for genesis (0.001 ETH minimum)
-const GENESIS_CONTRIBUTION = "0.001"
+// Initial contribution for genesis
+const GENESIS_CONTRIBUTION = "0.00001"
 
 // Golden ratio constant
 const PHI = 1.61803
@@ -145,7 +136,7 @@ export function GraphExplorer({
   const NODE_RADIUS = SMALL_NODE_RADIUS
   
   // Contribution input state
-  const [contributionAmount, setContributionAmount] = useState("0.001")
+  const [contributionAmount, setContributionAmount] = useState("0.00001")
   
   // Launch confirmation dialog
   const [showLaunchConfirm, setShowLaunchConfirm] = useState(false)
@@ -154,7 +145,19 @@ export function GraphExplorer({
   // This persists across selection changes so nodes stay orange
   const [launchingCabalIds, setLaunchingCabalIds] = useState<Set<string>>(new Set())
   
+  // Trading state for active cabals
+  const [tradeTab, setTradeTab] = useState<'buy' | 'sell'>('buy')
+  const [tradeAmount, setTradeAmount] = useState('')
+  const [isApproving, setIsApproving] = useState(false)
+  
+  // Staking state for active cabals
+  const [stakeTab, setStakeTab] = useState<'stake' | 'unstake'>('stake')
+  const [stakeAmount, setStakeAmount] = useState('')
+  const [isSigning, setIsSigning] = useState(false)
+  
   const { isConnected, address } = useAccount()
+  const chainId = useChainId()
+  const { signTypedDataAsync } = useSignTypedData()
   
   // Genesis initialization
   const { writeContract: initGenesis, data: genesisTxHash, isPending: isGenesisLoading } = useWriteContract()
@@ -164,14 +167,14 @@ export function GraphExplorer({
   })
 
   // Get hierarchical cabal IDs only (CABAL0 and descendants, excludes legacy)
-  const { data: hierarchicalIds, isLoading: isLoadingIds } = useReadContract({
+  const { data: hierarchicalIds, isLoading: isLoadingIds, refetch: refetchHierarchicalIds } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getHierarchicalCabalIds",
-  }) as { data: readonly bigint[] | undefined; isLoading: boolean }
+  }) as { data: readonly bigint[] | undefined; isLoading: boolean; refetch: () => void }
 
   // Get info for hierarchical cabals only
-  const { data: cabalsData, isLoading: isLoadingCabals } = useReadContract({
+  const { data: cabalsData, isLoading: isLoadingCabals, refetch: refetchCabalsData } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getCabals",
@@ -179,7 +182,7 @@ export function GraphExplorer({
     query: {
       enabled: !!hierarchicalIds && hierarchicalIds.length > 0,
     },
-  }) as { data: readonly CabalInfo[] | undefined; isLoading: boolean }
+  }) as { data: readonly CabalInfo[] | undefined; isLoading: boolean; refetch: () => void }
 
   // Get presale cabal IDs to batch fetch their launch status
   const presaleCabalIds = useMemo(() => {
@@ -229,13 +232,16 @@ export function GraphExplorer({
   }) as { data: boolean | undefined; refetch: () => void }
   
   // Fetch full cabal info for selected node
+  // Note: Use !== undefined check because 0n (CABAL0) is falsy but valid!
   const selectedCabalId = radialMenu.cabalId ? BigInt(radialMenu.cabalId) : undefined
+  const hasSelectedCabal = selectedCabalId !== undefined
+  
   const { data: selectedCabal, refetch: refetchSelectedCabal } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getCabal",
-    args: selectedCabalId ? [selectedCabalId] : undefined,
-    query: { enabled: !!selectedCabalId },
+    args: hasSelectedCabal ? [selectedCabalId] : undefined,
+    query: { enabled: hasSelectedCabal },
   }) as { data: FullCabalInfo | undefined; refetch: () => void }
   
   // Get user's contribution for the selected cabal
@@ -243,8 +249,8 @@ export function GraphExplorer({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getContribution",
-    args: selectedCabalId && address ? [selectedCabalId, address] : undefined,
-    query: { enabled: !!selectedCabalId && !!address },
+    args: hasSelectedCabal && address ? [selectedCabalId, address] : undefined,
+    query: { enabled: hasSelectedCabal && !!address },
   }) as { data: bigint | undefined; refetch: () => void }
   
   // Get launch vote status
@@ -252,15 +258,29 @@ export function GraphExplorer({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getLaunchVoteStatus",
-    args: selectedCabalId ? [selectedCabalId] : undefined,
-    query: { enabled: !!selectedCabalId && radialMenu.phase === CabalPhase.Presale },
+    args: hasSelectedCabal ? [selectedCabalId] : undefined,
+    query: { enabled: hasSelectedCabal && radialMenu.phase === CabalPhase.Presale },
   })
   
   // Early extraction of launch status for graph node coloring
   const launchApprovedAtEarly = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[5] ?? 0n
   const launchableAtEarly = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[6] ?? 0n
   const isLaunchApproved = launchApprovedAtEarly > 0n
-  const isLaunchable = launchableAtEarly > 0n && BigInt(Math.floor(Date.now() / 1000)) >= launchableAtEarly
+  
+  // Current timestamp state - updates periodically to check launch eligibility
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
+  useEffect(() => {
+    // Only start interval if we're in the countdown phase
+    if (!isLaunchApproved || launchableAtEarly === 0n) return
+    
+    const interval = setInterval(() => {
+      setNow(Math.floor(Date.now() / 1000))
+    }, 1000) // Update every second for countdown display
+    
+    return () => clearInterval(interval)
+  }, [isLaunchApproved, launchableAtEarly])
+  
+  const isLaunchable = launchableAtEarly > 0n && BigInt(now) >= launchableAtEarly
   
   // Track launching cabals - update when we detect one is launching
   useEffect(() => {
@@ -296,8 +316,8 @@ export function GraphExplorer({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getLaunchVote",
-    args: selectedCabalId && address ? [selectedCabalId, address] : undefined,
-    query: { enabled: !!selectedCabalId && !!address && radialMenu.phase === CabalPhase.Presale },
+    args: hasSelectedCabal && address ? [selectedCabalId, address] : undefined,
+    query: { enabled: hasSelectedCabal && !!address && radialMenu.phase === CabalPhase.Presale },
   })
   
   // Contribute transaction
@@ -308,13 +328,72 @@ export function GraphExplorer({
   const { writeContract: voteWrite, data: voteHash, isPending: isVoting, reset: resetVote } = useWriteContract()
   const { isLoading: isVoteConfirming, isSuccess: voteSuccess } = useWaitForTransactionReceipt({ hash: voteHash })
   
+  // Finalize (launch) transaction
+  const { writeContract: finalizeWrite, data: finalizeHash, isPending: isFinalizing, reset: resetFinalize } = useWriteContract()
+  const { isLoading: isFinalizeConfirming, isSuccess: finalizeSuccess } = useWaitForTransactionReceipt({ hash: finalizeHash })
+  
+  // Trading hooks for active cabals
+  const { writeContract: buyWrite, data: buyHash, isPending: isBuying, reset: resetBuy } = useWriteContract()
+  const { isLoading: buyConfirming, isSuccess: buySuccess } = useWaitForTransactionReceipt({ hash: buyHash })
+  
+  const { writeContract: sellWrite, data: sellHash, isPending: isSelling, reset: resetSell } = useWriteContract()
+  const { isLoading: sellConfirming, isSuccess: sellSuccess } = useWaitForTransactionReceipt({ hash: sellHash })
+  
+  const { writeContract: approveWrite, data: approveHash, isPending: approving } = useWriteContract()
+  const { isLoading: approveConfirming, isSuccess: approveSuccess } = useWaitForTransactionReceipt({ hash: approveHash })
+  
+  // ETH Balance for trading
+  const { data: ethBalance } = useBalance({ address })
+  
+  // Token balance for selling (only for active cabals)
+  const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
+    address: selectedCabal?.tokenAddress,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: !!selectedCabal?.tokenAddress && !!address && radialMenu.phase === CabalPhase.Active },
+  }) as { data: bigint | undefined; refetch: () => void }
+  
+  // Token allowance for selling
+  const { data: tokenAllowance, refetch: refetchAllowance } = useReadContract({
+    address: selectedCabal?.tokenAddress,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: address && CABAL_DIAMOND_ADDRESS ? [address, CABAL_DIAMOND_ADDRESS] : undefined,
+    query: { enabled: !!selectedCabal?.tokenAddress && !!address && radialMenu.phase === CabalPhase.Active },
+  }) as { data: bigint | undefined; refetch: () => void }
+  
+  // Staked balance for staking panel
+  const { data: stakedBalance, refetch: refetchStakedBalance } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: 'getStakedBalance',
+    args: hasSelectedCabal && address ? [selectedCabalId, address] : undefined,
+    query: { enabled: hasSelectedCabal && !!address && radialMenu.phase === CabalPhase.Active },
+  }) as { data: bigint | undefined; refetch: () => void }
+  
+  // Stake write contract (uses permit)
+  const { writeContract: stakeWrite, data: stakeHash, isPending: isStakePending, reset: resetStake } = useWriteContract()
+  const { isLoading: stakeConfirming, isSuccess: stakeSuccess } = useWaitForTransactionReceipt({ hash: stakeHash })
+  
+  // Unstake write contract
+  const { writeContract: unstakeWrite, data: unstakeHash, isPending: isUnstaking, reset: resetUnstake } = useWriteContract()
+  const { isLoading: unstakeConfirming, isSuccess: unstakeSuccess } = useWaitForTransactionReceipt({ hash: unstakeHash })
+  
   // Handle genesis success
   useEffect(() => {
     if (isGenesisSuccess) {
       toast.success("Genesis initialized! CABAL0 has been created.")
       refetchGenesis()
+      // Also refetch cabal data so the graph updates
+      setTimeout(() => {
+        refetchHierarchicalIds().then(() => {
+          // After IDs are fetched, refetch the cabal data
+          setTimeout(() => refetchCabalsData(), 500)
+        })
+      }, 1000) // Small delay to ensure blockchain state is updated
     }
-  }, [isGenesisSuccess, refetchGenesis])
+  }, [isGenesisSuccess, refetchGenesis, refetchHierarchicalIds, refetchCabalsData])
   
   // Handle contribution success
   useEffect(() => {
@@ -325,7 +404,7 @@ export function GraphExplorer({
       refetchUserContribution()
       refetchVoteStatus()
       resetContribute()
-      setContributionAmount("0.001")
+      setContributionAmount("0.00001")
     }
   }, [contributeSuccess, contributeHash, contributionAmount, refetchSelectedCabal, refetchUserContribution, refetchVoteStatus, resetContribute])
   
@@ -340,6 +419,292 @@ export function GraphExplorer({
       resetVote()
     }
   }, [voteSuccess, voteHash, refetchVoteStatus, refetchUserVote, refetchSelectedCabal, resetVote])
+  
+  // Handle buy success
+  useEffect(() => {
+    if (buySuccess && buyHash) {
+      haptics.success()
+      toast.success("Bought tokens!")
+      refetchTokenBalance()
+      refetchSelectedCabal()
+      setTradeAmount('')
+      resetBuy()
+    }
+  }, [buySuccess, buyHash, refetchTokenBalance, refetchSelectedCabal, resetBuy])
+  
+  // Handle sell success
+  useEffect(() => {
+    if (sellSuccess && sellHash) {
+      haptics.success()
+      toast.success("Sold tokens!")
+      refetchTokenBalance()
+      refetchSelectedCabal()
+      setTradeAmount('')
+      resetSell()
+    }
+  }, [sellSuccess, sellHash, refetchTokenBalance, refetchSelectedCabal, resetSell])
+  
+  // Handle approve success - continue with sell
+  const executeSell = useCallback(() => {
+    if (!CABAL_DIAMOND_ADDRESS || !tradeAmount || !address) return
+    
+    const tokenAmount = parseEther(tradeAmount)
+    const minEthOut = 0n // TODO: Add slippage
+    
+    sellWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: 'sellTokens',
+      args: [BigInt(radialMenu.cabalId), tokenAmount, minEthOut],
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to sell"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 60))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, tradeAmount, address, sellWrite])
+  
+  useEffect(() => {
+    if (approveSuccess && approveHash) {
+      toast.success("Approved! Selling...")
+      refetchAllowance()
+      setIsApproving(false)
+      executeSell()
+    }
+  }, [approveSuccess, approveHash, refetchAllowance, executeSell])
+  
+  // Reset trade state when menu closes or changes
+  useEffect(() => {
+    if (!radialMenu.isOpen) {
+      setTradeAmount('')
+      setTradeTab('buy')
+    }
+  }, [radialMenu.isOpen])
+  
+  const handleBuy = useCallback(() => {
+    if (!CABAL_DIAMOND_ADDRESS || !address || !tradeAmount) return
+    
+    const ethAmount = parseEther(tradeAmount)
+    const minAmountOut = 0n // TODO: Add slippage
+    
+    buyWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: 'buyTokens',
+      args: [BigInt(radialMenu.cabalId), minAmountOut],
+      value: ethAmount,
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to buy"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 60))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, tradeAmount, address, buyWrite])
+  
+  const handleSell = useCallback(() => {
+    if (!CABAL_DIAMOND_ADDRESS || !address || !tradeAmount || !selectedCabal?.tokenAddress) return
+    
+    const tokenAmount = parseEther(tradeAmount)
+    const currentAllowance = tokenAllowance ?? 0n
+    
+    // Check if we need approval
+    if (currentAllowance < tokenAmount) {
+      setIsApproving(true)
+      toast.info("Approving tokens...")
+      
+      approveWrite({
+        address: selectedCabal.tokenAddress,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [CABAL_DIAMOND_ADDRESS, tokenAmount],
+      }, {
+        onError: (e) => {
+          haptics.error()
+          const msg = e.message || "Failed to approve"
+          if (msg.includes("User denied") || msg.includes("User rejected")) {
+            toast.error("Transaction cancelled")
+          } else {
+            toast.error("Approval failed")
+          }
+          setIsApproving(false)
+        },
+      })
+      return
+    }
+    
+    executeSell()
+  }, [radialMenu.cabalId, tradeAmount, address, selectedCabal?.tokenAddress, tokenAllowance, approveWrite, executeSell])
+  
+  const handleTrade = useCallback(() => {
+    if (tradeTab === 'buy') {
+      handleBuy()
+    } else {
+      handleSell()
+    }
+  }, [tradeTab, handleBuy, handleSell])
+  
+  // Handle stake success
+  useEffect(() => {
+    if (stakeSuccess && stakeHash) {
+      haptics.success()
+      toast.success("Staked!")
+      refetchStakedBalance()
+      refetchTokenBalance()
+      refetchSelectedCabal()
+      setStakeAmount('')
+      setIsSigning(false)
+      resetStake()
+    }
+  }, [stakeSuccess, stakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, resetStake])
+  
+  // Handle unstake success
+  useEffect(() => {
+    if (unstakeSuccess && unstakeHash) {
+      haptics.success()
+      toast.success("Unstaked!")
+      refetchStakedBalance()
+      refetchTokenBalance()
+      refetchSelectedCabal()
+      setStakeAmount('')
+      resetUnstake()
+    }
+  }, [unstakeSuccess, unstakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, resetUnstake])
+  
+  // Reset stake state when menu closes
+  useEffect(() => {
+    if (!radialMenu.isOpen) {
+      setStakeAmount('')
+      setStakeTab('stake')
+      setIsSigning(false)
+    }
+  }, [radialMenu.isOpen])
+  
+  const handleStake = useCallback(async () => {
+    if (!CABAL_DIAMOND_ADDRESS || !address || !stakeAmount || !selectedCabal?.tokenAddress) return
+    
+    const amount = parseEther(stakeAmount)
+    setIsSigning(true)
+    
+    try {
+      // Get nonce for permit
+      const nonce = await readContract(wagmiConfig, {
+        address: selectedCabal.tokenAddress,
+        abi: [...erc20Abi, { 
+          inputs: [{ name: 'owner', type: 'address' }], 
+          name: 'nonces', 
+          outputs: [{ name: '', type: 'uint256' }], 
+          stateMutability: 'view', 
+          type: 'function' 
+        }] as const,
+        functionName: 'nonces', 
+        args: [address],
+      })
+      
+      const tokenName = await readContract(wagmiConfig, { 
+        address: selectedCabal.tokenAddress, 
+        abi: erc20Abi, 
+        functionName: 'name' 
+      })
+      
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600)
+      
+      const signature = await signTypedDataAsync({
+        domain: { 
+          name: tokenName, 
+          version: '1', 
+          chainId, 
+          verifyingContract: selectedCabal.tokenAddress 
+        },
+        types: { 
+          Permit: [
+            { name: 'owner', type: 'address' }, 
+            { name: 'spender', type: 'address' }, 
+            { name: 'value', type: 'uint256' }, 
+            { name: 'nonce', type: 'uint256' }, 
+            { name: 'deadline', type: 'uint256' }
+          ] 
+        },
+        primaryType: 'Permit',
+        message: { 
+          owner: address, 
+          spender: CABAL_DIAMOND_ADDRESS, 
+          value: amount, 
+          nonce: nonce as bigint, 
+          deadline 
+        },
+      })
+      
+      const { v, r, s } = hexToSignature(signature)
+      
+      stakeWrite({ 
+        address: CABAL_DIAMOND_ADDRESS, 
+        abi: CABAL_ABI, 
+        functionName: 'stakeWithPermit', 
+        args: [BigInt(radialMenu.cabalId), amount, deadline, Number(v), r, s] 
+      }, {
+        onError: (e) => {
+          haptics.error()
+          const msg = e.message || "Failed to stake"
+          if (msg.includes("User rejected") || msg.includes("User denied")) {
+            toast.error("Transaction cancelled")
+          } else {
+            toast.error(msg.split("\n")[0].slice(0, 60))
+          }
+          setIsSigning(false)
+        },
+      })
+    } catch (e) {
+      haptics.error()
+      const error = e instanceof Error ? e : new Error('Failed to sign')
+      if (error.message.includes('User rejected') || error.message.includes('User denied')) {
+        toast.error("Transaction cancelled")
+      } else {
+        toast.error("Signing failed")
+      }
+      setIsSigning(false)
+    }
+  }, [radialMenu.cabalId, stakeAmount, address, selectedCabal?.tokenAddress, chainId, signTypedDataAsync, stakeWrite])
+  
+  const handleUnstake = useCallback(() => {
+    if (!CABAL_DIAMOND_ADDRESS || !address || !stakeAmount) return
+    
+    const amount = parseEther(stakeAmount)
+    
+    unstakeWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: 'unstake',
+      args: [BigInt(radialMenu.cabalId), amount],
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to unstake"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 60))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, stakeAmount, address, unstakeWrite])
+  
+  const handleStakeAction = useCallback(() => {
+    if (stakeTab === 'stake') {
+      handleStake()
+    } else {
+      handleUnstake()
+    }
+  }, [stakeTab, handleStake, handleUnstake])
   
   const handleInitializeGenesis = useCallback(() => {
     initGenesis({
@@ -540,9 +905,20 @@ export function GraphExplorer({
     menuAnimTimeoutRef.current = setTimeout(() => {
       setRadialMenu(prev => ({ ...prev, isOpen: false }))
       setMenuAnimState('exited')
-      setContributionAmount("0.001")
+      setContributionAmount("0.00001")
     }, 500) // Match expand animation duration (500ms)
   }, [])
+  
+  // Handle finalize (launch) success - placed after closeRadialMenu is defined
+  useEffect(() => {
+    if (finalizeSuccess && finalizeHash) {
+      haptics.sacredRhythm()
+      toast.success("Cabal launched!")
+      refetchSelectedCabal()
+      resetFinalize()
+      closeRadialMenu()
+    }
+  }, [finalizeSuccess, finalizeHash, refetchSelectedCabal, resetFinalize, closeRadialMenu])
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
@@ -685,6 +1061,27 @@ export function GraphExplorer({
     })
     setShowLaunchConfirm(false)
   }, [radialMenu.cabalId, voteWrite])
+  
+  const handleFinalize = useCallback(() => {
+    if (!CABAL_DIAMOND_ADDRESS) return
+    
+    finalizeWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: "finalizeCabal",
+      args: [BigInt(radialMenu.cabalId)],
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to launch"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 80))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, finalizeWrite])
 
   const isLoading = isLoadingIds || isLoadingCabals
 
@@ -776,6 +1173,8 @@ export function GraphExplorer({
   // PANEL_SIZE = OUTER_CIRCLE_RADIUS - NODE_RADIUS - PANEL_GAP
   const PANEL_SIZE = OUTER_CIRCLE_RADIUS - NODE_RADIUS - PANEL_GAP
   const PANEL_OFFSET = NODE_RADIUS + PANEL_GAP + PANEL_SIZE / 2
+  // Diagonal offset for 45° rotated layout (square arrangement)
+  const DIAG = PANEL_OFFSET / Math.SQRT2
   
   const isPresale = radialMenu.phase === CabalPhase.Presale
   const isActive = radialMenu.phase === CabalPhase.Active
@@ -804,6 +1203,8 @@ export function GraphExplorer({
   
   const isContributeLoading = isContributing || isContributeConfirming
   const isVoteLoading = isVoting || isVoteConfirming
+  const isTradeLoading = isBuying || buyConfirming || isSelling || sellConfirming || approving || approveConfirming || isApproving
+  const isStakeLoading = isStakePending || stakeConfirming || isUnstaking || unstakeConfirming || isSigning
   
   // Fill parent container completely
   return (
@@ -901,17 +1302,11 @@ export function GraphExplorer({
             const label = n.label
             const isSelected = radialMenu.isOpen && radialMenu.cabalId === n.id
             
-            // Use orange for launching status, otherwise use phase color
-            const statusColor = n.isLaunching 
-              ? LAUNCHING_COLOR 
-              : PHASE_COLORS[n.phase as keyof typeof PHASE_COLORS] || "#6b7280"
-            
             // Selected nodes use animated radius for smooth transitions
             const baseRadius = isSelected ? (animatedRadius || SMALL_NODE_RADIUS) : FULL_NODE_RADIUS
             const radius = baseRadius / globalScale
             // Bigger font - 40% of radius for good visibility
             const fontSize = (baseRadius * 0.4) / globalScale
-            const statusDotRadius = (baseRadius * 0.15) / globalScale
             const x = n.x || 0
             const y = n.y || 0
             
@@ -932,14 +1327,6 @@ export function GraphExplorer({
             ctx.textBaseline = "middle"
             ctx.fillStyle = SACRED_COLORS.labelColor
             ctx.fillText(label, x, y)
-            
-            // Status dot - top right corner
-            const dotX = x + radius * 0.65
-            const dotY = y - radius * 0.65
-            ctx.beginPath()
-            ctx.arc(dotX, dotY, statusDotRadius, 0, 2 * Math.PI)
-            ctx.fillStyle = statusColor
-            ctx.fill()
           }}
           backgroundColor="transparent"
           cooldownTicks={graphData.nodes.length === 1 ? 0 : 100}
@@ -967,7 +1354,7 @@ export function GraphExplorer({
             onClick={(e) => e.stopPropagation()}
           >
             
-            {/* TOP PANEL - Total Raised */}
+            {/* TOP-LEFT PANEL - Total Raised (Read) */}
             <div 
               className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
                 menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-0' : 
@@ -976,8 +1363,8 @@ export function GraphExplorer({
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: `calc(50% - ${PANEL_SIZE / 2}px)`,
-                top: -PANEL_OFFSET - PANEL_SIZE / 2,
+                left: -DIAG - PANEL_SIZE / 2,
+                top: -DIAG - PANEL_SIZE / 2,
               }}
             >
               {selectedCabal ? (
@@ -993,17 +1380,17 @@ export function GraphExplorer({
               )}
             </div>
             
-            {/* BOTTOM PANEL - Your Position */}
+            {/* TOP-RIGHT PANEL - Your Position (Read) */}
             <div 
               className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-3' : 
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-1' : 
                 menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
               }`}
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: `calc(50% - ${PANEL_SIZE / 2}px)`,
-                top: PANEL_OFFSET - PANEL_SIZE / 2,
+                left: DIAG - PANEL_SIZE / 2,
+                top: -DIAG - PANEL_SIZE / 2,
               }}
             >
               <div className="px-2 flex flex-col items-center">
@@ -1019,17 +1406,17 @@ export function GraphExplorer({
               </div>
             </div>
             
-            {/* LEFT PANEL - Contribute (Presale) or Trade (Active) - Circle */}
+            {/* BOTTOM-LEFT PANEL - Contribute (Presale) or Trade (Active) - Circle */}
             <div 
               className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-1' : 
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-2' : 
                 menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
               }`}
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: -PANEL_OFFSET - PANEL_SIZE / 2,
-                top: `calc(50% - ${PANEL_SIZE / 2}px)`,
+                left: -DIAG - PANEL_SIZE / 2,
+                top: DIAG - PANEL_SIZE / 2,
               }}
             >
               {isPresale ? (
@@ -1042,8 +1429,8 @@ export function GraphExplorer({
                   <div className="px-3 py-2 space-y-1.5 w-full text-center">
                     <Input
                         type="number"
-                        step="0.001"
-                        min="0.001"
+                        step="0.00001"
+                        min="0.00001"
                         value={contributionAmount}
                         onChange={(e) => setContributionAmount(e.target.value)}
                         className="font-mono text-center text-xs h-7 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -1064,14 +1451,68 @@ disabled={isContributeLoading}
                   </div>
                 )
               ) : isActive ? (
-                // Trade Panel
-                <button
-                  onClick={() => onSelectCabal?.(BigInt(radialMenu.cabalId))}
-                  className="w-full h-full flex flex-col items-center justify-center hover:bg-primary/10 transition-colors"
-                >
-                  <ArrowLeftRight className="h-6 w-6 text-primary mb-1" />
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Trade</p>
-                </button>
+                // Trade Panel - inline buy/sell
+                !isConnected ? (
+                  <div className="px-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Connect to trade</p>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 space-y-1 w-full text-center">
+                    {/* Buy/Sell Toggle */}
+                    <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
+                      <button
+                        onClick={() => { setTradeTab('buy'); setTradeAmount(''); }}
+                        className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
+                          tradeTab === 'buy'
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Buy
+                      </button>
+                      <button
+                        onClick={() => { setTradeTab('sell'); setTradeAmount(''); }}
+                        className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
+                          tradeTab === 'sell'
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Sell
+                      </button>
+                    </div>
+                    {/* Amount Input */}
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      placeholder="0.0"
+                      value={tradeAmount}
+                      onChange={(e) => setTradeAmount(e.target.value)}
+                      className="font-mono text-center text-xs h-7 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      disabled={isTradeLoading}
+                    />
+                    <p className="text-[9px] text-muted-foreground truncate">
+                      {tradeTab === 'buy' 
+                        ? `${Number(formatEther(ethBalance?.value ?? 0n)).toFixed(4)} ETH`
+                        : `${Number(formatEther(tokenBalance ?? 0n)).toFixed(2)} ${selectedCabal?.symbol ?? ''}`
+                      }
+                    </p>
+                    {/* Trade Button */}
+                    <Button
+                      onClick={handleTrade}
+                      disabled={isTradeLoading || !tradeAmount || Number(tradeAmount) <= 0}
+                      className="w-full h-7 text-xs"
+                      size="sm"
+                    >
+                      {isTradeLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        tradeTab === 'buy' ? 'Buy' : 'Sell'
+                      )}
+                    </Button>
+                  </div>
+                )
               ) : (
                 <div className="px-2">
                   <p className="text-xs text-muted-foreground">Paused</p>
@@ -1079,17 +1520,17 @@ disabled={isContributeLoading}
               )}
             </div>
             
-            {/* RIGHT PANEL - Vote/Launch (Presale) or Info (Active) - Circle */}
+            {/* BOTTOM-RIGHT PANEL - Vote/Launch (Presale) or Info (Active) - Circle */}
             <div 
               className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-2' : 
+                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-3' : 
                 menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
               }`}
               style={{
                 width: PANEL_SIZE,
                 height: PANEL_SIZE,
-                left: PANEL_OFFSET - PANEL_SIZE / 2,
-                top: `calc(50% - ${PANEL_SIZE / 2}px)`,
+                left: DIAG - PANEL_SIZE / 2,
+                top: DIAG - PANEL_SIZE / 2,
               }}
             >
               {isPresale ? (
@@ -1107,17 +1548,22 @@ disabled={isContributeLoading}
                   <div className="px-3 py-2 space-y-2 w-full text-center">
                     {isLaunchable ? (
                       <Button
-                        onClick={() => onSelectCabal?.(BigInt(radialMenu.cabalId))}
+                        onClick={handleFinalize}
+                        disabled={isFinalizing || isFinalizeConfirming}
                         className="w-full h-8 text-xs"
                         size="sm"
                       >
-                        Launch
+                        {(isFinalizing || isFinalizeConfirming) ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Launch"
+                        )}
                       </Button>
                     ) : (
                       <>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Launching in</p>
                         <p className="text-lg font-mono font-bold">
-                          {Math.max(0, Math.ceil((Number(launchableAtEarly) - Date.now() / 1000) / 60))} min
+                          {Math.max(0, Math.ceil((Number(launchableAtEarly) - now) / 60))} min
                         </p>
                       </>
                     )}
@@ -1154,13 +1600,68 @@ disabled={isContributeLoading}
                   </div>
                 )
               ) : isActive ? (
-                // Stakers info for active
-                <div className="px-2">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Stakers</p>
-                  <p className="text-base font-bold font-mono">
-                    {selectedCabal?.contributorCount?.toString() ?? "—"}
-                  </p>
-                </div>
+                // Stake Panel - inline stake/unstake
+                !isConnected ? (
+                  <div className="px-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">Connect to stake</p>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 space-y-1 w-full text-center">
+                    {/* Stake/Unstake Toggle */}
+                    <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
+                      <button
+                        onClick={() => { setStakeTab('stake'); setStakeAmount(''); }}
+                        className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
+                          stakeTab === 'stake'
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Stake
+                      </button>
+                      <button
+                        onClick={() => { setStakeTab('unstake'); setStakeAmount(''); }}
+                        className={`flex-1 py-1 text-[10px] font-medium rounded transition-all ${
+                          stakeTab === 'unstake'
+                            ? 'bg-foreground text-background'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        Unstake
+                      </button>
+                    </div>
+                    {/* Amount Input */}
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      placeholder="0.0"
+                      value={stakeAmount}
+                      onChange={(e) => setStakeAmount(e.target.value)}
+                      className="font-mono text-center text-xs h-7 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      disabled={isStakeLoading}
+                    />
+                    <p className="text-[9px] text-muted-foreground truncate">
+                      {stakeTab === 'stake' 
+                        ? `${Number(formatEther(tokenBalance ?? 0n)).toFixed(2)} ${selectedCabal?.symbol ?? ''}`
+                        : `${Number(formatEther(stakedBalance ?? 0n)).toFixed(2)} staked`
+                      }
+                    </p>
+                    {/* Stake Button */}
+                    <Button
+                      onClick={handleStakeAction}
+                      disabled={isStakeLoading || !stakeAmount || Number(stakeAmount) <= 0}
+                      className="w-full h-7 text-xs"
+                      size="sm"
+                    >
+                      {isStakeLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        stakeTab === 'stake' ? 'Stake' : 'Unstake'
+                      )}
+                    </Button>
+                  </div>
+                )
               ) : (
                 <div className="px-2">
                   <p className="text-xs text-muted-foreground">—</p>

@@ -4,13 +4,6 @@
 export const CABAL_ABI = [
   // ============ CabalCreationFacet ============
   {
-    inputs: [],
-    name: "createCabal",
-    outputs: [{ name: "cabalId", type: "uint256" }],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
     inputs: [{ name: "cabalId", type: "uint256" }],
     name: "contribute",
     outputs: [],

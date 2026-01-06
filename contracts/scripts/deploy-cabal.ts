@@ -1,9 +1,9 @@
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 
-// Known addresses on Base mainnet
-const CLANKER_FACTORY = "0x2a787b2362021cc3cee5d6e15f80e7ee89800788";
-const CLANKER_FEE_LOCKER = "0x0000000000000000000000000000000000000000"; // TODO: Get actual address
+// Known addresses on Base mainnet (from ClankerAddresses.sol)
+const CLANKER_FACTORY = "0xE85A59c628F7d27878ACeB4bf3b35733630083a9"; // Clanker V4 Factory
+const CLANKER_FEE_LOCKER = "0xF3622742b1E446D92e45E22923Ef11C2fcD55D68"; // Clanker Fee Locker
 const ERC6551_REGISTRY = "0x000000006551c19487814612e58FE06813775758"; // Official ERC6551 Registry
 const WETH = "0x4200000000000000000000000000000000000006"; // Base WETH
 
@@ -60,6 +60,10 @@ async function main() {
     "TreasuryFacet",
     "SettingsFacet",
     "ViewFacet",
+    "GenesisFacet",
+    "ActivityFacet",
+    "DissolutionFacet",
+    "SwapFacet",
   ];
 
   const facets: { name: string; address: string; contract: Contract }[] = [];

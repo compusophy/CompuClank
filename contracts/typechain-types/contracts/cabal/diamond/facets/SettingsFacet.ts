@@ -51,6 +51,9 @@ export interface SettingsFacetInterface extends Interface {
       | "initializeAddresses"
       | "initializeClankerAddresses"
       | "pauseCabal"
+      | "recoverETHFromCabal"
+      | "recoverTokensFromCabal"
+      | "reindexCabal"
       | "resetAllCabals"
       | "unpauseCabal"
       | "updateContractAddress"
@@ -98,6 +101,18 @@ export interface SettingsFacetInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "recoverETHFromCabal",
+    values: [BigNumberish, AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "recoverTokensFromCabal",
+    values: [BigNumberish, AddressLike, AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "reindexCabal",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "resetAllCabals",
     values?: undefined
   ): string;
@@ -135,6 +150,18 @@ export interface SettingsFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "pauseCabal", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "recoverETHFromCabal",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "recoverTokensFromCabal",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "reindexCabal",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "resetAllCabals",
     data: BytesLike
@@ -337,6 +364,29 @@ export interface SettingsFacet extends BaseContract {
     "nonpayable"
   >;
 
+  recoverETHFromCabal: TypedContractMethod<
+    [cabalId: BigNumberish, recipient: AddressLike, amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  recoverTokensFromCabal: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      token: AddressLike,
+      recipient: AddressLike,
+      amount: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+
+  reindexCabal: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   resetAllCabals: TypedContractMethod<[], [void], "nonpayable">;
 
   unpauseCabal: TypedContractMethod<
@@ -426,6 +476,28 @@ export interface SettingsFacet extends BaseContract {
   >;
   getFunction(
     nameOrSignature: "pauseCabal"
+  ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "recoverETHFromCabal"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, recipient: AddressLike, amount: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "recoverTokensFromCabal"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      token: AddressLike,
+      recipient: AddressLike,
+      amount: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "reindexCabal"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "resetAllCabals"

@@ -116,6 +116,8 @@ export type { IUniversalRouter } from "./contracts/cabal/diamond/facets/SwapFace
 export { IUniversalRouter__factory } from "./factories/contracts/cabal/diamond/facets/SwapFacet.sol/IUniversalRouter__factory";
 export type { SwapFacet } from "./contracts/cabal/diamond/facets/SwapFacet.sol/SwapFacet";
 export { SwapFacet__factory } from "./factories/contracts/cabal/diamond/facets/SwapFacet.sol/SwapFacet__factory";
+export type { TokenReceiverFacet } from "./contracts/cabal/diamond/facets/TokenReceiverFacet";
+export { TokenReceiverFacet__factory } from "./factories/contracts/cabal/diamond/facets/TokenReceiverFacet__factory";
 export type { IClankerFeeLocker } from "./contracts/cabal/diamond/facets/TreasuryFacet.sol/IClankerFeeLocker";
 export { IClankerFeeLocker__factory } from "./factories/contracts/cabal/diamond/facets/TreasuryFacet.sol/IClankerFeeLocker__factory";
 export type { TreasuryFacet } from "./contracts/cabal/diamond/facets/TreasuryFacet.sol/TreasuryFacet";

@@ -7,7 +7,10 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../clanker-web/.env.local") });
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x0000000000000000000000000000000000000000000000000000000000000001";
-const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
+// Check both RPC_URL and NEXT_PUBLIC_RPC_URL (frontend env var)
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "";
+
+console.log("Using RPC:", RPC_URL.includes("coinbase") ? "Coinbase" : RPC_URL.includes("base.org") ? "Base Public" : "Custom");
 
 const config: HardhatUserConfig = {
   solidity: {

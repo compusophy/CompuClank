@@ -16,7 +16,7 @@ import { Plus, Wallet, Loader2 } from 'lucide-react';
 import { haptics } from '@/lib/haptics';
 import { parseEther } from 'viem';
 
-const MIN_CREATION_FEE = '0.001'; // Must match contract MIN_CREATION_FEE
+const MIN_CREATION_FEE = '0.00001'; // Must match contract MIN_CREATION_FEE
 
 interface CreateModalProps {
   isOpen: boolean;
@@ -43,7 +43,7 @@ export function CreateModal({ isOpen, onOpenChange, onSuccess }: CreateModalProp
     writeContract({
       address: CABAL_DIAMOND_ADDRESS,
       abi: CABAL_ABI,
-      functionName: 'createCabal',
+      functionName: 'initializeGenesis',
       args: [],
       value: parseEther(MIN_CREATION_FEE),
     }, {

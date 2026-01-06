@@ -1,0 +1,142 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "TokenReceiverFacet",
+  "sourceName": "contracts/cabal/diamond/facets/TokenReceiverFacet.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "onERC1155BatchReceived",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "onERC1155Received",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "onERC721Received",
+      "outputs": [
+        {
+          "internalType": "bytes4",
+          "name": "",
+          "type": "bytes4"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "interfaceId",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608080604052346015576102db908161001a8239f35b5f80fdfe6080806040526004361015610012575f80fd5b5f3560e01c90816301ffc9a71461019557508063150b7a021461013e578063bc197c81146100a35763f23a6e6114610048575f80fd5b3461009f5760a036600319011261009f57610061610200565b5061006a610223565b5060843567ffffffffffffffff811161009f5761008b903690600401610246565b505060405163f23a6e6160e01b8152602090f35b5f80fd5b3461009f5760a036600319011261009f576100bc610200565b506100c5610223565b5060443567ffffffffffffffff811161009f576100e6903690600401610274565b505060643567ffffffffffffffff811161009f57610108903690600401610274565b505060843567ffffffffffffffff811161009f5761012a903690600401610246565b505060405163bc197c8160e01b8152602090f35b3461009f57608036600319011261009f57610157610200565b50610160610223565b5060643567ffffffffffffffff811161009f57610181903690600401610246565b5050604051630a85bd0160e11b8152602090f35b3461009f57602036600319011261009f576004359063ffffffff60e01b821680920361009f57602091630a85bd0160e11b81149081156101ef575b81156101de575b5015158152f35b6301ffc9a760e01b149050836101d7565b630271189760e51b811491506101d0565b6004359073ffffffffffffffffffffffffffffffffffffffff8216820361009f57565b6024359073ffffffffffffffffffffffffffffffffffffffff8216820361009f57565b9181601f8401121561009f5782359167ffffffffffffffff831161009f576020838186019501011161009f57565b9181601f8401121561009f5782359167ffffffffffffffff831161009f576020808501948460051b01011161009f5756fea26469706673582212204a2561cc1a4d08da455864d0d950baa90892fcce9506557ad93e52bd0d4ff72664736f6c634300081a0033",
+  "deployedBytecode": "0x6080806040526004361015610012575f80fd5b5f3560e01c90816301ffc9a71461019557508063150b7a021461013e578063bc197c81146100a35763f23a6e6114610048575f80fd5b3461009f5760a036600319011261009f57610061610200565b5061006a610223565b5060843567ffffffffffffffff811161009f5761008b903690600401610246565b505060405163f23a6e6160e01b8152602090f35b5f80fd5b3461009f5760a036600319011261009f576100bc610200565b506100c5610223565b5060443567ffffffffffffffff811161009f576100e6903690600401610274565b505060643567ffffffffffffffff811161009f57610108903690600401610274565b505060843567ffffffffffffffff811161009f5761012a903690600401610246565b505060405163bc197c8160e01b8152602090f35b3461009f57608036600319011261009f57610157610200565b50610160610223565b5060643567ffffffffffffffff811161009f57610181903690600401610246565b5050604051630a85bd0160e11b8152602090f35b3461009f57602036600319011261009f576004359063ffffffff60e01b821680920361009f57602091630a85bd0160e11b81149081156101ef575b81156101de575b5015158152f35b6301ffc9a760e01b149050836101d7565b630271189760e51b811491506101d0565b6004359073ffffffffffffffffffffffffffffffffffffffff8216820361009f57565b6024359073ffffffffffffffffffffffffffffffffffffffff8216820361009f57565b9181601f8401121561009f5782359167ffffffffffffffff831161009f576020838186019501011161009f57565b9181601f8401121561009f5782359167ffffffffffffffff831161009f576020808501948460051b01011161009f5756fea26469706673582212204a2561cc1a4d08da455864d0d950baa90892fcce9506557ad93e52bd0d4ff72664736f6c634300081a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

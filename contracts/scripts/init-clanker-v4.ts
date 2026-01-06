@@ -1,14 +1,15 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const DIAMOND = "0x2c37109E089a274fD3e7029a4F379558d44937e3";
+  const DIAMOND = "0xaEEc898Fcf7c66D7C4573C174ce529Df96d842e9";
   
-  // Clanker V4 addresses on Base Mainnet
+  // Clanker V4 addresses on Base Mainnet (updated Jan 2026)
+  // These addresses were extracted from successful Clanker transactions
   const CLANKER_V4 = {
-    hook: "0x34a45c6B61876d739400Bd71228CbcbD4F53E8cC",
-    locker: "0x29d17C1A8D851d7d4cA97FAe97AcAdb398D9cCE0",
-    mevModule: "0xE143f9872A33c955F23cF442BB4B1EFB3A7402A2",
-    devBuyExtension: "0x1331f0788F9c08C8F38D52c7a1152250A9dE00be",
+    hook: "0xb429d62f8f3bFFb98CdB9569533eA23bF0Ba28CC",       // Dynamic fee hook
+    locker: "0x63D2DfEA64b3433F4071A98665bcD7Ca14d93496",     // LP Locker Fee Conversion v4
+    mevModule: "0xebB25BB797D82CB78E1bc70406b13233c0854413",  // Sniper Auction
+    devBuyExtension: "0x1331f0788F9c08C8F38D52c7a1152250A9dE00be",  // Univ4 ETH DevBuy
   };
 
   console.log("Connecting to Diamond at:", DIAMOND);
@@ -29,10 +30,12 @@ async function main() {
     console.log("  MevModule:", mev);
     console.log("  DevBuyExtension:", devBuy);
     
-    if (hook !== ethers.ZeroAddress) {
-      console.log("\nAddresses already initialized! Exiting.");
+    // Check if update needed
+    if (hook === CLANKER_V4.hook && locker === CLANKER_V4.locker && mev === CLANKER_V4.mevModule && devBuy === CLANKER_V4.devBuyExtension) {
+      console.log("\nAddresses already correct! Exiting.");
       return;
     }
+    console.log("\nAddresses need updating...")
   } catch (e) {
     console.log("Could not read current state, proceeding with initialization...");
   }

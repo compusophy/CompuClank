@@ -15,24 +15,24 @@ library ClankerAddresses {
     /// @notice Fee locker for collecting LP fees
     address constant CLANKER_FEE_LOCKER = 0xF3622742b1E446D92e45E22923Ef11C2fcD55D68;
     
-    /// @notice LP locker for managing LP positions
-    address constant CLANKER_LP_LOCKER = 0x29d17C1A8D851d7d4cA97FAe97AcAdb398D9cCE0;
+    /// @notice LP locker for managing LP positions (from SDK: related.locker)
+    address constant CLANKER_LP_LOCKER = 0x63D2DfEA64b3433F4071A98665bcD7Ca14d93496;
     
     /// @notice Vault contract
     address constant CLANKER_VAULT = 0x8E845EAd15737bF71904A30BdDD3aEE76d6ADF6C;
     
     // ============ Hooks ============
     
-    /// @notice Dynamic fee hook for Uniswap V4
-    address constant HOOK_DYNAMIC_FEE = 0x34a45c6B61876d739400Bd71228CbcbD4F53E8cC;
+    /// @notice Dynamic fee hook V2 for Uniswap V4 (from SDK: related.feeDynamicHookV2)
+    address constant HOOK_DYNAMIC_FEE = 0xd60D6B218116cFd801E28F78d011a203D2b068Cc;
     
     /// @notice Static fee hook for Uniswap V4
     address constant HOOK_STATIC_FEE = 0xDd5EeaFf7BD481AD55Db083062b13a3cdf0A68CC;
     
     // ============ Modules ============
     
-    /// @notice MEV protection with block delay
-    address constant MEV_BLOCK_DELAY = 0xE143f9872A33c955F23cF442BB4B1EFB3A7402A2;
+    /// @notice MEV protection with block delay (from SDK: related.mevModuleV2)
+    address constant MEV_BLOCK_DELAY = 0xebB25BB797D82CB78E1bc70406b13233c0854413;
     
     // ============ Extensions ============
     

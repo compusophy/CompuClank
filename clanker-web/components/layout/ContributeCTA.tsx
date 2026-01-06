@@ -11,7 +11,7 @@ import { WalletButton } from '@/components/wallet/WalletButton';
 import { haptics } from '@/lib/haptics';
 import { parseEther } from 'viem';
 
-const MIN_CONTRIBUTION = '0.001'; // Must match contract MIN_CONTRIBUTION
+const MIN_CONTRIBUTION = '0.00001'; // Must match contract MIN_CONTRIBUTION
 
 interface ContributeCTAProps {
   cabalId: bigint;
@@ -145,7 +145,7 @@ export function ContributeCTA({ cabalId, userHasVoted, onSuccess }: ContributeCT
                   <div className="absolute inset-0 flex items-center justify-center w-full px-1">
                     <input
                       type="number"
-                      step="0.001"
+                      step="0.00001"
                       min={MIN_CONTRIBUTION}
                       placeholder="0.0"
                       value={amount}

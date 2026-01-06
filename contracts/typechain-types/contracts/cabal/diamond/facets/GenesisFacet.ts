@@ -25,12 +25,7 @@ import type {
 
 export interface GenesisFacetInterface extends Interface {
   getFunction(
-    nameOrSignature:
-      | "contributeToGenesis"
-      | "getProtocolTreasury"
-      | "getRootCabalId"
-      | "initializeGenesis"
-      | "isGenesisInitialized"
+    nameOrSignature: "contributeToGenesis" | "initializeGenesis"
   ): FunctionFragment;
 
   getEvent(
@@ -42,19 +37,7 @@ export interface GenesisFacetInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
-    functionFragment: "getProtocolTreasury",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "getRootCabalId",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
     functionFragment: "initializeGenesis",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "isGenesisInitialized",
     values?: undefined
   ): string;
 
@@ -63,19 +46,7 @@ export interface GenesisFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "getProtocolTreasury",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "getRootCabalId",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "initializeGenesis",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "isGenesisInitialized",
     data: BytesLike
   ): Result;
 }
@@ -160,13 +131,7 @@ export interface GenesisFacet extends BaseContract {
 
   contributeToGenesis: TypedContractMethod<[], [void], "payable">;
 
-  getProtocolTreasury: TypedContractMethod<[], [string], "view">;
-
-  getRootCabalId: TypedContractMethod<[], [bigint], "view">;
-
   initializeGenesis: TypedContractMethod<[], [bigint], "payable">;
-
-  isGenesisInitialized: TypedContractMethod<[], [boolean], "view">;
 
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
@@ -176,17 +141,8 @@ export interface GenesisFacet extends BaseContract {
     nameOrSignature: "contributeToGenesis"
   ): TypedContractMethod<[], [void], "payable">;
   getFunction(
-    nameOrSignature: "getProtocolTreasury"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "getRootCabalId"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
     nameOrSignature: "initializeGenesis"
   ): TypedContractMethod<[], [bigint], "payable">;
-  getFunction(
-    nameOrSignature: "isGenesisInitialized"
-  ): TypedContractMethod<[], [boolean], "view">;
 
   getEvent(
     key: "GenesisContributed"

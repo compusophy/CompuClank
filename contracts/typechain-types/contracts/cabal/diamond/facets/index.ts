@@ -20,4 +20,5 @@ export type { ReceiverFacet } from "./ReceiverFacet";
 export type { SettingsFacet } from "./SettingsFacet";
 export type { StakingFacet } from "./StakingFacet";
 export type { StorageRepairFacet } from "./StorageRepairFacet";
+export type { TokenReceiverFacet } from "./TokenReceiverFacet";
 export type { ViewFacet } from "./ViewFacet";

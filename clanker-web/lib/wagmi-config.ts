@@ -24,8 +24,14 @@ export const config = createConfig({
     coinbaseWallet({ appName: 'CABAL' }),
   ],
   transports: {
-    [base.id]: http(rpcUrl),
+    [base.id]: http(rpcUrl, {
+      // Disable block polling - reduces RPC calls dramatically
+      // We manually refetch when needed (after transactions)
+      batch: { batchSize: 100 },
+    }),
   },
+  // Disable global polling - reduces RPC spam from ~1/sec to only on-demand
+  pollingInterval: 60_000, // Poll every 60s instead of default 4s
   ssr: true,
 });
 

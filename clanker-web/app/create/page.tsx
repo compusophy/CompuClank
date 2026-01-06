@@ -14,7 +14,7 @@ import { CABAL_DIAMOND_ADDRESS } from '@/lib/wagmi-config';
 import { ArrowLeft, Plus, Wallet, Loader2 } from 'lucide-react';
 import { parseEther } from 'viem';
 
-const MIN_CREATION_FEE = '0.001'; // Must match contract MIN_CREATION_FEE
+const MIN_CREATION_FEE = '0.00001'; // Must match contract MIN_CREATION_FEE
 
 export default function CreateCabalPage() {
   const router = useRouter();

@@ -26,6 +26,7 @@ import type {
 export interface ChildCreationFacetInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "adminResetChildCreationVoting"
       | "finalizeChildCreation"
       | "getChildCreationVote"
       | "getChildCreationVoteStatus"
@@ -41,6 +42,10 @@ export interface ChildCreationFacetInterface extends Interface {
       | "ChildCreationVoteReset"
   ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "adminResetChildCreationVoting",
+    values: [BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "finalizeChildCreation",
     values: [BigNumberish]
@@ -62,6 +67,10 @@ export interface ChildCreationFacetInterface extends Interface {
     values: [BigNumberish, boolean]
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "adminResetChildCreationVoting",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "finalizeChildCreation",
     data: BytesLike
@@ -200,6 +209,12 @@ export interface ChildCreationFacet extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  adminResetChildCreationVoting: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   finalizeChildCreation: TypedContractMethod<
     [cabalId: BigNumberish],
     [bigint],
@@ -244,6 +259,9 @@ export interface ChildCreationFacet extends BaseContract {
     key: string | FunctionFragment
   ): T;
 
+  getFunction(
+    nameOrSignature: "adminResetChildCreationVoting"
+  ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "finalizeChildCreation"
   ): TypedContractMethod<[cabalId: BigNumberish], [bigint], "nonpayable">;

@@ -176,6 +176,9 @@ export function GraphExplorer({
   // Launch confirmation dialog
   const [showLaunchConfirm, setShowLaunchConfirm] = useState(false)
   
+  // Child creation confirmation dialog
+  const [showChildCreateConfirm, setShowChildCreateConfirm] = useState(false)
+  
   // Track which cabals are in "launching" state (presale + approved)
   // This persists across selection changes so nodes stay orange
   const [launchingCabalIds, setLaunchingCabalIds] = useState<Set<string>>(new Set())
@@ -303,18 +306,8 @@ export function GraphExplorer({
   const launchableAtEarly = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[6] ?? 0n
   const isLaunchApproved = launchApprovedAtEarly > 0n
   
-  // Current timestamp state - updates periodically to check launch eligibility
+  // Current timestamp state - updates periodically to check eligibility for launch/child creation
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
-  useEffect(() => {
-    // Only start interval if we're in the countdown phase
-    if (!isLaunchApproved || launchableAtEarly === 0n) return
-    
-    const interval = setInterval(() => {
-      setNow(Math.floor(Date.now() / 1000))
-    }, 1000) // Update every second for countdown display
-    
-    return () => clearInterval(interval)
-  }, [isLaunchApproved, launchableAtEarly])
   
   const isLaunchable = launchableAtEarly > 0n && BigInt(now) >= launchableAtEarly
   
@@ -348,7 +341,7 @@ export function GraphExplorer({
   }, [cabalsData])
   
   // Get user's vote direction
-  const { data: userVote, refetch: refetchUserVote } = useReadContract({
+  const { data: userVote, refetch: refetchUserVote, isFetching: isUserVoteFetching } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getLaunchVote",
@@ -458,13 +451,32 @@ export function GraphExplorer({
   }) as { data: readonly [bigint, bigint, bigint, bigint, boolean, bigint, bigint] | undefined; refetch: () => void }
   
   // Get user's child creation vote
-  const { data: userChildVote, refetch: refetchUserChildVote } = useReadContract({
+  const { data: userChildVote, refetch: refetchUserChildVote, isFetching: isUserChildVoteFetching } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: 'getChildCreationVote',
     args: hasSelectedCabal && address ? [selectedCabalId, address] : undefined,
     query: { enabled: hasSelectedCabal && !!address && radialMenu.phase === CabalPhase.Active },
-  }) as { data: bigint | undefined; refetch: () => void }
+  }) as { data: bigint | undefined; refetch: () => void; isFetching: boolean }
+  
+  // Extract child creation status for timer
+  const childFinalizableAt = childVoteStatus?.[6] ?? 0n
+  const childMajorityMet = childVoteStatus?.[4] ?? false
+  
+  // Timer effect - updates `now` every second for countdown displays
+  useEffect(() => {
+    // Start interval if we're in any countdown phase (launch OR child creation)
+    const hasLaunchCountdown = isLaunchApproved && launchableAtEarly > 0n
+    const hasChildCountdown = childMajorityMet && childFinalizableAt > 0n
+    
+    if (!hasLaunchCountdown && !hasChildCountdown) return
+    
+    const interval = setInterval(() => {
+      setNow(Math.floor(Date.now() / 1000))
+    }, 1000) // Update every second for countdown display
+    
+    return () => clearInterval(interval)
+  }, [isLaunchApproved, launchableAtEarly, childMajorityMet, childFinalizableAt])
   
   // Handle genesis success
   useEffect(() => {
@@ -650,11 +662,14 @@ export function GraphExplorer({
       refetchStakedBalance()
       refetchTokenBalance()
       refetchSelectedCabal()
+      // Staking clears vote - refetch vote status
+      refetchChildVoteStatus()
+      refetchUserChildVote()
       setStakeAmount('')
       setIsSigning(false)
       resetStake()
     }
-  }, [stakeSuccess, stakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, resetStake])
+  }, [stakeSuccess, stakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, refetchChildVoteStatus, refetchUserChildVote, resetStake])
   
   // Handle unstake success
   useEffect(() => {
@@ -664,10 +679,13 @@ export function GraphExplorer({
       refetchStakedBalance()
       refetchTokenBalance()
       refetchSelectedCabal()
+      // Unstaking clears vote - refetch vote status
+      refetchChildVoteStatus()
+      refetchUserChildVote()
       setStakeAmount('')
       resetUnstake()
     }
-  }, [unstakeSuccess, unstakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, resetUnstake])
+  }, [unstakeSuccess, unstakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, refetchChildVoteStatus, refetchUserChildVote, resetUnstake])
   
   // Handle vote child success
   useEffect(() => {
@@ -712,10 +730,25 @@ export function GraphExplorer({
         refetchTbaWeth()
         refetchTbaToken()
         refetchTokenBalance()
+        refetchChildVoteStatus()
+        refetchUserChildVote()
       }, 100)
       return () => clearTimeout(timeout)
     }
-  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchStakedBalance, refetchTbaBalance, refetchTbaWeth, refetchTbaToken, refetchTokenBalance])
+  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchStakedBalance, refetchTbaBalance, refetchTbaWeth, refetchTbaToken, refetchTokenBalance, refetchChildVoteStatus, refetchUserChildVote])
+  
+  // Refetch presale vote data when menu opens for a presale cabal
+  useEffect(() => {
+    if (radialMenu.isOpen && radialMenu.phase === CabalPhase.Presale && hasSelectedCabal) {
+      // Small delay to ensure the menu state is set before refetching
+      const timeout = setTimeout(() => {
+        refetchVoteStatus()
+        refetchUserVote()
+        refetchUserContribution()
+      }, 100)
+      return () => clearTimeout(timeout)
+    }
+  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchVoteStatus, refetchUserVote, refetchUserContribution])
   
   const handleStake = useCallback(async (overrideAmount?: bigint) => {
     const amountToUse = overrideAmount ?? (stakeAmount ? parseEther(stakeAmount) : 0n)
@@ -828,8 +861,8 @@ export function GraphExplorer({
     })
   }, [radialMenu.cabalId, stakeAmount, address, unstakeWrite])
   
-  // Handle voting to create a child cabal
-  const handleVoteChildCreation = useCallback((support: boolean) => {
+  // Execute the actual child creation vote
+  const executeChildVote = useCallback((support: boolean) => {
     if (!CABAL_DIAMOND_ADDRESS || !address) return
     
     voteChildWrite({
@@ -843,12 +876,37 @@ export function GraphExplorer({
         const msg = e.message || "Failed to vote"
         if (msg.includes("User denied") || msg.includes("User rejected")) {
           toast.error("Transaction cancelled")
+        } else if (msg.includes("VoteUnchanged")) {
+          toast.error("Already voted this direction")
         } else {
           toast.error(msg.split("\n")[0].slice(0, 60))
         }
       },
     })
   }, [radialMenu.cabalId, address, voteChildWrite])
+  
+  // Handle voting to create a child cabal - shows confirmation if would trigger threshold
+  const handleVoteChildCreation = useCallback((support: boolean) => {
+    if (!CABAL_DIAMOND_ADDRESS || !address) return
+    
+    // Check if this vote would push over threshold (51%)
+    const votesFor = childVoteStatus?.[0] ?? 0n
+    const totalStaked = childVoteStatus?.[2] ?? 0n
+    const majorityMet = childVoteStatus?.[4] ?? false
+    const userStaked = stakedBalance ?? 0n
+    
+    // Calculate if vote would trigger (push over 51% majority)
+    const majorityRequired = (totalStaked * 51n) / 100n
+    const wouldTriggerChildCreation = support && !majorityMet && 
+      userStaked > 0n && (votesFor + userStaked) >= majorityRequired
+    
+    if (wouldTriggerChildCreation) {
+      setShowChildCreateConfirm(true)
+      return
+    }
+    
+    executeChildVote(support)
+  }, [radialMenu.cabalId, address, childVoteStatus, stakedBalance, executeChildVote])
   
   // Handle finalizing child creation
   const handleFinalizeChildCreation = useCallback(() => {
@@ -1668,7 +1726,8 @@ export function GraphExplorer({
   const totalRaisedForVote = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[2] ?? 0n
   const majorityRequired = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[3] ?? 0n
   const yesPercent = totalRaisedForVote > 0n ? Number((votesFor * 10000n) / totalRaisedForVote) / 100 : 0
-  const userVotedYes = (userVote ?? 0n) === 1n
+  // Only consider user voted if we're not currently fetching fresh vote data
+  const userVotedYes = !isUserVoteFetching && (userVote ?? 0n) === 1n
   const hasContributed = !!userContribution && userContribution > 0n
   
   // Check if a YES vote would trigger launch (push over 51%)
@@ -2071,27 +2130,44 @@ export function GraphExplorer({
                   </div>
                 ) : isLaunchApproved ? (
                   <div className="px-3 py-2 space-y-2 w-full text-center">
-                    {isLaunchable ? (
-                      <Button
-                        onClick={handleFinalize}
-                        disabled={isFinalizing || isFinalizeConfirming}
-                        className="w-full h-8 text-xs"
-                        size="sm"
-                      >
-                        {(isFinalizing || isFinalizeConfirming) ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          "Launch"
-                        )}
-                      </Button>
-                    ) : (
-                      <>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Launching in</p>
-                        <p className="text-lg font-mono font-bold">
-                          {Math.max(0, Math.ceil((Number(launchableAtEarly) - now) / 60))} min
-                        </p>
-                      </>
-                    )}
+                    {(() => {
+                      const minLaunchAmount = parseEther('0.001')
+                      const totalRaised = selectedCabal?.totalRaised ?? 0n
+                      const hasEnoughForLaunch = totalRaised >= minLaunchAmount
+                      
+                      if (isLaunchable && hasEnoughForLaunch) {
+                        return (
+                          <Button
+                            onClick={handleFinalize}
+                            disabled={isFinalizing || isFinalizeConfirming}
+                            className="w-full h-8 text-xs"
+                            size="sm"
+                          >
+                            {(isFinalizing || isFinalizeConfirming) ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "Launch"
+                            )}
+                          </Button>
+                        )
+                      } else if (isLaunchable && !hasEnoughForLaunch) {
+                        return (
+                          <>
+                            <p className="text-[10px] text-muted-foreground">Need 0.001 ETH to launch</p>
+                            <p className="text-xs font-mono">Have: {formatEther(totalRaised)}</p>
+                          </>
+                        )
+                      } else {
+                        return (
+                          <>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Launching in</p>
+                            <p className="text-lg font-mono font-bold">
+                              {Math.max(0, Math.ceil((Number(launchableAtEarly) - now) / 60))} min
+                            </p>
+                          </>
+                        )
+                      }
+                    })()}
                   </div>
                 ) : (
                   <div className="px-3 py-3 space-y-2 w-full">
@@ -2110,12 +2186,12 @@ export function GraphExplorer({
                     {/* Vote Button - Yes only, disabled if hasn't contributed */}
                     <Button
                       onClick={() => handleVote(true)}
-                      disabled={isVoteLoading || userVotedYes || !hasContributed}
+                      disabled={isVoteLoading || isUserVoteFetching || userVotedYes || !hasContributed}
                       variant={userVotedYes ? "outline" : "default"}
                       className="w-full h-8 text-xs"
                       size="sm"
                     >
-                      {isVoteLoading ? (
+                      {isVoteLoading || isUserVoteFetching ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         userVotedYes ? "✓ Voted" : "Launch"
@@ -2131,12 +2207,15 @@ export function GraphExplorer({
                   </div>
                 ) : (() => {
                   const treasuryBalance = (tbaEthBalance?.value ?? 0n) + (tbaWethBalance ?? 0n)
-                  const minRequired = parseEther('0.00001')
+                  const minRequired = parseEther('0.00001') // Match contract MIN_CREATION_FEE
                   const hasStake = (stakedBalance ?? 0n) > 0n
-                  const hasTreasuryFunds = treasuryBalance >= minRequired
+                  // Only check treasury funds if we've actually loaded the balance
+                  const isTreasuryLoading = tbaEthBalance === undefined
+                  const hasTreasuryFunds = isTreasuryLoading || treasuryBalance >= minRequired
                   
                   // Parse child vote status
                   const votesFor = childVoteStatus?.[0] ?? 0n
+                  const votesAgainst = childVoteStatus?.[1] ?? 0n
                   const totalStaked = childVoteStatus?.[2] ?? 0n
                   const majorityMet = childVoteStatus?.[4] ?? false
                   const approvedAt = childVoteStatus?.[5] ?? 0n
@@ -2146,18 +2225,23 @@ export function GraphExplorer({
                     ? Number((votesFor * 100n) / totalStaked) 
                     : 0
                   
-                  // If votesFor is 0, vote was reset after finalization - user can vote again
-                  // (Contract resets totals but not individual vote records)
-                  const voteWasReset = votesFor === 0n && approvedAt === 0n
-                  const userVotedChildYes = !voteWasReset && userChildVote === 1n
-                  const nowSeconds = Math.floor(Date.now() / 1000)
-                  const isChildFinalizable = majorityMet && finalizableAt > 0n && nowSeconds >= Number(finalizableAt)
+                  // Contract now uses a nonce system to track voting rounds
+                  // getChildCreationVote returns 0 if the user's vote is from a previous (finalized) round
+                  // So we can reliably trust the userChildVote value
+                  const userVotedChildYes = !isUserChildVoteFetching && (userChildVote ?? 0n) === 1n
                   
-                  const isChildVoteLoading = isVotingChild || voteChildConfirming
+                  // Use the reactive `now` state (updates every second) for countdown
+                  // Edge case: majorityMet can be true but approvedAt/finalizableAt can be 0
+                  // This happens if vote threshold was dynamically met due to stake changes after voting
+                  // In this case, treat as finalizable immediately (or show vote button to re-trigger timer)
+                  const hasApprovalTimestamp = approvedAt > 0n && finalizableAt > 0n
+                  const isChildFinalizable = majorityMet && (!hasApprovalTimestamp || now >= Number(finalizableAt))
+                  
+                  const isChildVoteLoading = isVotingChild || voteChildConfirming || isUserChildVoteFetching
                   const isChildFinalizeLoading = isFinalizingChild || finalizeChildConfirming
                   
-                  // Time remaining until finalizable
-                  const childTimeRemaining = finalizableAt > 0n ? Math.max(0, Number(finalizableAt) - nowSeconds) : 0
+                  // Time remaining until finalizable (uses reactive `now` state)
+                  const childTimeRemaining = finalizableAt > 0n ? Math.max(0, Number(finalizableAt) - now) : 0
                   const childMinsRemaining = Math.ceil(childTimeRemaining / 60)
                   
                   return (
@@ -2165,7 +2249,7 @@ export function GraphExplorer({
                       {!hasStake ? (
                         <p className="text-xs text-muted-foreground">Stake to vote</p>
                       ) : !hasTreasuryFunds ? (
-                        <p className="text-xs text-muted-foreground">Treasury empty</p>
+                        <p className="text-xs text-muted-foreground">Need 0.001 ETH</p>
                       ) : majorityMet ? (
                         // Vote passed - show finalize or countdown
                         isChildFinalizable ? (
@@ -2355,6 +2439,49 @@ export function GraphExplorer({
               >
                 {isVoteLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isVoteLoading ? "Confirming..." : "Launch"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Child Creation Confirmation Dialog */}
+        <Dialog open={showChildCreateConfirm} onOpenChange={setShowChildCreateConfirm}>
+          <DialogContent 
+            className="dialog-glow-animated"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DialogHeader>
+              <DialogTitle>
+                Start 10 Minute Countdown?
+              </DialogTitle>
+              <DialogDescription>
+                Your vote will start a countdown. After 10 minutes, anyone can finalize to create a new child CABAL.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowChildCreateConfirm(false)
+                }}
+                disabled={isVotingChild || voteChildConfirming}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  executeChildVote(true)
+                  setShowChildCreateConfirm(false)
+                }}
+                disabled={isVotingChild || voteChildConfirming}
+                className="gap-2"
+              >
+                {(isVotingChild || voteChildConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
+                {(isVotingChild || voteChildConfirming) ? "Confirming..." : "Create CABAL"}
               </Button>
             </DialogFooter>
           </DialogContent>

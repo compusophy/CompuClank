@@ -46,6 +46,7 @@ contract CabalCreationFacet {
     // Minimum amounts to prevent spam
     uint256 constant MIN_CREATION_FEE = 0.00001 ether;  // ~$0.03
     uint256 constant MIN_CONTRIBUTION = 0.00001 ether;  // ~$0.03
+    uint256 constant MIN_LAUNCH_AMOUNT = 0.001 ether;   // Minimum ETH needed for Clanker to deploy token
     
     // Launch voting threshold - absolute majority of total raised capital
     uint256 constant LAUNCH_MAJORITY_BPS = 5100;  // 51% of totalRaised must vote YES
@@ -121,6 +122,7 @@ contract CabalCreationFacet {
     error VoteUnchanged();
     error LaunchMajorityNotMet();
     error LaunchTimerNotElapsed();
+    error InsufficientFundsForLaunch();
     error TransferFailed();
     error DeploymentFailed();
     error GenesisNotInitialized();
@@ -343,6 +345,9 @@ contract CabalCreationFacet {
         // Check 24 hour timer has elapsed
         if (block.timestamp < cabal.launchApprovedAt + LAUNCH_DELAY) revert LaunchTimerNotElapsed();
         
+        // Check minimum ETH raised for Clanker deployment
+        if (cabal.totalRaised < MIN_LAUNCH_AMOUNT) revert InsufficientFundsForLaunch();
+        
         _finalizeCabal(cabalId, cabal);
     }
     
@@ -460,6 +465,18 @@ contract CabalCreationFacet {
         if (cabal.launchApprovedAt == 0) revert CabalNotActive();
         if (block.timestamp < cabal.launchApprovedAt + LAUNCH_DELAY) revert LaunchTimerNotElapsed();
         _finalizeCabal(cabalId, cabal);
+    }
+
+    // ============ Admin Functions ============
+
+    /**
+     * @notice Reset stale launch voting state (admin only)
+     * @param cabalId The cabal to reset voting for
+     * @dev Use this to clear stuck proposals that can't be finalized
+     */
+    function adminResetLaunchVoting(uint256 cabalId) external {
+        LibDiamond.enforceIsContractOwner();
+        LibAppStorage.resetLaunchVoting(cabalId);
     }
 
     // ============ View Functions ============

@@ -127,6 +127,9 @@ contract StakingFacet {
             LibAppStorage.setDelegatedPower(cabalId, delegatee, currentDelegatedPower + amount);
         }
         
+        // Clear child creation vote - stake changed, must re-vote with new weight
+        _clearChildCreationVote(cabalId, msg.sender);
+        
         emit Staked(cabalId, msg.sender, amount, newBalance);
         
         LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Staked, amount);
@@ -160,6 +163,9 @@ contract StakingFacet {
             LibAppStorage.setDelegatedPower(cabalId, delegatee, newDelegatedPower);
         }
         
+        // Clear child creation vote - stake changed, must re-vote with new weight
+        _clearChildCreationVote(cabalId, msg.sender);
+        
         // Transfer tokens from TBA back to user
         bytes memory transferCalldata = abi.encodeWithSelector(
             IERC20.transfer.selector,
@@ -181,6 +187,40 @@ contract StakingFacet {
         emit Unstaked(cabalId, msg.sender, amount, newBalance);
         
         LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Unstaked, amount);
+    }
+
+    /**
+     * @notice Clear a user's child creation vote when their stake changes
+     * @dev Subtracts vote weight from totals and clears the vote record
+     */
+    function _clearChildCreationVote(uint256 cabalId, address user) internal {
+        // Get current vote (returns 0 if stale due to nonce mismatch)
+        uint256 currentVote = LibAppStorage.getChildCreationVote(cabalId, user);
+        if (currentVote == 0) return; // No active vote to clear
+        
+        // Get vote weight and subtract from appropriate total
+        uint256 voteWeight = LibAppStorage.getChildCreationVoteWeight(cabalId, user);
+        
+        if (currentVote == 1) {
+            // Voted YES - subtract from votesFor
+            uint256 currentVotesFor = LibAppStorage.getChildCreationVotesFor(cabalId);
+            if (voteWeight <= currentVotesFor) {
+                LibAppStorage.setChildCreationVotesFor(cabalId, currentVotesFor - voteWeight);
+            } else {
+                LibAppStorage.setChildCreationVotesFor(cabalId, 0);
+            }
+        } else if (currentVote == 2) {
+            // Voted NO - subtract from votesAgainst
+            uint256 currentVotesAgainst = LibAppStorage.getChildCreationVotesAgainst(cabalId);
+            if (voteWeight <= currentVotesAgainst) {
+                LibAppStorage.setChildCreationVotesAgainst(cabalId, currentVotesAgainst - voteWeight);
+            } else {
+                LibAppStorage.setChildCreationVotesAgainst(cabalId, 0);
+            }
+        }
+        
+        // Clear the vote record
+        LibAppStorage.clearChildCreationVote(cabalId, user);
     }
 
     // ============ View Functions ============

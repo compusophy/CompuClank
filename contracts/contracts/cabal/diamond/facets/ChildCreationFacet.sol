@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { LibAppStorage, AppStorage, CabalData, CabalPhase, ActivityType } from "../libraries/LibAppStorage.sol";
+import { LibDiamond } from "../libraries/LibDiamond.sol";
 import "../../CabalNFT.sol";
 import "../../CabalTBA.sol";
 import "../../interfaces/IERC6551Registry.sol";
@@ -168,6 +169,19 @@ contract ChildCreationFacet {
         return LibAppStorage.getChildCreationVote(cabalId, user);
     }
 
+    // ============ Admin Functions ============
+
+    /**
+     * @notice Reset stale child creation voting state (admin only)
+     * @param cabalId The cabal to reset voting for
+     * @dev Use this to clear stuck proposals that can't be finalized
+     */
+    function adminResetChildCreationVoting(uint256 cabalId) external {
+        LibDiamond.enforceIsContractOwner();
+        LibAppStorage.resetChildCreationVoting(cabalId);
+        emit ChildCreationVoteReset(cabalId, msg.sender);
+    }
+
     // ============ Internal Functions ============
 
     function _getVotingPower(uint256 cabalId, address user) internal view returns (uint256) {
@@ -201,32 +215,36 @@ contract ChildCreationFacet {
         uint256 votingPower,
         bool support
     ) internal {
+        // getChildCreationVote now handles nonce checking - returns 0 if vote is from previous round
         uint256 currentVote = LibAppStorage.getChildCreationVote(cabalId, msg.sender);
         
         // Revert if trying to vote the same way
         if (currentVote == (support ? 1 : 2)) revert VoteUnchanged();
         
-        // Remove old vote using stored weight
-        if (currentVote == 1) {
-            uint256 oldWeight = LibAppStorage.getChildCreationVoteWeight(cabalId, msg.sender);
-            uint256 currentFor = LibAppStorage.getChildCreationVotesFor(cabalId);
-            LibAppStorage.setChildCreationVotesFor(cabalId, currentFor - oldWeight);
-        } else if (currentVote == 2) {
-            uint256 oldWeight = LibAppStorage.getChildCreationVoteWeight(cabalId, msg.sender);
-            uint256 currentAgainst = LibAppStorage.getChildCreationVotesAgainst(cabalId);
-            LibAppStorage.setChildCreationVotesAgainst(cabalId, currentAgainst - oldWeight);
+        // Remove old vote using stored weight (only if user has voted in current round)
+        if (currentVote != 0) {
+            uint256 currentVotesFor = LibAppStorage.getChildCreationVotesFor(cabalId);
+            uint256 currentVotesAgainst = LibAppStorage.getChildCreationVotesAgainst(cabalId);
+            
+            if (currentVote == 1) {
+                uint256 oldWeight = LibAppStorage.getChildCreationVoteWeight(cabalId, msg.sender);
+                LibAppStorage.setChildCreationVotesFor(cabalId, currentVotesFor - oldWeight);
+            } else if (currentVote == 2) {
+                uint256 oldWeight = LibAppStorage.getChildCreationVoteWeight(cabalId, msg.sender);
+                LibAppStorage.setChildCreationVotesAgainst(cabalId, currentVotesAgainst - oldWeight);
+            }
         }
         
         // Add new vote
         if (support) {
-            uint256 currentFor = LibAppStorage.getChildCreationVotesFor(cabalId);
-            LibAppStorage.setChildCreationVotesFor(cabalId, currentFor + votingPower);
+            uint256 updatedFor = LibAppStorage.getChildCreationVotesFor(cabalId);
+            LibAppStorage.setChildCreationVotesFor(cabalId, updatedFor + votingPower);
         } else {
-            uint256 currentAgainst = LibAppStorage.getChildCreationVotesAgainst(cabalId);
-            LibAppStorage.setChildCreationVotesAgainst(cabalId, currentAgainst + votingPower);
+            uint256 updatedAgainst = LibAppStorage.getChildCreationVotesAgainst(cabalId);
+            LibAppStorage.setChildCreationVotesAgainst(cabalId, updatedAgainst + votingPower);
         }
         
-        // Store vote direction and weight
+        // Store vote direction, weight, and current nonce
         LibAppStorage.setChildCreationVote(cabalId, msg.sender, support, votingPower);
     }
 

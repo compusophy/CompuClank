@@ -153,6 +153,8 @@ library LibAppStorage {
     bytes32 constant USER_STAKED_CABALS_POSITION = keccak256("cabal.user.staked.cabals.mapping");
     bytes32 constant LAUNCH_VOTED_POSITION = keccak256("cabal.launch.voted.mapping");
     bytes32 constant LAUNCH_VOTE_WEIGHT_POSITION = keccak256("cabal.launch.vote.weight.mapping");
+    bytes32 constant LAUNCH_NONCE_POSITION = keccak256("cabal.launch.nonce");
+    bytes32 constant LAUNCH_USER_NONCE_POSITION = keccak256("cabal.launch.user.nonce");
     bytes32 constant ACTIVITY_BUFFER_POSITION = keccak256("cabal.activity.buffer");
     bytes32 constant ROOT_CABAL_ID_POSITION = keccak256("cabal.root.id");
     bytes32 constant GENESIS_INITIALIZED_POSITION = keccak256("cabal.genesis.initialized");
@@ -163,6 +165,8 @@ library LibAppStorage {
     bytes32 constant CHILD_CREATION_APPROVED_AT_POSITION = keccak256("cabal.child.approved.at");
     bytes32 constant CHILD_CREATION_VOTED_POSITION = keccak256("cabal.child.voted");
     bytes32 constant CHILD_CREATION_VOTE_WEIGHT_POSITION = keccak256("cabal.child.vote.weight");
+    bytes32 constant CHILD_CREATION_NONCE_POSITION = keccak256("cabal.child.nonce");
+    bytes32 constant CHILD_CREATION_USER_NONCE_POSITION = keccak256("cabal.child.user.nonce");
 
     function appStorage() internal pure returns (AppStorage storage s) {
         bytes32 position = APP_STORAGE_POSITION;
@@ -326,8 +330,45 @@ library LibAppStorage {
 
     // ============ Launch Voting ============
     // Vote values: 0 = not voted, 1 = voted YES, 2 = voted NO
+    // Uses nonce system to invalidate stale votes after admin reset
+    
+    function getLaunchNonce(uint256 cabalId) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(LAUNCH_NONCE_POSITION, cabalId));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function incrementLaunchNonce(uint256 cabalId) internal {
+        bytes32 position = keccak256(abi.encodePacked(LAUNCH_NONCE_POSITION, cabalId));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        assembly {
+            sstore(position, add(value, 1))
+        }
+    }
+    
+    function getLaunchUserNonce(uint256 cabalId, address user) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(LAUNCH_USER_NONCE_POSITION, cabalId, user));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
     
     function getLaunchVote(uint256 cabalId, address user) internal view returns (uint256) {
+        // Check if vote is from current nonce round
+        uint256 currentNonce = getLaunchNonce(cabalId);
+        uint256 userNonce = getLaunchUserNonce(cabalId, user);
+        if (userNonce != currentNonce) {
+            return 0; // Vote is stale, treat as not voted
+        }
+        
         bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
         uint256 value;
         assembly {
@@ -343,14 +384,24 @@ library LibAppStorage {
     function setLaunchVote(uint256 cabalId, address user, bool support, uint256 weight) internal {
         bytes32 votePosition = keccak256(abi.encodePacked(LAUNCH_VOTED_POSITION, cabalId, user));
         bytes32 weightPosition = keccak256(abi.encodePacked(LAUNCH_VOTE_WEIGHT_POSITION, cabalId, user));
+        bytes32 userNoncePosition = keccak256(abi.encodePacked(LAUNCH_USER_NONCE_POSITION, cabalId, user));
         uint256 value = support ? 1 : 2; // 1 = YES, 2 = NO
+        uint256 currentNonce = getLaunchNonce(cabalId);
         assembly {
             sstore(votePosition, value)
             sstore(weightPosition, weight)
+            sstore(userNoncePosition, currentNonce)
         }
     }
     
     function getLaunchVoteWeight(uint256 cabalId, address user) internal view returns (uint256) {
+        // Check nonce first
+        uint256 currentNonce = getLaunchNonce(cabalId);
+        uint256 userNonce = getLaunchUserNonce(cabalId, user);
+        if (userNonce != currentNonce) {
+            return 0;
+        }
+        
         bytes32 position = keccak256(abi.encodePacked(LAUNCH_VOTE_WEIGHT_POSITION, cabalId, user));
         uint256 value;
         assembly {
@@ -366,6 +417,14 @@ library LibAppStorage {
             sstore(votePosition, 0)
             sstore(weightPosition, 0)
         }
+    }
+    
+    function resetLaunchVoting(uint256 cabalId) internal {
+        CabalData storage cabal = getCabalData(cabalId);
+        cabal.launchVotesFor = 0;
+        cabal.launchVotesAgainst = 0;
+        cabal.launchApprovedAt = 0;
+        incrementLaunchNonce(cabalId);
     }
 
     // ============ Activity Ring Buffer ============
@@ -509,7 +568,43 @@ library LibAppStorage {
         }
     }
     
+    function getChildCreationNonce(uint256 cabalId) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_NONCE_POSITION, cabalId));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
+    function incrementChildCreationNonce(uint256 cabalId) internal {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_NONCE_POSITION, cabalId));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        assembly {
+            sstore(position, add(value, 1))
+        }
+    }
+    
+    function getChildCreationUserNonce(uint256 cabalId, address user) internal view returns (uint256) {
+        bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_USER_NONCE_POSITION, cabalId, user));
+        uint256 value;
+        assembly {
+            value := sload(position)
+        }
+        return value;
+    }
+    
     function getChildCreationVote(uint256 cabalId, address user) internal view returns (uint256) {
+        // If user's vote is from a previous round (nonce mismatch), treat as no vote
+        uint256 currentNonce = getChildCreationNonce(cabalId);
+        uint256 userNonce = getChildCreationUserNonce(cabalId, user);
+        if (userNonce != currentNonce) {
+            return 0; // Stale vote from previous round
+        }
+        
         bytes32 position = keccak256(abi.encodePacked(CHILD_CREATION_VOTED_POSITION, cabalId, user));
         uint256 value;
         assembly {
@@ -525,10 +620,13 @@ library LibAppStorage {
     function setChildCreationVote(uint256 cabalId, address user, bool support, uint256 weight) internal {
         bytes32 votePosition = keccak256(abi.encodePacked(CHILD_CREATION_VOTED_POSITION, cabalId, user));
         bytes32 weightPosition = keccak256(abi.encodePacked(CHILD_CREATION_VOTE_WEIGHT_POSITION, cabalId, user));
+        bytes32 userNoncePosition = keccak256(abi.encodePacked(CHILD_CREATION_USER_NONCE_POSITION, cabalId, user));
         uint256 value = support ? 1 : 2; // 1 = YES, 2 = NO
+        uint256 currentNonce = getChildCreationNonce(cabalId);
         assembly {
             sstore(votePosition, value)
             sstore(weightPosition, weight)
+            sstore(userNoncePosition, currentNonce)
         }
     }
     
@@ -555,5 +653,8 @@ library LibAppStorage {
         setChildCreationVotesFor(cabalId, 0);
         setChildCreationVotesAgainst(cabalId, 0);
         setChildCreationApprovedAt(cabalId, 0);
+        // Increment nonce to invalidate all previous votes
+        // This allows users who voted in the previous round to vote again in the new round
+        incrementChildCreationNonce(cabalId);
     }
 }

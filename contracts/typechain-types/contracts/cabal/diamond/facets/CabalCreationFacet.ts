@@ -26,6 +26,7 @@ import type {
 export interface CabalCreationFacetInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "adminResetLaunchVoting"
       | "claimTokens"
       | "contribute"
       | "createChildCabal"
@@ -50,6 +51,10 @@ export interface CabalCreationFacetInterface extends Interface {
       | "TokensClaimed"
   ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "adminResetLaunchVoting",
+    values: [BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "claimTokens",
     values: [BigNumberish]
@@ -91,6 +96,10 @@ export interface CabalCreationFacetInterface extends Interface {
     values: [BigNumberish, boolean]
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "adminResetLaunchVoting",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "claimTokens",
     data: BytesLike
@@ -333,6 +342,12 @@ export interface CabalCreationFacet extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  adminResetLaunchVoting: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   claimTokens: TypedContractMethod<
     [cabalId: BigNumberish],
     [void],
@@ -403,6 +418,9 @@ export interface CabalCreationFacet extends BaseContract {
     key: string | FunctionFragment
   ): T;
 
+  getFunction(
+    nameOrSignature: "adminResetLaunchVoting"
+  ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "claimTokens"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;

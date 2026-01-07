@@ -7,7 +7,7 @@ import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles, Vote, Rocket } from "lucide-react"
+import { Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -397,6 +397,15 @@ export function GraphExplorer({
     query: { enabled: !!selectedCabal?.tbaAddress }
   }) as { data: bigint | undefined; refetch: () => void }
   
+  // Treasury Token Balance (cabal's own token in treasury)
+  const { data: tbaTokenBalance, refetch: refetchTbaToken } = useReadContract({
+    address: selectedCabal?.tokenAddress,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: selectedCabal?.tbaAddress ? [selectedCabal.tbaAddress as `0x${string}`] : undefined,
+    query: { enabled: !!selectedCabal?.tokenAddress && !!selectedCabal?.tbaAddress && radialMenu.phase === CabalPhase.Active }
+  }) as { data: bigint | undefined; refetch: () => void }
+  
   // Token balance for selling (only for active cabals)
   const { data: tokenBalance, refetch: refetchTokenBalance } = useReadContract({
     address: selectedCabal?.tokenAddress,
@@ -677,11 +686,12 @@ export function GraphExplorer({
       haptics.sacredRhythm()
       toast.success("Child CABAL created")
       refetchChildVoteStatus()
+      refetchUserChildVote()
       refetchHierarchicalIds()
       refetchCabalsData()
       resetFinalizeChild()
     }
-  }, [finalizeChildSuccess, finalizeChildHash, refetchChildVoteStatus, refetchHierarchicalIds, refetchCabalsData, resetFinalizeChild])
+  }, [finalizeChildSuccess, finalizeChildHash, refetchChildVoteStatus, refetchUserChildVote, refetchHierarchicalIds, refetchCabalsData, resetFinalizeChild])
   
   // Reset stake state when menu closes
   useEffect(() => {
@@ -700,11 +710,12 @@ export function GraphExplorer({
         refetchStakedBalance()
         refetchTbaBalance()
         refetchTbaWeth()
+        refetchTbaToken()
         refetchTokenBalance()
       }, 100)
       return () => clearTimeout(timeout)
     }
-  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchStakedBalance, refetchTbaBalance, refetchTbaWeth, refetchTokenBalance])
+  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchStakedBalance, refetchTbaBalance, refetchTbaWeth, refetchTbaToken, refetchTokenBalance])
   
   const handleStake = useCallback(async (overrideAmount?: bigint) => {
     const amountToUse = overrideAmount ?? (stakeAmount ? parseEther(stakeAmount) : 0n)
@@ -1355,10 +1366,12 @@ export function GraphExplorer({
       
       // If clicking a non-focused node, zoom into it (make it focused)
       if (node.id !== focusedCabalId) {
-        // Close any open menu first
+        // If menu is open, just close it - don't also refocus
         if (radialMenu.isOpen) {
           closeRadialMenu()
+          return
         }
+        // Menu is closed, so refocus to the clicked node
         // Snapshot current positions BEFORE changing focus
         snapshotNodePositions()
         // Reset transition progress to 0 IMMEDIATELY to prevent flash
@@ -1614,16 +1627,13 @@ export function GraphExplorer({
   const isActive = radialMenu.phase === CabalPhase.Active
   
   // Layout depends on phase:
-  // - Presale: 4 panels (square) - no Governance panel
-  // - Active: 5 panels (pentagon) - includes Governance
+  // - Presale: 4 panels (square rotated 45°) - corners at TL, TR, BR, BL
+  // - Active: 4 panels (diamond) - top, left, right, bottom
   // Position mapping:
-  // 0: Upper-left - Treasury/Raised
-  // 1: Upper-right - Your Position
-  // 2: Lower-right - Vote/Proposals  
-  // 3: Lower-left - Contribute/Trade
-  // 4: Bottom - Governance (Active only)
-  const getPanelPosition = (index: number) => {
-    if (isPresale) {
+  // Presale: 0=TL (Raised), 1=TR (You), 2=BR (Vote), 3=BL (Contribute)
+  // Active: 0=TOP (Treasury), 1=UNUSED, 2=RIGHT (Proposals), 3=LEFT (Trade), 4=BOTTOM (Stake)
+  const getPanelPosition = (index: number, forActive: boolean = false) => {
+    if (isPresale && !forActive) {
       // Square layout (4 panels, 90° apart)
       // Rotated so corners are at top-left, top-right, bottom-left, bottom-right
       const squareAngles = [225, 315, 45, 135] // degrees: TL, TR, BR, BL
@@ -1633,9 +1643,16 @@ export function GraphExplorer({
         y: PANEL_OFFSET * Math.sin(angle),
       }
     } else {
-      // Pentagon layout (5 panels, 72° apart)
-      const pentagonAngles = [234, 306, 18, 162, 90] // degrees
-      const angle = pentagonAngles[index] * (Math.PI / 180)
+      // Diamond layout (4 panels) - top, left, right, bottom
+      // Map panel indices to diamond positions:
+      // 0 -> top (270°), 2 -> right (0°), 3 -> left (180°), 4 -> bottom (90°)
+      const diamondAngles: Record<number, number> = {
+        0: 270,  // TOP - Treasury
+        2: 0,    // RIGHT - Proposals
+        3: 180,  // LEFT - Trade
+        4: 90,   // BOTTOM - Stake
+      }
+      const angle = (diamondAngles[index] ?? 0) * (Math.PI / 180)
       return {
         x: PANEL_OFFSET * Math.cos(angle),
         y: PANEL_OFFSET * Math.sin(angle),
@@ -1644,7 +1661,7 @@ export function GraphExplorer({
   }
   
   // Pre-calculate positions
-  const panelPositions = [0, 1, 2, 3, 4].map(getPanelPosition)
+  const panelPositions = [0, 1, 2, 3, 4].map(i => getPanelPosition(i, isActive))
   
   // Vote status parsing (isLaunchApproved defined earlier for graph node coloring)
   const votesFor = (voteStatus as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined)?.[0] ?? 0n
@@ -1843,15 +1860,16 @@ export function GraphExplorer({
                 left: panelPositions[0].x - PANEL_SIZE / 2,
                 top: panelPositions[0].y - PANEL_SIZE / 2,
                 transformOrigin: `${PANEL_SIZE / 2 - panelPositions[0].x}px ${PANEL_SIZE / 2 - panelPositions[0].y}px`,
+                zIndex: 4,
               }}
             >
               {selectedCabal ? (
-                <div className="px-2 flex flex-col items-center">
+                <div className="px-2 flex flex-col items-center w-full">
                   {isActive ? (
-                    // Active: Show ETH + WETH combined (LP fees are in WETH)
+                    // Active: Show treasury ETH
                     <>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Treasury</p>
-                      <p className="text-sm font-bold font-mono leading-tight">
+                      <p className="text-base font-bold font-mono leading-tight">
                         <TokenAmount amount={(tbaEthBalance?.value ?? 0n) + (tbaWethBalance ?? 0n)} decimals={6} />
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>
@@ -1872,61 +1890,49 @@ export function GraphExplorer({
               )}
             </div>
             
-            {/* PANEL 1: UPPER-RIGHT - Your Position (Read) */}
-            <div 
-              className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-1' : 
-                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
-              }`}
-              style={{
-                width: PANEL_SIZE,
-                height: PANEL_SIZE,
-                left: panelPositions[1].x - PANEL_SIZE / 2,
-                top: panelPositions[1].y - PANEL_SIZE / 2,
-                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[1].x}px ${PANEL_SIZE / 2 - panelPositions[1].y}px`,
-              }}
-            >
-              <div className="px-2 flex flex-col items-center w-full">
-                {isActive ? (
-                  // Active: Show wallet, staked token balances, and voting power
+            {/* PANEL 1: UPPER-RIGHT - Your Position (Presale only) */}
+            {isPresale && (
+              <div 
+                className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
+                  menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-1' : 
+                  menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
+                }`}
+                style={{
+                  width: PANEL_SIZE,
+                  height: PANEL_SIZE,
+                  left: panelPositions[1].x - PANEL_SIZE / 2,
+                  top: panelPositions[1].y - PANEL_SIZE / 2,
+                  transformOrigin: `${PANEL_SIZE / 2 - panelPositions[1].x}px ${PANEL_SIZE / 2 - panelPositions[1].y}px`,
+                  zIndex: 5,
+                }}
+              >
+                <div className="px-2 flex flex-col items-center w-full">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You</p>
                   <div className="text-center w-full">
                     <div className="text-[11px] font-mono space-y-0.5">
                       <div className="flex justify-between gap-2">
                         <span className="text-muted-foreground">Wallet:</span>
-                        <span>{formatCompact(Number(formatEther(tokenBalance ?? 0n)))}</span>
+                        <span>{formatCompact(Number(formatEther(ethBalance?.value ?? 0n)))}</span>
                       </div>
                       <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Staked:</span>
-                        <span>{formatCompact(Number(formatEther(stakedBalance ?? 0n)))}</span>
+                        <span className="text-muted-foreground">Sent:</span>
+                        <span>{formatCompact(Number(formatEther(userContribution ?? 0n)))}</span>
                       </div>
                       <div className="flex justify-between gap-2">
                         <span className="text-muted-foreground">Power:</span>
                         <span>{(() => {
-                          const totalStaked = selectedCabal?.totalStaked ?? 0n
-                          const userStaked = stakedBalance ?? 0n
-                          if (totalStaked === 0n) return "0.00%"
-                          const pct = Number((userStaked * 10000n) / totalStaked) / 100
+                          const totalRaised = selectedCabal?.totalRaised ?? 0n
+                          const userSent = userContribution ?? 0n
+                          if (totalRaised === 0n) return "0.00%"
+                          const pct = Number((userSent * 10000n) / totalRaised) / 100
                           return pct.toFixed(2) + "%"
                         })()}</span>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  // Presale: Show ETH contribution
-                  <>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">You</p>
-                    <p className="text-base font-bold font-mono leading-tight">
-                      {hasContributed ? (
-                        <TokenAmount amount={userContribution} decimals={4} />
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </p>
-                    {hasContributed && <p className="text-[10px] text-muted-foreground uppercase tracking-wider">ETH</p>}
-                  </>
-                )}
+                </div>
               </div>
-            </div>
+            )}
             
             {/* PANEL 3: LOWER-LEFT - Contribute (Presale) or Trade (Active) */}
             <div 
@@ -1940,6 +1946,7 @@ export function GraphExplorer({
                 left: panelPositions[3].x - PANEL_SIZE / 2,
                 top: panelPositions[3].y - PANEL_SIZE / 2,
                 transformOrigin: `${PANEL_SIZE / 2 - panelPositions[3].x}px ${PANEL_SIZE / 2 - panelPositions[3].y}px`,
+                zIndex: 3,
               }}
             >
               {isPresale ? (
@@ -1974,13 +1981,20 @@ export function GraphExplorer({
                   </div>
                 )
               ) : isActive ? (
-                // Trade Panel - simplified Min Buy / Max Sell
+                // Trade Panel - with token balance at top
                 !isConnected ? (
                   <div className="px-2 space-y-1">
                     <p className="text-xs text-muted-foreground">Connect to trade</p>
                   </div>
                 ) : (
-                  <div className="px-3 py-2 space-y-1.5 w-full text-center">
+                  <div className="px-3 py-2 space-y-1 w-full text-center">
+                    {/* Token balance display */}
+                    <div className="text-[11px] font-mono">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">${selectedCabal?.symbol ?? 'TOKEN'}:</span>
+                        <span>{formatCompact(Number(formatEther(tokenBalance ?? 0n)))}</span>
+                      </div>
+                    </div>
                     {/* Buy/Sell Toggle */}
                     <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
                       <button
@@ -2046,6 +2060,7 @@ export function GraphExplorer({
                 left: panelPositions[2].x - PANEL_SIZE / 2,
                 top: panelPositions[2].y - PANEL_SIZE / 2,
                 transformOrigin: `${PANEL_SIZE / 2 - panelPositions[2].x}px ${PANEL_SIZE / 2 - panelPositions[2].y}px`,
+                zIndex: 1,
               }}
             >
               {isPresale ? (
@@ -2053,11 +2068,6 @@ export function GraphExplorer({
                 !isConnected ? (
                   <div className="px-2 space-y-1">
                     <p className="text-xs text-muted-foreground">Connect to vote</p>
-                  </div>
-                ) : !hasContributed ? (
-                  <div className="px-2 space-y-1">
-                    <Vote className="h-5 w-5 text-muted-foreground mx-auto" />
-                    <p className="text-xs text-muted-foreground">Contribute to vote</p>
                   </div>
                 ) : isLaunchApproved ? (
                   <div className="px-3 py-2 space-y-2 w-full text-center">
@@ -2085,31 +2095,30 @@ export function GraphExplorer({
                   </div>
                 ) : (
                   <div className="px-3 py-3 space-y-2 w-full">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Launch</p>
                     {/* Vote Progress */}
                     <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {yesPercent.toFixed(0)}% / 51%
+                      </p>
                       <div className="h-2 bg-muted rounded-full overflow-hidden relative">
                         <div 
                           className="absolute left-0 top-0 bottom-0 bg-primary rounded-l-full transition-all"
                           style={{ width: `${yesPercent}%` }}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {yesPercent.toFixed(0)}% / 51%
-                      </p>
                     </div>
-                    {/* Vote Button - Yes only */}
+                    {/* Vote Button - Yes only, disabled if hasn't contributed */}
                     <Button
                       onClick={() => handleVote(true)}
-                      disabled={isVoteLoading || userVotedYes}
-                      variant={userVotedYes ? "default" : "outline"}
+                      disabled={isVoteLoading || userVotedYes || !hasContributed}
+                      variant={userVotedYes ? "outline" : "default"}
                       className="w-full h-8 text-xs"
                       size="sm"
                     >
                       {isVoteLoading ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        userVotedYes ? "✓ Voted" : "Vote Yes"
+                        userVotedYes ? "✓ Voted" : "Launch"
                       )}
                     </Button>
                   </div>
@@ -2137,7 +2146,10 @@ export function GraphExplorer({
                     ? Number((votesFor * 100n) / totalStaked) 
                     : 0
                   
-                  const userVotedChildYes = userChildVote === 1n
+                  // If votesFor is 0, vote was reset after finalization - user can vote again
+                  // (Contract resets totals but not individual vote records)
+                  const voteWasReset = votesFor === 0n && approvedAt === 0n
+                  const userVotedChildYes = !voteWasReset && userChildVote === 1n
                   const nowSeconds = Math.floor(Date.now() / 1000)
                   const isChildFinalizable = majorityMet && finalizableAt > 0n && nowSeconds >= Number(finalizableAt)
                   
@@ -2176,33 +2188,43 @@ export function GraphExplorer({
                           </>
                         )
                       ) : (
-                        // Voting in progress
+                        // Voting in progress or no proposal yet
                         <>
-                          {/* Vote Progress */}
+                          {/* Power display - always show */}
                           <div className="space-y-1">
-                            <div className="h-2 bg-muted rounded-full overflow-hidden relative">
-                              <div 
-                                className="absolute left-0 top-0 bottom-0 bg-primary rounded-l-full transition-all"
-                                style={{ width: `${childYesPercent}%` }}
-                              />
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Power:</span>
+                              <span>{(() => {
+                                const totalStaked = selectedCabal?.totalStaked ?? 0n
+                                const userStaked = stakedBalance ?? 0n
+                                if (totalStaked === 0n) return "0.00%"
+                                const pct = Number((userStaked * 10000n) / totalStaked) / 100
+                                return pct.toFixed(2) + "%"
+                              })()}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {childYesPercent.toFixed(0)}% / 51%
-                            </p>
+                            {/* Vote Progress bar - only show if there are votes */}
+                            {votesFor > 0n && (
+                              <div className="h-2 bg-muted rounded-full overflow-hidden relative">
+                                <div 
+                                  className="absolute left-0 top-0 bottom-0 bg-primary rounded-l-full transition-all"
+                                  style={{ width: `${childYesPercent}%` }}
+                                />
+                              </div>
+                            )}
                           </div>
                           {/* Vote Button */}
-                    <Button
+                          <Button
                             onClick={() => handleVoteChildCreation(true)}
                             disabled={isChildVoteLoading || userVotedChildYes}
-                      className="w-full h-7 text-xs"
-                      size="sm"
-                    >
+                            className="w-full h-7 text-xs"
+                            size="sm"
+                          >
                             {isChildVoteLoading ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
                               userVotedChildYes ? "✓ Voted" : "Create CABAL"
                             )}
-                    </Button>
+                          </Button>
                         </>
                       )}
                   </div>
@@ -2228,6 +2250,7 @@ export function GraphExplorer({
                   left: panelPositions[4].x - PANEL_SIZE / 2,
                   top: panelPositions[4].y - PANEL_SIZE / 2,
                   transformOrigin: `${PANEL_SIZE / 2 - panelPositions[4].x}px ${PANEL_SIZE / 2 - panelPositions[4].y}px`,
+                  zIndex: 2,
                 }}
               >
                 {!isConnected ? (
@@ -2235,7 +2258,14 @@ export function GraphExplorer({
                     <p className="text-xs text-muted-foreground">Connect to stake</p>
                   </div>
                 ) : (
-                  <div className="px-3 py-2 space-y-1.5 w-full text-center">
+                  <div className="px-3 py-2 space-y-1 w-full text-center">
+                    {/* Staked balance display */}
+                    <div className="text-[11px] font-mono">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Staked:</span>
+                        <span>{formatCompact(Number(formatEther(stakedBalance ?? 0n)))}</span>
+                      </div>
+                    </div>
                     {/* Stake/Unstake Toggle */}
                     <div className="flex gap-0.5 p-0.5 bg-muted rounded-lg">
                       <button
@@ -2297,12 +2327,11 @@ export function GraphExplorer({
             onClick={(e) => e.stopPropagation()}
           >
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Rocket className="h-5 w-5" />
-                Start Launch Countdown?
+              <DialogTitle>
+                Start 10 Minute Countdown?
               </DialogTitle>
               <DialogDescription>
-                Your vote will trigger a <strong>10 minute</strong> countdown. After this period, anyone can finalize the launch to deploy the token and begin trading.
+                Your vote will start a countdown. After 10 minutes, anyone can finalize the launch to deploy the token and begin trading.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">

@@ -101,7 +101,7 @@ function formatTimeAgo(timestamp: bigint): string {
   return `${diff / 86400n}d ago`
 }
 
-function formatAmount(type: ActivityType, amount: bigint): string {
+function formatAmount(type: ActivityType, amount: bigint, symbol: string): string {
   if (type === ActivityType.ProposalCreated || type === ActivityType.ProposalExecuted) {
     return `#${amount.toString()}`
   }
@@ -110,8 +110,17 @@ function formatAmount(type: ActivityType, amount: bigint): string {
   const num = parseFloat(formatted)
   
   if (num === 0) return ""
-  if (num < 0.00001) return "<0.00001 ETH"
-  return `${num.toFixed(3)} ETH`
+  
+  // Determine unit based on activity type
+  // ETH-based: Contributed (presale ETH), FeeClaimed (ETH fees)
+  // Token-based: Staked, Unstaked, Bought, Sold, Claimed, VotedLaunch, ProposalVoted, Delegated, Undelegated
+  const isEthAmount = type === ActivityType.Contributed || type === ActivityType.FeeClaimed
+  const unit = isEthAmount ? "ETH" : symbol
+  
+  if (num < 0.001) return `<0.001 ${unit}`
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M ${unit}`
+  if (num >= 1000) return `${(num / 1000).toFixed(2)}K ${unit}`
+  return `${num.toFixed(3)} ${unit}`
 }
 
 interface ActivityModalProps {
@@ -178,7 +187,7 @@ export function ActivityModal({ isOpen, onOpenChange }: ActivityModalProps) {
                     </p>
                     {activity.amount > 0n && (
                       <p className="text-xs text-muted-foreground">
-                        {formatAmount(activity.activityType as ActivityType, activity.amount)}
+                        {formatAmount(activity.activityType as ActivityType, activity.amount, `$CABAL${activity.cabalId.toString()}`)}
                       </p>
                     )}
                   </div>

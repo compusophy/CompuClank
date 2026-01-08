@@ -36,6 +36,7 @@ import { haptics } from "@/lib/haptics"
 import { formatCompact } from "@/lib/utils"
 import { animateValue, ANIM_DURATION, easing } from "@/lib/animations"
 import { forceCollide, forceManyBody } from "d3-force"
+import { useTheme } from "next-themes"
 
 // Dynamically import force graph to avoid SSR issues
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
@@ -89,6 +90,7 @@ export function GraphExplorer({
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null)
+  const { resolvedTheme } = useTheme()
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [radialMenu, setRadialMenu] = useState<RadialMenuState>({
     isOpen: false,
@@ -1590,17 +1592,24 @@ export function GraphExplorer({
     // Convert screen coords to graph coords
     const graphCoords = graphRef.current.screen2GraphCoords(screenX, screenY)
     
-    // Check if any node was touched - use current animated radius for open menu
+    // Check if any node was touched - find the CLOSEST node to the touch point
+    // This ensures smaller child nodes (visually on top) get priority over larger parent nodes
     const hitRadius = radialMenu.isOpen ? Math.max(animatedRadius, SMALL_NODE_RADIUS) : FULL_NODE_RADIUS
-    const touchedNode = graphData.nodes.find((node) => {
+    let touchedNode: GraphNode | undefined
+    let closestDistance = Infinity
+    
+    for (const node of graphData.nodes) {
       const nodeX = node.x || 0
       const nodeY = node.y || 0
       const dx = graphCoords.x - nodeX
       const dy = graphCoords.y - nodeY
       const distance = Math.sqrt(dx * dx + dy * dy)
       // Use appropriate radius for touch hit area
-      return distance < hitRadius * 1.2
-    })
+      if (distance < hitRadius * 1.2 && distance < closestDistance) {
+        closestDistance = distance
+        touchedNode = node
+      }
+    }
     
     if (touchedNode) {
       e.preventDefault()
@@ -1961,10 +1970,14 @@ export function GraphExplorer({
             const x = n.x || 0
             const y = n.y || 0
             
-            // Main disk - dark fill using BRAND_BG (matches bg-background)
+            // Main disk - theme-aware fill (dark in dark mode, light in light mode)
+            const isDark = resolvedTheme === 'dark'
+            const bgColor = isDark ? BRAND_BG : { r: 250, g: 250, b: 249 } // Match bg-background
+            const labelColor = isDark ? SACRED_COLORS.labelColor : `rgba(28, 26, 24, 0.95)` // Dark text in light mode
+            
             ctx.beginPath()
             ctx.arc(x, y, radius, 0, 2 * Math.PI)
-            ctx.fillStyle = `rgb(${BRAND_BG.r}, ${BRAND_BG.g}, ${BRAND_BG.b})`
+            ctx.fillStyle = `rgb(${bgColor.r}, ${bgColor.g}, ${bgColor.b})`
             ctx.fill()
             
             // Gold border using BRAND_GOLD at 40% opacity (matches border-primary/40)
@@ -1976,7 +1989,7 @@ export function GraphExplorer({
             ctx.font = `600 ${fontSize}px "Geist Mono", ui-monospace, monospace`
             ctx.textAlign = "center"
             ctx.textBaseline = "middle"
-            ctx.fillStyle = SACRED_COLORS.labelColor
+            ctx.fillStyle = labelColor
             ctx.fillText(label, x, y)
           }}
           backgroundColor="transparent"
@@ -2075,7 +2088,7 @@ export function GraphExplorer({
                     {/* Show contributed amount */}
                     <div className="text-[11px] font-mono">
                       <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Contributed:</span>
+                        <span className="text-muted-foreground">Sent:</span>
                         <span>{formatCompact(Number(formatEther(userContribution ?? 0n)))} ETH</span>
                       </div>
                     </div>
@@ -2237,7 +2250,7 @@ export function GraphExplorer({
                     {/* User Voting Power */}
                     <div className="text-[11px] font-mono">
                       <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Voting Power:</span>
+                        <span className="text-muted-foreground">Power:</span>
                         <span>{(() => {
                           const totalRaised = selectedCabal?.totalRaised ?? 0n
                           const userSent = userContribution ?? 0n
@@ -2389,62 +2402,65 @@ export function GraphExplorer({
                           </Button>
                         </>
                       )}
+                      
+                      {/* Governance Actions Grid - only show when no active child creation vote */}
+                      {votesFor === 0n && !majorityMet && (
+                        <div className="pt-1 border-t border-primary/20 mt-1">
+                          <div className="grid grid-cols-3 gap-1">
+                            <button
+                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'contribute' })}
+                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                              title="Contribute to presale"
+                            >
+                              <Send className="h-3 w-3 text-primary" />
+                              <span className="text-[8px] text-muted-foreground">Contrib</span>
+                            </button>
+                            <button
+                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'buy' })}
+                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                              title="Buy tokens"
+                            >
+                              <TrendingUp className="h-3 w-3 text-green-500" />
+                              <span className="text-[8px] text-muted-foreground">Buy</span>
+                            </button>
+                            <button
+                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'sell' })}
+                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                              title="Sell tokens"
+                            >
+                              <TrendingDown className="h-3 w-3 text-red-500" />
+                              <span className="text-[8px] text-muted-foreground">Sell</span>
+                            </button>
+                            <button
+                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'stake' })}
+                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                              title="Stake in cabal"
+                            >
+                              <Lock className="h-3 w-3 text-blue-500" />
+                              <span className="text-[8px] text-muted-foreground">Stake</span>
+                            </button>
+                            <button
+                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'vote' })}
+                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                              title="Vote in cabal"
+                            >
+                              <Vote className="h-3 w-3 text-purple-500" />
+                              <span className="text-[8px] text-muted-foreground">Vote</span>
+                            </button>
+                            <button
+                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'delegate' })}
+                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                              title="Delegate power"
+                            >
+                              <Users className="h-3 w-3 text-orange-500" />
+                              <span className="text-[8px] text-muted-foreground">Deleg</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                   </div>
                 )
                 })()}
-                    {/* Governance Actions Grid */}
-                    <div className="pt-1 border-t border-primary/20 mt-1">
-                      <div className="grid grid-cols-3 gap-1">
-                        <button
-                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'contribute' })}
-                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                          title="Contribute to presale"
-                        >
-                          <Send className="h-3 w-3 text-primary" />
-                          <span className="text-[8px] text-muted-foreground">Contrib</span>
-                        </button>
-                        <button
-                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'buy' })}
-                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                          title="Buy tokens"
-                        >
-                          <TrendingUp className="h-3 w-3 text-green-500" />
-                          <span className="text-[8px] text-muted-foreground">Buy</span>
-                        </button>
-                        <button
-                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'sell' })}
-                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                          title="Sell tokens"
-                        >
-                          <TrendingDown className="h-3 w-3 text-red-500" />
-                          <span className="text-[8px] text-muted-foreground">Sell</span>
-                        </button>
-                        <button
-                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'stake' })}
-                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                          title="Stake in cabal"
-                        >
-                          <Lock className="h-3 w-3 text-blue-500" />
-                          <span className="text-[8px] text-muted-foreground">Stake</span>
-                        </button>
-                        <button
-                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'vote' })}
-                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                          title="Vote in cabal"
-                        >
-                          <Vote className="h-3 w-3 text-purple-500" />
-                          <span className="text-[8px] text-muted-foreground">Vote</span>
-                        </button>
-                        <button
-                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'delegate' })}
-                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                          title="Delegate power"
-                        >
-                          <Users className="h-3 w-3 text-orange-500" />
-                          <span className="text-[8px] text-muted-foreground">Deleg</span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 )
               ) : (

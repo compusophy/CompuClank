@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Info, Users, Rocket, Vote, TrendingUp, Wallet, ArrowDown, Code, Sparkles, Gift, Coins } from 'lucide-react';
+import { Info, Users, Rocket, Vote, TrendingUp, Wallet, ArrowDown, Code, Sparkles, Gift, Coins, GitBranch, Lock, Unlock, UserPlus } from 'lucide-react';
 import { UI_CONSTANTS } from '@/lib/utils';
 
 interface StepProps {
@@ -17,7 +17,7 @@ interface StepProps {
   description: string;
   technicalDetails?: string;
   isTechnical: boolean;
-  status?: 'presale' | 'active';
+  status?: 'presale' | 'active' | 'governance';
   isLast?: boolean;
 }
 
@@ -26,6 +26,8 @@ function Step({ icon, title, description, technicalDetails, isTechnical, status,
     ? 'border-yellow-500/50 bg-yellow-500/5' 
     : status === 'active' 
     ? 'border-green-500/50 bg-green-500/5' 
+    : status === 'governance'
+    ? 'border-purple-500/50 bg-purple-500/5'
     : 'border-border';
 
   return (
@@ -41,7 +43,9 @@ function Step({ icon, title, description, technicalDetails, isTechnical, status,
               <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase rounded ${
                 status === 'presale' 
                   ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' 
-                  : 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  : status === 'active'
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  : 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
               }`}>
                 {status}
               </span>
@@ -109,75 +113,79 @@ export function HowItWorksModal() {
         <div className={`${UI_CONSTANTS.spaceY} overflow-y-auto max-h-[70vh] no-scrollbar`}>
           {/* Title & Mode Toggle */}
           <div className="flex flex-col items-center gap-3">
-            <h2 className="text-xl font-bold">How it works</h2>
+            <h2 className="text-xl font-bold">How CABAL Works</h2>
             <ModeToggle isTechnical={isTechnical} onToggle={() => setIsTechnical(!isTechnical)} />
           </div>
 
           {/* Intro */}
           <p className="text-sm text-muted-foreground">
             {isTechnical 
-              ? "CABALs use EIP-2535 Diamond Pattern for upgradeable contracts with ERC-6551 Token Bound Accounts as treasuries. Clanker deploys tokens and creates Uniswap V4 pools."
-              : "Communities raise ETH, launch tokens fairly, and govern a shared treasury. Here's the lifecycle:"
+              ? "CABALs use EIP-2535 Diamond Pattern with ERC-6551 Token Bound Accounts. Clanker deploys tokens with Uniswap V4 pools. Hierarchical naming: C0 → C01 → C011."
+              : "A fractal governance system where communities raise ETH, launch tokens, and spawn child communities in an unlimited hierarchy."
             }
           </p>
 
           {/* Technical Architecture Overview */}
           {isTechnical && (
             <div className="bg-muted/30 rounded-lg p-3 border border-dashed space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Architecture Stack</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Architecture</h4>
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="space-y-1">
-                  <p className="font-medium">Smart Contracts</p>
-                  <ul className="text-muted-foreground space-y-0.5 font-mono text-[11px]">
-                    <li>• Diamond (EIP-2535)</li>
-                    <li>• CabalNFT (ERC-721)</li>
-                    <li>• CabalTBA (ERC-6551)</li>
-                  </ul>
-                </div>
                 <div className="space-y-1">
                   <p className="font-medium">Diamond Facets</p>
                   <ul className="text-muted-foreground space-y-0.5 font-mono text-[11px]">
                     <li>• CabalCreationFacet</li>
+                    <li>• ChildCreationFacet</li>
                     <li>• StakingFacet</li>
-                    <li>• SwapFacet</li>
                     <li>• GovernanceFacet</li>
+                    <li>• DelegationFacet</li>
+                    <li>• SwapFacet</li>
                   </ul>
                 </div>
                 <div className="space-y-1">
-                  <p className="font-medium">Frontend</p>
+                  <p className="font-medium">Constraints</p>
                   <ul className="text-muted-foreground space-y-0.5 font-mono text-[11px]">
-                    <li>• Next.js 15</li>
-                    <li>• wagmi + viem</li>
-                    <li>• Tailwind CSS</li>
-                  </ul>
-                </div>
-                <div className="space-y-1">
-                  <p className="font-medium">Integrations</p>
-                  <ul className="text-muted-foreground space-y-0.5 font-mono text-[11px]">
-                    <li>• Clanker Factory</li>
-                    <li>• Uniswap V4 Pools</li>
-                    <li>• Universal Router</li>
+                    <li>• 8 children max/CABAL</li>
+                    <li>• 51% vote threshold</li>
+                    <li>• 10 min gov delay</li>
+                    <li>• 1% protocol fee</li>
+                    <li>• 1%/ancestor fee</li>
                   </ul>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Hierarchical Naming */}
+          <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-primary mb-2">Hierarchical Naming</h4>
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="px-2 py-1 bg-background rounded">C0</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="px-2 py-1 bg-background rounded">C01</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="px-2 py-1 bg-background rounded">C011</span>
+              <span className="text-muted-foreground">...</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Each CABAL can have up to 8 children. Names encode ancestry.
+            </p>
+          </div>
+
           {/* Flow */}
           <div className="py-2">
             <Step
               icon={<Users className="h-5 w-5" />}
               title="Create CABAL"
-              description="Anyone can create a CABAL by choosing a ticker symbol."
-              technicalDetails="createCabal() → mints CabalNFT (ERC-721) → creates TBA via ERC-6551 Registry"
+              description="Anyone can create the genesis CABAL (C0). Child CABALs are created via governance vote."
+              technicalDetails="createChildCabal() via TBA.executeCall() → mints CabalNFT → creates ERC-6551 TBA"
               isTechnical={isTechnical}
             />
             
             <Step
               icon={<Wallet className="h-5 w-5 text-yellow-500" />}
               title="Presale Phase"
-              description="Contributors send ETH to the CABAL. Each contribution is tracked for proportional token distribution later."
-              technicalDetails="contribute() → ETH forwarded to TBA → contribution tracked in LibAppStorage"
+              description="Contributors send ETH to the CABAL. Contributions are tracked for proportional token distribution."
+              technicalDetails="contribute() → ETH to TBA → LibAppStorage.setContribution()"
               isTechnical={isTechnical}
               status="presale"
             />
@@ -185,53 +193,86 @@ export function HowItWorksModal() {
             <Step
               icon={<Rocket className="h-5 w-5" />}
               title="Vote & Launch"
-              description="Contributors vote to launch. When 51% vote YES, a timer starts. Anyone can finalize after. Split: 1% protocol fee + 1% per ancestor, 33% ETH to treasury, 67% dev buy with tokens auto-staked."
-              technicalDetails="voteLaunch() → 51% threshold → 10min timer → finalizeCabal() → 1% protocol + 1%/ancestor → Clanker deploys token"
+              description="51% of contributors must vote YES. After 10 min timer, anyone can finalize. Fees: 1% protocol + 1%/ancestor."
+              technicalDetails="voteLaunch() → 51% → finalizeCabal() → Clanker.deploy() → auto-stake tokens"
               isTechnical={isTechnical}
             />
             
             <Step
               icon={<Gift className="h-5 w-5" />}
-              title="Auto-Staked Voting Power"
-              description="Your token share is auto-staked with voting power. Use Unstake to withdraw tokens to your wallet. 10 min governance delay after launch."
-              technicalDetails="Auto-stake at launch → setStakedBalance per contributor → unstake() to withdraw → governanceStartsAt = launchedAt + 10min"
+              title="Auto-Staked Tokens"
+              description="Your tokens are auto-staked with voting power. Unstake to withdraw to wallet. 10 min governance delay after launch."
+              technicalDetails="setStakedBalance() per contributor → unstake() → governanceStartsAt = launchedAt + 10min"
               isTechnical={isTechnical}
             />
             
             <Step
               icon={<TrendingUp className="h-5 w-5 text-green-500" />}
-              title="Active Trading"
-              description="Anyone can buy and sell tokens. LP fees from Uniswap V4 are collected by the CABAL treasury."
-              technicalDetails="SwapFacet wraps Universal Router → LP fees routed to TBA via Clanker's locker"
+              title="Trade & Earn"
+              description="Buy and sell tokens. 1% trading fee via Clanker locker flows to treasury (1% per ancestor)."
+              technicalDetails="SwapFacet → Universal Router → Clanker locker fees → TBA.claimLPFees()"
               isTechnical={isTechnical}
               status="active"
             />
             
             <Step
-              icon={<Coins className="h-5 w-5" />}
-              title="Stake for Rewards"
-              description="Stake tokens to earn a share of the trading fees that flow to the treasury."
-              technicalDetails="StakingFacet.stake() → tracks staked balance → rewards distributed proportionally"
+              icon={<GitBranch className="h-5 w-5 text-purple-500" />}
+              title="Create Child CABALs"
+              description="Stakers vote to spawn children (max 8). Parent treasury funds the child's presale. Names are hierarchical."
+              technicalDetails="voteCreateChild() → 51% → finalizeChildCreation() → name = parent.name + childIndex"
               isTechnical={isTechnical}
-              status="active"
+              status="governance"
             />
             
             <Step
               icon={<Vote className="h-5 w-5" />}
-              title="Govern Treasury"
-              description="Staked token holders can vote on proposals and delegate voting power to others."
-              technicalDetails="GovernanceFacet → DelegationFacet → TBA executes via IERC6551Executable"
+              title="Full Governance"
+              description="CABALs can propose to: buy/sell tokens, stake in other CABALs, vote in other governance, delegate power."
+              technicalDetails="proposeBuyTokens(), proposeSellTokens(), proposeStake(), proposeVote(), proposeDelegate()"
               isTechnical={isTechnical}
-              status="active"
+              status="governance"
+            />
+            
+            <Step
+              icon={<UserPlus className="h-5 w-5" />}
+              title="Delegation"
+              description="Delegate your voting power to trusted community members or other CABAL TBAs."
+              technicalDetails="DelegationFacet.delegate() → delegatedPower tracked → affects getVotingPower()"
+              isTechnical={isTechnical}
+              status="governance"
               isLast
             />
+          </div>
+
+          {/* Fee Breakdown */}
+          <div className="bg-muted/30 rounded-lg p-3 border space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fee Distribution on Launch</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Protocol (C0)</span>
+                <span className="font-mono">1%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Per Ancestor</span>
+                <span className="font-mono">1% each</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Treasury ETH</span>
+                <span className="font-mono">33%*</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Dev Buy → Stakers</span>
+                <span className="font-mono">67%*</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">*of remaining after protocol + ancestor fees</p>
           </div>
 
           {/* Footer note */}
           <div className="text-center pt-2 border-t">
             <p className="text-xs text-muted-foreground">
               {isTechnical 
-                ? "Base L2 • Solidity 0.8.20 • Hardhat • Clanker SDK"
+                ? "Base L2 • Solidity 0.8.20 • Diamond (EIP-2535) • TBA (ERC-6551)"
                 : "Built on Base with Clanker & Uniswap V4"
               }
             </p>

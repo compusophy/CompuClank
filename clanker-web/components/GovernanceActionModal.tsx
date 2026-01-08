@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Send, TrendingUp, TrendingDown, Lock, Unlock, Vote, Users, Trash2 } from "lucide-react"
 import { toast } from "sonner"
+import { useTransactionGuard } from "@/lib/transaction-context"
 
 export type GovernanceActionType = 
   | 'contribute'    // Contribute ETH to another cabal's presale
@@ -129,6 +130,7 @@ export function GovernanceActionModal({
   onSuccess,
 }: GovernanceActionModalProps) {
   const config = ACTION_CONFIG[actionType]
+  const txGuard = useTransactionGuard()
   
   // Form state
   const [targetCabalId, setTargetCabalId] = useState<string>("")
@@ -154,14 +156,22 @@ export function GovernanceActionModal({
     }
   }, [isOpen])
   
+  // Track transaction hash for global status
+  useEffect(() => {
+    if (txHash) {
+      txGuard.onHash(txHash)
+    }
+  }, [txHash, txGuard])
+  
   // Handle success
   useEffect(() => {
     if (isSuccess && txHash) {
+      txGuard.onComplete()
       toast.success("Proposal created!")
       onSuccess?.()
       onClose()
     }
-  }, [isSuccess, txHash, onSuccess, onClose])
+  }, [isSuccess, txHash, onSuccess, onClose, txGuard])
   
   // Filter cabals based on action type
   const filteredCabals = cabals.filter(c => {
@@ -183,9 +193,19 @@ export function GovernanceActionModal({
   const handleSubmit = () => {
     if (!CABAL_DIAMOND_ADDRESS || !targetCabalId) return
     
+    // Check if another transaction is pending
+    if (!txGuard.canStart()) {
+      toast.error("Please wait for the current transaction to complete")
+      return
+    }
+    
     const autoDescription = description || `${config.title}: Target CABAL ${targetCabalId}`
     
+    // Start the transaction guard
+    txGuard.guardTransaction(config.title, () => {})
+    
     const onError = (e: Error) => {
+      txGuard.onComplete()
       toast.error(e.message?.split('\n')[0] || "Transaction failed")
     }
     
@@ -258,8 +278,8 @@ export function GovernanceActionModal({
     }
   }
   
-  const isLoading = isPending || isConfirming
-  const canSubmit = targetCabalId && !isLoading && (
+  const isLoading = isPending || isConfirming || txGuard.isPending
+  const canSubmit = targetCabalId && !isLoading && txGuard.canStart() && (
     !config.amountLabel || amount
   ) && (
     !config.requiresTargetProposal || targetProposalId

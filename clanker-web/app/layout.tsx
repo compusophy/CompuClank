@@ -4,6 +4,8 @@ import "./globals.css";
 import { Web3Provider } from "@/components/providers/Web3Provider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { TransactionProvider } from "@/lib/transaction-context";
+import { TransactionStatus } from "@/components/TransactionStatus";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,8 +73,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Web3Provider>
-            {children}
-            <Toaster />
+            <TransactionProvider>
+              {children}
+              <TransactionStatus />
+              <Toaster />
+            </TransactionProvider>
           </Web3Provider>
         </ThemeProvider>
       </body>

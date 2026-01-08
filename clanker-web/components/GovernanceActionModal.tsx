@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from "wagmi"
-import { parseEther, formatEther } from "viem"
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { parseEther } from "viem"
 import { CABAL_ABI, CabalPhase } from "@/lib/abi/cabal"
 
 // Minimal interface for cabals - compatible with GraphExplorer's local CabalInfo
@@ -26,7 +26,6 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Send, TrendingUp, TrendingDown, Lock, Unlock, Vote, Users, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import { TokenAmount } from "@/components/TokenAmount"
 
 export type GovernanceActionType = 
   | 'contribute'    // Contribute ETH to another cabal's presale
@@ -129,7 +128,6 @@ export function GovernanceActionModal({
   childCabalIds = [],
   onSuccess,
 }: GovernanceActionModalProps) {
-  const { address } = useAccount()
   const config = ACTION_CONFIG[actionType]
   
   // Form state
@@ -187,59 +185,77 @@ export function GovernanceActionModal({
     
     const autoDescription = description || `${config.title}: Target CABAL ${targetCabalId}`
     
-    let functionName: string
-    let args: unknown[]
-    
-    switch (actionType) {
-      case 'contribute':
-        functionName = 'proposeContributeToPresale'
-        args = [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription]
-        break
-      case 'buy':
-        functionName = 'proposeBuyTokens'
-        args = [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription] // minOut = 0 for now
-        break
-      case 'sell':
-        functionName = 'proposeSellTokens'
-        args = [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription] // minOut = 0 for now
-        break
-      case 'stake':
-        functionName = 'proposeStake'
-        args = [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription]
-        break
-      case 'unstake':
-        functionName = 'proposeUnstake'
-        args = [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription]
-        break
-      case 'vote':
-        functionName = 'proposeVote'
-        args = [cabalId, BigInt(targetCabalId), BigInt(targetProposalId || "0"), voteSupport, autoDescription]
-        break
-      case 'delegate':
-        functionName = 'proposeDelegate'
-        args = [cabalId, BigInt(targetCabalId), delegatee as `0x${string}`, autoDescription]
-        break
-      case 'dissolve':
-        functionName = 'proposeDissolveChild'
-        args = [cabalId, BigInt(targetCabalId), autoDescription]
-        break
-      default:
-        return
+    const onError = (e: Error) => {
+      toast.error(e.message?.split('\n')[0] || "Transaction failed")
     }
     
-    writeContract(
-      {
-        address: CABAL_DIAMOND_ADDRESS,
-        abi: CABAL_ABI,
-        functionName,
-        args,
-      },
-      {
-        onError: (e) => {
-          toast.error(e.message?.split('\n')[0] || "Transaction failed")
-        },
-      }
-    )
+    // Use direct writeContract calls to maintain type safety
+    switch (actionType) {
+      case 'contribute':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeContributeToPresale',
+          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription],
+        }, { onError })
+        break
+      case 'buy':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeBuyTokens',
+          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
+        }, { onError })
+        break
+      case 'sell':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeSellTokens',
+          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
+        }, { onError })
+        break
+      case 'stake':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeStake',
+          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription],
+        }, { onError })
+        break
+      case 'unstake':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeUnstake',
+          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription],
+        }, { onError })
+        break
+      case 'vote':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeVote',
+          args: [cabalId, BigInt(targetCabalId), BigInt(targetProposalId || "0"), voteSupport, autoDescription],
+        }, { onError })
+        break
+      case 'delegate':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeDelegate',
+          args: [cabalId, BigInt(targetCabalId), delegatee as `0x${string}`, autoDescription],
+        }, { onError })
+        break
+      case 'dissolve':
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeDissolveChild',
+          args: [cabalId, BigInt(targetCabalId), autoDescription],
+        }, { onError })
+        break
+    }
   }
   
   const isLoading = isPending || isConfirming

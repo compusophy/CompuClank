@@ -7,7 +7,7 @@ import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles, TrendingUp, TrendingDown, Lock, Unlock, Vote, Users, Send } from "lucide-react"
+import { Loader2, Sparkles, TrendingUp, TrendingDown, Lock, Vote, Users, Send } from "lucide-react"
 import { GovernanceActionModal, GovernanceActionType } from "@/components/GovernanceActionModal"
 import { 
   buildAncestryMap, 

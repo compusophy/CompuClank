@@ -36,7 +36,12 @@ export interface GovernanceFacetInterface extends Interface {
       | "proposeBuyTokens"
       | "proposeContributeToPresale"
       | "proposeCreateChildCabal"
+      | "proposeDelegate"
       | "proposeDissolveChild"
+      | "proposeSellTokens"
+      | "proposeStake"
+      | "proposeUnstake"
+      | "proposeVote"
       | "vote"
   ): FunctionFragment;
 
@@ -89,8 +94,28 @@ export interface GovernanceFacetInterface extends Interface {
     values: [BigNumberish, BigNumberish, string]
   ): string;
   encodeFunctionData(
+    functionFragment: "proposeDelegate",
+    values: [BigNumberish, BigNumberish, AddressLike, string]
+  ): string;
+  encodeFunctionData(
     functionFragment: "proposeDissolveChild",
     values: [BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "proposeSellTokens",
+    values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "proposeStake",
+    values: [BigNumberish, BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "proposeUnstake",
+    values: [BigNumberish, BigNumberish, BigNumberish, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "proposeVote",
+    values: [BigNumberish, BigNumberish, BigNumberish, boolean, string]
   ): string;
   encodeFunctionData(
     functionFragment: "vote",
@@ -135,7 +160,27 @@ export interface GovernanceFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "proposeDelegate",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "proposeDissolveChild",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeSellTokens",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeStake",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeUnstake",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeVote",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "vote", data: BytesLike): Result;
@@ -377,8 +422,65 @@ export interface GovernanceFacet extends BaseContract {
     "nonpayable"
   >;
 
+  proposeDelegate: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      delegatee: AddressLike,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
   proposeDissolveChild: TypedContractMethod<
     [cabalId: BigNumberish, childCabalId: BigNumberish, description: string],
+    [bigint],
+    "nonpayable"
+  >;
+
+  proposeSellTokens: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      tokenAmount: BigNumberish,
+      minEthOut: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
+  proposeStake: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      tokenAmount: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
+  proposeUnstake: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      tokenAmount: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+
+  proposeVote: TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      targetProposalId: BigNumberish,
+      support: boolean,
+      description: string
+    ],
     [bigint],
     "nonpayable"
   >;
@@ -499,9 +601,71 @@ export interface GovernanceFacet extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "proposeDelegate"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      delegatee: AddressLike,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "proposeDissolveChild"
   ): TypedContractMethod<
     [cabalId: BigNumberish, childCabalId: BigNumberish, description: string],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "proposeSellTokens"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      tokenAmount: BigNumberish,
+      minEthOut: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "proposeStake"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      tokenAmount: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "proposeUnstake"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      tokenAmount: BigNumberish,
+      description: string
+    ],
+    [bigint],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "proposeVote"
+  ): TypedContractMethod<
+    [
+      cabalId: BigNumberish,
+      targetCabalId: BigNumberish,
+      targetProposalId: BigNumberish,
+      support: boolean,
+      description: string
+    ],
     [bigint],
     "nonpayable"
   >;

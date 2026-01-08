@@ -12,7 +12,7 @@ contract GovernanceFacet {
     // ============ Constants ============
     
     uint256 constant BPS_DENOMINATOR = 10000;
-    uint256 constant PROPOSAL_COOLDOWN = 10 minutes; // Time after launch before proposals can be created (TESTING: reduced from 24 hours)
+    // NOTE: Governance delay is now stored in cabal.governanceStartsAt (set at launch)
 
     // ============ Enums ============
     
@@ -98,8 +98,8 @@ contract GovernanceFacet {
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
         
-        // Check proposal cooldown has elapsed (24 hours after launch)
-        if (block.timestamp < cabal.launchedAt + PROPOSAL_COOLDOWN) revert ProposalCooldownNotElapsed();
+        // Check governance delay has elapsed after launch
+        if (block.timestamp < cabal.governanceStartsAt) revert ProposalCooldownNotElapsed();
         
         // One proposal at a time - check if previous proposal is still active
         if (cabal.nextProposalId > 0) {
@@ -355,6 +355,162 @@ contract GovernanceFacet {
         return _createProposalInternal(cabalId, targets, values, calldatas, description);
     }
 
+    /**
+     * @notice Create a proposal to sell tokens from another cabal
+     * @param cabalId The cabal proposing the trade
+     * @param targetCabalId The cabal whose tokens to sell
+     * @param tokenAmount The token amount to sell
+     * @param minEthOut Minimum ETH expected (slippage protection)
+     * @param description Description of why this trade should be made
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeSellTokens(
+        uint256 cabalId,
+        uint256 targetCabalId,
+        uint256 tokenAmount,
+        uint256 minEthOut,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0; // No ETH sent for sell
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("sellTokens(uint256,uint256,uint256)", targetCabalId, tokenAmount, minEthOut);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
+    /**
+     * @notice Create a proposal to stake tokens in another cabal
+     * @param cabalId The cabal proposing the stake
+     * @param targetCabalId The cabal to stake tokens in
+     * @param tokenAmount The token amount to stake
+     * @param description Description of why this stake should be made
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeStake(
+        uint256 cabalId,
+        uint256 targetCabalId,
+        uint256 tokenAmount,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("stake(uint256,uint256)", targetCabalId, tokenAmount);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
+    /**
+     * @notice Create a proposal to unstake tokens from another cabal
+     * @param cabalId The cabal proposing the unstake
+     * @param targetCabalId The cabal to unstake tokens from
+     * @param tokenAmount The token amount to unstake
+     * @param description Description of why this unstake should be made
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeUnstake(
+        uint256 cabalId,
+        uint256 targetCabalId,
+        uint256 tokenAmount,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("unstake(uint256,uint256)", targetCabalId, tokenAmount);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
+    /**
+     * @notice Create a proposal to vote in another cabal's governance
+     * @param cabalId The cabal proposing to vote
+     * @param targetCabalId The cabal to vote in
+     * @param targetProposalId The proposal ID to vote on
+     * @param support True to vote FOR, false to vote AGAINST
+     * @param description Description of why this vote should be cast
+     * @return proposalId The ID of the new proposal
+     * @dev NOTE: The target proposal may expire before this proposal passes.
+     *      Execution will fail if the target proposal is no longer active.
+     */
+    function proposeVote(
+        uint256 cabalId,
+        uint256 targetCabalId,
+        uint256 targetProposalId,
+        bool support,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("castVote(uint256,uint256,bool)", targetCabalId, targetProposalId, support);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
+    /**
+     * @notice Create a proposal to delegate voting power in another cabal
+     * @param cabalId The cabal proposing to delegate
+     * @param targetCabalId The cabal to delegate voting power in
+     * @param delegatee The address to delegate to (can be user or another TBA)
+     * @param description Description of why this delegation should be made
+     * @return proposalId The ID of the new proposal
+     */
+    function proposeDelegate(
+        uint256 cabalId,
+        uint256 targetCabalId,
+        address delegatee,
+        string calldata description
+    ) external returns (uint256 proposalId) {
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.phase == CabalPhase.Closed) revert CabalClosed();
+        
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSignature("delegate(uint256,address)", targetCabalId, delegatee);
+        
+        return _createProposalInternal(cabalId, targets, values, calldatas, description);
+    }
+
     // ============ View Functions ============
 
     /**
@@ -431,16 +587,7 @@ contract GovernanceFacet {
     }
 
     function _getVotingPower(uint256 cabalId, address user) internal view returns (uint256) {
-        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
-        
-        // Auto-staked tokens from presale (if not yet claimed)
-        uint256 autoStaked = 0;
-        if (!LibAppStorage.hasClaimed(cabalId, user) && cabal.totalRaised > 0) {
-            uint256 contribution = LibAppStorage.getContribution(cabalId, user);
-            autoStaked = (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
-        }
-        
-        // Manually staked tokens
+        // Tokens are now auto-staked at launch, so just use staked balance
         uint256 ownStake = LibAppStorage.getStakedBalance(cabalId, user);
         
         // Delegated power from others
@@ -452,7 +599,7 @@ contract GovernanceFacet {
             return delegatedToMe;
         }
 
-        return autoStaked + ownStake + delegatedToMe;
+        return ownStake + delegatedToMe;
     }
 
     /**
@@ -467,8 +614,8 @@ contract GovernanceFacet {
     ) internal returns (uint256 proposalId) {
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         
-        // Check proposal cooldown has elapsed (24 hours after launch)
-        if (block.timestamp < cabal.launchedAt + PROPOSAL_COOLDOWN) revert ProposalCooldownNotElapsed();
+        // Check governance delay has elapsed after launch
+        if (block.timestamp < cabal.governanceStartsAt) revert ProposalCooldownNotElapsed();
         
         // One proposal at a time - check if previous proposal is still active
         if (cabal.nextProposalId > 0) {

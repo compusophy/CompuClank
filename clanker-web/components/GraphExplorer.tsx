@@ -7,7 +7,17 @@ import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, Sparkles, TrendingUp, TrendingDown, Lock, Unlock, Vote, Users, Send } from "lucide-react"
+import { GovernanceActionModal, GovernanceActionType } from "@/components/GovernanceActionModal"
+import { 
+  buildAncestryMap, 
+  getAncestorDistance, 
+  getDescendantDistance, 
+  areSiblings, 
+  getChildren,
+  CabalInfo 
+} from "@/lib/graph-helpers"
+import { PHI, PHI_INV, SACRED_COLORS, GENESIS_CONTRIBUTION, BRAND_GOLD, BRAND_BG } from "@/lib/graph-constants"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -37,14 +47,6 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ),
 })
 
-interface CabalInfo {
-  id: bigint
-  symbol: string
-  phase: number
-  tbaAddress: string
-  parentCabalId: bigint
-}
-
 interface GraphNode {
   id: string
   label: string
@@ -69,28 +71,6 @@ interface GraphData {
   nodes: GraphNode[]
   links: GraphLink[]
 }
-
-// Match the EXACT color used by border-primary in dark mode
-// Dark mode --primary: oklch(0.75 0.18 50) = rgb(212, 146, 54)
-// Verified by color picker on the actual rendered UI panels
-const BRAND_GOLD = { r: 212, g: 146, b: 54 }
-const BRAND_BG = { r: 28, g: 26, b: 24 }
-
-const SACRED_COLORS = {
-  nodeFill: `rgba(${BRAND_BG.r}, ${BRAND_BG.g}, ${BRAND_BG.b}, 0.98)`,
-  nodeStroke: `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.7)`,
-  nodeStrokeInner: `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.2)`,
-  nodeGlowInner: `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.15)`,
-  nodeGlowOuter: `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.05)`,
-  labelColor: "rgba(245, 240, 230, 0.95)",
-  linkColor: `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.3)`,
-}
-
-// Initial contribution for genesis
-const GENESIS_CONTRIBUTION = "0.00001"
-
-// Golden ratio constant
-const PHI = 1.61803
 
 interface RadialMenuState {
   isOpen: boolean
@@ -151,6 +131,8 @@ export function GraphExplorer({
   const previousFocusRef = useRef<string>("0")
   // Store previous node positions for smooth interpolation
   const previousNodePositionsRef = useRef<Map<string, { x: number; y: number; radius: number }>>(new Map())
+  // Track cabal count to detect new cabals being added
+  const previousCabalCountRef = useRef<number>(0)
   
   // Calculate UI scale based on container size - used for node and panel sizing
   // Use consistent padding with rest of app (3.5 = 14px / 4)
@@ -192,6 +174,12 @@ export function GraphExplorer({
   const [stakeTab, setStakeTab] = useState<'stake' | 'unstake'>('stake')
   const [stakeAmount, setStakeAmount] = useState('')
   const [isSigning, setIsSigning] = useState(false)
+  
+  // Governance action modal state
+  const [governanceAction, setGovernanceAction] = useState<{
+    isOpen: boolean
+    actionType: GovernanceActionType
+  }>({ isOpen: false, actionType: 'contribute' })
   
   const { isConnected, address } = useAccount()
   const chainId = useChainId()
@@ -1226,6 +1214,28 @@ export function GraphExplorer({
       })
     }
   }, [focusedCabalId])
+  
+  // Animate when new cabals are added (e.g., child creation)
+  useEffect(() => {
+    const currentCount = cabalsData?.length ?? 0
+    const previousCount = previousCabalCountRef.current
+    
+    if (currentCount > previousCount && previousCount > 0) {
+      // New cabal(s) added - snapshot and animate
+      snapshotNodePositions()
+      setFocusTransitionProgress(0)
+      
+      animateValue({
+        from: 0,
+        to: 1,
+        duration: ANIM_DURATION.relaxed,
+        easing: easing.easeOutCubic,
+        onUpdate: setFocusTransitionProgress,
+      })
+    }
+    
+    previousCabalCountRef.current = currentCount
+  }, [cabalsData?.length, snapshotNodePositions])
 
   // Build graph data from hierarchical cabals
   const graphData = useMemo((): GraphData => {
@@ -1239,26 +1249,170 @@ export function GraphExplorer({
     // Create a set of valid cabal IDs for link validation
     const validIds = new Set(cabalsData.map((c) => c.id.toString()))
 
-    // Find the focused cabal and its parent
+    // Build ancestry map for distance-based calculations
+    const ancestryMap = buildAncestryMap(cabalsData)
+    
+    // Find the focused cabal
     const focusedCabal = cabalsData.find(c => c.id.toString() === focusedCabalId)
     const focusedParentId = focusedCabal?.parentCabalId?.toString()
     
-    // Get children of focused node - sorted by ID for consistent ordering
-    // Exclude the focused node itself (root's parentCabalId might be 0, same as its id)
-    const focusedChildren = cabalsData
-      .filter(c => c.parentCabalId.toString() === focusedCabalId && c.id.toString() !== focusedCabalId)
-      .sort((a, b) => Number(a.id) - Number(b.id))
-    const focusedChildIds = focusedChildren.map(c => c.id.toString())
+    // Calculate where the focused node WAS positioned when viewing from parent
+    // This is used to position ancestors in the opposite direction
+    let focusedNodeAngleFromParent = Math.PI / 2 // Default: ancestors go to bottom
+    if (focusedParentId && focusedParentId !== focusedCabalId) {
+      const siblings = getChildren(focusedParentId, cabalsData)
+      const focusedIndexInSiblings = siblings.findIndex(c => c.id.toString() === focusedCabalId)
+      if (focusedIndexInSiblings >= 0 && siblings.length > 0) {
+        const angleStep = (2 * Math.PI) / siblings.length
+        focusedNodeAngleFromParent = -Math.PI / 2 + focusedIndexInSiblings * angleStep
+      }
+    }
     
-    const PHI = 1.61803
-    const PHI_INV = 0.61803
+    // Helper: recursively calculate node position
+    // positionCache stores {x, y, radius} for each node
+    const positionCache = new Map<string, {x: number, y: number, radius: number}>()
+    
+    // Calculate size based on distance from focused
+    const getNodeRadius = (nodeId: string): number => {
+      const ancestorDist = getAncestorDistance(focusedCabalId, nodeId, ancestryMap)
+      const descendantDist = getDescendantDistance(focusedCabalId, nodeId, ancestryMap)
+      const isSibling = areSiblings(focusedCabalId, nodeId, cabalsData)
+      
+      if (ancestorDist === 0 && descendantDist === 0) {
+        return FULL_NODE_RADIUS  // Focused node
+      } else if (ancestorDist > 0) {
+        return FULL_NODE_RADIUS * Math.pow(PHI, ancestorDist)  // Ancestors get larger
+      } else if (descendantDist > 0) {
+        return FULL_NODE_RADIUS * Math.pow(PHI_INV, descendantDist)  // Descendants get smaller
+      } else if (isSibling) {
+        return FULL_NODE_RADIUS  // Siblings same size as focused
+      } else {
+        return FULL_NODE_RADIUS * Math.pow(PHI_INV, 3)  // Unrelated - tiny
+      }
+    }
+    
+    // Recursive position calculator
+    const getNodePosition = (nodeId: string): {x: number, y: number, radius: number} => {
+      // Check cache first
+      if (positionCache.has(nodeId)) {
+        return positionCache.get(nodeId)!
+      }
+      
+      const cabal = cabalsData.find(c => c.id.toString() === nodeId)
+      if (!cabal) return {x: 9999, y: 9999, radius: FULL_NODE_RADIUS * 0.1}
+      
+      const thisRadius = getNodeRadius(nodeId)
+      const ancestorDist = getAncestorDistance(focusedCabalId, nodeId, ancestryMap)
+      const descendantDist = getDescendantDistance(focusedCabalId, nodeId, ancestryMap)
+      const isSibling = areSiblings(focusedCabalId, nodeId, cabalsData)
+      const parentId = cabal.parentCabalId.toString()
+      
+      let x = 0, y = 0
+      
+      if (nodeId === focusedCabalId) {
+        // Focused node at center
+        x = 0
+        y = 0
+      } else if (ancestorDist > 0) {
+        // Ancestors: position behind focused, stacking outward
+        // Each ancestor is positioned behind its child in the chain
+        const angle = focusedNodeAngleFromParent + Math.PI
+        
+        // Calculate cumulative distance for this ancestor level
+        let cumulativeDistance = 0
+        for (let level = 1; level <= ancestorDist; level++) {
+          const levelRadius = FULL_NODE_RADIUS * Math.pow(PHI, level)
+          const prevRadius = level === 1 ? FULL_NODE_RADIUS : FULL_NODE_RADIUS * Math.pow(PHI, level - 1)
+          // Use animated distance for level 1 (parent)
+          if (level === 1 && animatedParentDistance !== null) {
+            cumulativeDistance = animatedParentDistance
+          } else {
+            cumulativeDistance += prevRadius + levelRadius
+          }
+        }
+        
+        x = Math.cos(angle) * cumulativeDistance
+        y = Math.sin(angle) * cumulativeDistance
+      } else if (descendantDist > 0) {
+        // Descendants: position around their parent
+        // First, get parent's position recursively
+        const parentPos = getNodePosition(parentId)
+        const parentRadius = parentPos.radius
+        
+        // Get siblings (children of this node's parent)
+        const siblings = getChildren(parentId, cabalsData)
+        const myIndex = siblings.findIndex(c => c.id.toString() === nodeId)
+        const siblingCount = siblings.length
+        
+        // Calculate angle around parent
+        const angleStep = (2 * Math.PI) / siblingCount
+        const angle = -Math.PI / 2 + myIndex * angleStep
+        
+        // Calculate distance from parent
+        let distFromParent: number
+        if (descendantDist === 1 && animatedChildDistance !== null) {
+          // Direct child of focused - use animated distance from CENTER
+          distFromParent = animatedChildDistance
+          // For direct children, position from center, not from parent
+          x = Math.cos(angle) * distFromParent
+          y = Math.sin(angle) * distFromParent
+        } else {
+          // Deeper descendants - position around their parent
+          distFromParent = parentRadius + thisRadius
+          x = parentPos.x + Math.cos(angle) * distFromParent
+          y = parentPos.y + Math.sin(angle) * distFromParent
+        }
+      } else if (isSibling) {
+        // Siblings of focused: positioned around the parent
+        const parentPos = getNodePosition(focusedParentId!)
+        const parentRadius = parentPos.radius
+        
+        // Get all siblings including focused
+        const allSiblings = getChildren(focusedParentId!, cabalsData)
+        const myIndex = allSiblings.findIndex(c => c.id.toString() === nodeId)
+        const siblingCount = allSiblings.length
+        
+        const angleStep = (2 * Math.PI) / siblingCount
+        const angle = -Math.PI / 2 + myIndex * angleStep
+        const distFromParent = parentRadius + thisRadius
+        
+        x = parentPos.x + Math.cos(angle) * distFromParent
+        y = parentPos.y + Math.sin(angle) * distFromParent
+      } else {
+        // Unrelated node - position relative to its parent if parent is visible
+        // This keeps children attached to their parents during transitions
+        const parentPos = getNodePosition(parentId)
+        
+        // If parent is off-screen, we're also off-screen
+        if (Math.abs(parentPos.x) > 2000 || Math.abs(parentPos.y) > 2000) {
+          x = 9999
+          y = 9999
+        } else {
+          // Stay attached to parent
+          const siblings = getChildren(parentId, cabalsData)
+          const myIndex = siblings.findIndex(c => c.id.toString() === nodeId)
+          const siblingCount = Math.max(1, siblings.length)
+          
+          const angleStep = (2 * Math.PI) / siblingCount
+          const angle = -Math.PI / 2 + myIndex * angleStep
+          const distFromParent = parentPos.radius + thisRadius
+          
+          x = parentPos.x + Math.cos(angle) * distFromParent
+          y = parentPos.y + Math.sin(angle) * distFromParent
+        }
+      }
+      
+      const result = {x, y, radius: thisRadius}
+      positionCache.set(nodeId, result)
+      return result
+    }
+    
+    // Calculate positions and interpolate for smooth sacred geometry transitions
+    const t = focusTransitionProgress
     
     cabalsData.forEach((cabal) => {
       const nodeId = cabal.id.toString()
       const isSelected = radialMenu.isOpen && radialMenu.cabalId === nodeId
-      const isFocused = nodeId === focusedCabalId
-      const isParentOfFocused = nodeId === focusedParentId
-      const isChildOfFocused = focusedChildIds.includes(nodeId)
       
       // Check if this cabal is in "launching" state
       const isThisLaunching = cabal.phase === CabalPhase.Presale && (
@@ -1267,88 +1421,28 @@ export function GraphExplorer({
         (isSelected && isLaunchApproved)
       )
       
-      // Size based on relationship to focused node:
-      // - Focused node: FULL_NODE_RADIUS (standard "main" size)
-      // - Parent of focused: FULL_NODE_RADIUS * PHI (1.618x larger, backdrop)
-      // - Children of focused: FULL_NODE_RADIUS * PHI_INV (0.618x, fractal)
-      // - Others: hide or very small
-      let targetRadius: number
-      if (isFocused) {
-        targetRadius = FULL_NODE_RADIUS
-      } else if (isParentOfFocused) {
-        targetRadius = FULL_NODE_RADIUS * PHI
-      } else if (isChildOfFocused) {
-        targetRadius = FULL_NODE_RADIUS * PHI_INV
-      } else {
-        // Not in immediate hierarchy - very small or hidden
-        targetRadius = FULL_NODE_RADIUS * PHI_INV * PHI_INV
-      }
+      // Get TARGET position using the recursive position calculator
+      // Positions are calculated relative to parents
+      const {x: targetX, y: targetY, radius: targetRadius} = getNodePosition(nodeId)
       
-      // Use target radius directly - entrance animation handles initial load
-      const thisNodeRadius = targetRadius
-      
-      // Calculate TARGET position based on current focus
-      let targetX = 0, targetY = 0
-      
-      if (isFocused) {
-        targetX = 0
-        targetY = 0
-      } else if (isParentOfFocused) {
-        // Use animated distance for smooth transitions when focused node's menu opens
-        const focusedHasMenuOpen = radialMenu.isOpen && radialMenu.cabalId === focusedCabalId
-        
-        let distanceFromCenter: number
-        if (focusedHasMenuOpen && animatedParentDistance !== null) {
-          distanceFromCenter = animatedParentDistance
-        } else if (focusedHasMenuOpen) {
-          // Fallback: expanded position
-          const panelSize = SMALL_NODE_RADIUS * 2 * PHI
-          const ringRadius = SMALL_NODE_RADIUS + panelSize
-          distanceFromCenter = ringRadius + thisNodeRadius
-        } else {
-          distanceFromCenter = FULL_NODE_RADIUS + thisNodeRadius
-        }
-        
-        const angle = Math.PI / 2 // Bottom
-        targetX = Math.cos(angle) * distanceFromCenter
-        targetY = Math.sin(angle) * distanceFromCenter
-      } else if (isChildOfFocused) {
-        const focusedIsSelected = radialMenu.isOpen && radialMenu.cabalId === focusedCabalId
-        
-        let distanceFromCenter: number
-        if (focusedIsSelected && animatedChildDistance !== null) {
-          distanceFromCenter = animatedChildDistance
-        } else if (focusedIsSelected) {
-          const panelSize = SMALL_NODE_RADIUS * 2 * PHI
-          const panelOuterEdge = SMALL_NODE_RADIUS + panelSize
-          distanceFromCenter = panelOuterEdge + thisNodeRadius
-        } else {
-          distanceFromCenter = FULL_NODE_RADIUS + thisNodeRadius
-        }
-        
-        const childIndex = focusedChildIds.indexOf(nodeId)
-        const goldenAngle = 137.5 * (Math.PI / 180)
-        const angle = -Math.PI / 2 + childIndex * goldenAngle
-        
-        targetX = Math.cos(angle) * distanceFromCenter
-        targetY = Math.sin(angle) * distanceFromCenter
-      } else {
-        // Other nodes - hide off-screen
-        targetX = 9999
-        targetY = 9999
-      }
-      
-      // Get previous position for interpolation
+      // Get PREVIOUS position from snapshot (taken before focus change)
       const prevPos = previousNodePositionsRef.current.get(nodeId)
-      const prevX = prevPos?.x ?? targetX
-      const prevY = prevPos?.y ?? targetY
-      const prevRadius = prevPos?.radius ?? thisNodeRadius
       
-      // Interpolate between previous and target based on transition progress
-      const t = focusTransitionProgress
-      const currentX = prevX + (targetX - prevX) * t
-      const currentY = prevY + (targetY - prevY) * t
-      const currentRadius = prevRadius + (thisNodeRadius - prevRadius) * t
+      // Interpolate from previous to target using sacred easing
+      // t=0: show previous position, t=1: show target position
+      let currentX: number, currentY: number, currentRadius: number
+      
+      if (prevPos && t < 1) {
+        // Smooth interpolation with easing (already applied by animateValue)
+        currentX = prevPos.x + (targetX - prevPos.x) * t
+        currentY = prevPos.y + (targetY - prevPos.y) * t
+        currentRadius = prevPos.radius + (targetRadius - prevPos.radius) * t
+      } else {
+        // No previous position or transition complete
+        currentX = targetX
+        currentY = targetY
+        currentRadius = targetRadius
+      }
       
       const node: GraphNode = {
         id: nodeId,
@@ -1685,17 +1779,21 @@ export function GraphExplorer({
   const isActive = radialMenu.phase === CabalPhase.Active
   
   // Layout depends on phase:
-  // - Presale: 4 panels (square rotated 45°) - corners at TL, TR, BR, BL
+  // - Presale: 3 panels (triangle) - RAISED at top, Send ETH bottom-left, Voting bottom-right
   // - Active: 4 panels (diamond) - top, left, right, bottom
   // Position mapping:
-  // Presale: 0=TL (Raised), 1=TR (You), 2=BR (Vote), 3=BL (Contribute)
-  // Active: 0=TOP (Treasury), 1=UNUSED, 2=RIGHT (Proposals), 3=LEFT (Trade), 4=BOTTOM (Stake)
+  // Presale: 0=TOP (Raised), 2=BOTTOM-RIGHT (Vote), 3=BOTTOM-LEFT (Contribute)
+  // Active: 0=TOP (Treasury), 2=RIGHT (Proposals), 3=LEFT (Trade), 4=BOTTOM (Stake)
   const getPanelPosition = (index: number, forActive: boolean = false) => {
     if (isPresale && !forActive) {
-      // Square layout (4 panels, 90° apart)
-      // Rotated so corners are at top-left, top-right, bottom-left, bottom-right
-      const squareAngles = [225, 315, 45, 135] // degrees: TL, TR, BR, BL
-      const angle = squareAngles[index] * (Math.PI / 180)
+      // Triangle layout (3 panels, 120° apart)
+      // RAISED at top (270°), Send ETH at bottom-left (150°), Voting at bottom-right (30°)
+      const triangleAngles: Record<number, number> = {
+        0: 270,  // TOP - Raised
+        3: 150,  // BOTTOM-LEFT - Send ETH / Contribute
+        2: 30,   // BOTTOM-RIGHT - Voting / Governance
+      }
+      const angle = (triangleAngles[index] ?? 0) * (Math.PI / 180)
       return {
         x: PANEL_OFFSET * Math.cos(angle),
         y: PANEL_OFFSET * Math.sin(angle),
@@ -1907,7 +2005,7 @@ export function GraphExplorer({
             onClick={(e) => e.stopPropagation()}
           >
             
-            {/* PANEL 0: UPPER-LEFT - Treasury ETH (Active) or Raised (Presale) */}
+            {/* PANEL 0: TOP - Treasury ETH (Active) or Raised (Presale) */}
             <div 
               className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
                 menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-0' : 
@@ -1949,51 +2047,9 @@ export function GraphExplorer({
               )}
             </div>
             
-            {/* PANEL 1: UPPER-RIGHT - Your Position (Presale only) */}
-            {isPresale && (
-              <div 
-                className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
-                  menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-1' : 
-                  menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
-                }`}
-                style={{
-                  width: PANEL_SIZE,
-                  height: PANEL_SIZE,
-                  left: panelPositions[1].x - PANEL_SIZE / 2,
-                  top: panelPositions[1].y - PANEL_SIZE / 2,
-                  transformOrigin: `${PANEL_SIZE / 2 - panelPositions[1].x}px ${PANEL_SIZE / 2 - panelPositions[1].y}px`,
-                  zIndex: 5,
-                }}
-              >
-                <div className="px-2 flex flex-col items-center w-full">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You</p>
-                  <div className="text-center w-full">
-                    <div className="text-[11px] font-mono space-y-0.5">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Wallet:</span>
-                        <span>{formatCompact(Number(formatEther(ethBalance?.value ?? 0n)))}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Sent:</span>
-                        <span>{formatCompact(Number(formatEther(userContribution ?? 0n)))}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Power:</span>
-                        <span>{(() => {
-                          const totalRaised = selectedCabal?.totalRaised ?? 0n
-                          const userSent = userContribution ?? 0n
-                          if (totalRaised === 0n) return "0.00%"
-                          const pct = Number((userSent * 10000n) / totalRaised) / 100
-                          return pct.toFixed(2) + "%"
-                        })()}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* PANEL 1: Removed for presale - now using 3 panel triangle layout */}
             
-            {/* PANEL 3: LOWER-LEFT - Contribute (Presale) or Trade (Active) */}
+            {/* PANEL 3: BOTTOM-LEFT (Presale) or LEFT (Active) - Contribute / Trade */}
             <div 
               className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
                 menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-3' : 
@@ -2015,7 +2071,14 @@ export function GraphExplorer({
                     <p className="text-xs text-muted-foreground">Connect to contribute</p>
                   </div>
                 ) : (
-                  <div className="px-3 py-2 space-y-1.5 w-full text-center">
+                  <div className="px-3 py-2 space-y-1 w-full text-center">
+                    {/* Show contributed amount */}
+                    <div className="text-[11px] font-mono">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Contributed:</span>
+                        <span>{formatCompact(Number(formatEther(userContribution ?? 0n)))} ETH</span>
+                      </div>
+                    </div>
                     <Input
                         type="number"
                         step="0.00001"
@@ -2028,7 +2091,7 @@ export function GraphExplorer({
                     <Button
                       onClick={handleContribute}
                       disabled={isContributeLoading || !contributionAmount}
-                      className="w-full h-8 text-xs"
+                      className="w-full h-7 text-xs"
                       size="sm"
                     >
                       {isContributeLoading ? (
@@ -2107,7 +2170,7 @@ export function GraphExplorer({
               )}
             </div>
             
-            {/* PANEL 2: LOWER-RIGHT - Vote/Launch (Presale) or Proposals (Active) */}
+            {/* PANEL 2: BOTTOM-RIGHT (Presale) or RIGHT (Active) - Vote/Launch / Proposals */}
             <div 
               className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
                 menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-2' : 
@@ -2170,9 +2233,22 @@ export function GraphExplorer({
                     })()}
                   </div>
                 ) : (
-                  <div className="px-3 py-3 space-y-2 w-full">
+                  <div className="px-3 py-2 space-y-1 w-full">
+                    {/* User Voting Power */}
+                    <div className="text-[11px] font-mono">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Voting Power:</span>
+                        <span>{(() => {
+                          const totalRaised = selectedCabal?.totalRaised ?? 0n
+                          const userSent = userContribution ?? 0n
+                          if (totalRaised === 0n) return "0.00%"
+                          const pct = Number((userSent * 10000n) / totalRaised) / 100
+                          return pct.toFixed(2) + "%"
+                        })()}</span>
+                      </div>
+                    </div>
                     {/* Vote Progress */}
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       <p className="text-xs text-muted-foreground">
                         {yesPercent.toFixed(0)}% / 51%
                       </p>
@@ -2188,7 +2264,7 @@ export function GraphExplorer({
                       onClick={() => handleVote(true)}
                       disabled={isVoteLoading || isUserVoteFetching || userVotedYes || !hasContributed}
                       variant={userVotedYes ? "outline" : "default"}
-                      className="w-full h-8 text-xs"
+                      className="w-full h-7 text-xs"
                       size="sm"
                     >
                       {isVoteLoading || isUserVoteFetching ? (
@@ -2200,12 +2276,15 @@ export function GraphExplorer({
                   </div>
                 )
               ) : isActive ? (
-                // Child Creation Voting Panel (like launch voting)
+                // Active Cabal: Governance Actions Panel
                 !isConnected ? (
                   <div className="px-2 space-y-1">
                     <p className="text-xs text-muted-foreground">Connect wallet</p>
                   </div>
-                ) : (() => {
+                ) : (
+                  <div className="px-2 py-1.5 space-y-1.5 w-full">
+                    {/* Create Child Button (primary action) */}
+                    {(() => {
                   const treasuryBalance = (tbaEthBalance?.value ?? 0n) + (tbaWethBalance ?? 0n)
                   const minRequired = parseEther('0.00001') // Match contract MIN_CREATION_FEE
                   const hasStake = (stakedBalance ?? 0n) > 0n
@@ -2244,13 +2323,12 @@ export function GraphExplorer({
                   const childTimeRemaining = finalizableAt > 0n ? Math.max(0, Number(finalizableAt) - now) : 0
                   const childMinsRemaining = Math.ceil(childTimeRemaining / 60)
                   
+                  // Can vote if has stake and treasury has funds
+                  const canVote = hasStake && hasTreasuryFunds
+                  
                   return (
                     <div className="px-3 py-2 space-y-1.5 w-full text-center">
-                      {!hasStake ? (
-                        <p className="text-xs text-muted-foreground">Stake to vote</p>
-                      ) : !hasTreasuryFunds ? (
-                        <p className="text-xs text-muted-foreground">Need 0.001 ETH</p>
-                      ) : majorityMet ? (
+                      {majorityMet ? (
                         // Vote passed - show finalize or countdown
                         isChildFinalizable ? (
                           <Button
@@ -2272,10 +2350,10 @@ export function GraphExplorer({
                           </>
                         )
                       ) : (
-                        // Voting in progress or no proposal yet
+                        // Voting in progress or no proposal yet - show UI even if can't vote (greyed)
                         <>
                           {/* Power display - always show */}
-                          <div className="space-y-1">
+                          <div className={`space-y-1 ${!canVote ? 'opacity-50' : ''}`}>
                             <div className="flex justify-between text-xs">
                               <span className="text-muted-foreground">Power:</span>
                               <span>{(() => {
@@ -2296,10 +2374,10 @@ export function GraphExplorer({
                               </div>
                             )}
                           </div>
-                          {/* Vote Button */}
+                          {/* Vote Button - disabled if no stake or no treasury funds */}
                           <Button
                             onClick={() => handleVoteChildCreation(true)}
-                            disabled={isChildVoteLoading || userVotedChildYes}
+                            disabled={!canVote || isChildVoteLoading || userVotedChildYes}
                             className="w-full h-7 text-xs"
                             size="sm"
                           >
@@ -2313,7 +2391,62 @@ export function GraphExplorer({
                       )}
                   </div>
                 )
-                })()
+                })()}
+                    {/* Governance Actions Grid */}
+                    <div className="pt-1 border-t border-primary/20 mt-1">
+                      <div className="grid grid-cols-3 gap-1">
+                        <button
+                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'contribute' })}
+                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                          title="Contribute to presale"
+                        >
+                          <Send className="h-3 w-3 text-primary" />
+                          <span className="text-[8px] text-muted-foreground">Contrib</span>
+                        </button>
+                        <button
+                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'buy' })}
+                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                          title="Buy tokens"
+                        >
+                          <TrendingUp className="h-3 w-3 text-green-500" />
+                          <span className="text-[8px] text-muted-foreground">Buy</span>
+                        </button>
+                        <button
+                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'sell' })}
+                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                          title="Sell tokens"
+                        >
+                          <TrendingDown className="h-3 w-3 text-red-500" />
+                          <span className="text-[8px] text-muted-foreground">Sell</span>
+                        </button>
+                        <button
+                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'stake' })}
+                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                          title="Stake in cabal"
+                        >
+                          <Lock className="h-3 w-3 text-blue-500" />
+                          <span className="text-[8px] text-muted-foreground">Stake</span>
+                        </button>
+                        <button
+                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'vote' })}
+                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                          title="Vote in cabal"
+                        >
+                          <Vote className="h-3 w-3 text-purple-500" />
+                          <span className="text-[8px] text-muted-foreground">Vote</span>
+                        </button>
+                        <button
+                          onClick={() => setGovernanceAction({ isOpen: true, actionType: 'delegate' })}
+                          className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                          title="Delegate power"
+                        >
+                          <Users className="h-3 w-3 text-orange-500" />
+                          <span className="text-[8px] text-muted-foreground">Deleg</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
               ) : (
                 <div className="px-2">
                   <p className="text-xs text-muted-foreground">—</p>
@@ -2486,6 +2619,19 @@ export function GraphExplorer({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Governance Action Modal */}
+        <GovernanceActionModal
+          isOpen={governanceAction.isOpen}
+          onClose={() => setGovernanceAction({ ...governanceAction, isOpen: false })}
+          cabalId={BigInt(radialMenu.cabalId || "0")}
+          actionType={governanceAction.actionType}
+          cabals={cabalsData ?? []}
+          onSuccess={() => {
+            // Refetch cabals data after successful proposal
+            refetchCabalsData?.()
+          }}
+        />
     </div>
   )
 }

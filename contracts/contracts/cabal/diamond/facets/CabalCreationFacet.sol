@@ -36,12 +36,16 @@ contract CabalCreationFacet {
     // ============ Constants ============
     
     // Protocol fee goes to CABAL0's TBA (set dynamically)
-    // 1/33/33/33 Split: 1% protocol fee, 33% ETH to treasury, 33% tokens to treasury, 33% tokens to contributors
-    uint256 constant PROTOCOL_FEE_BPS = 100;      // 1% protocol fee
-    uint256 constant TREASURY_ETH_BPS = 3300;     // 33% stays as ETH in treasury
+    // Split: 1% protocol fee + 1% per ancestor + remaining split between treasury ETH and dev buy
+    uint256 constant PROTOCOL_FEE_BPS = 100;      // 1% protocol fee to CABAL0
+    uint256 constant ANCESTOR_FEE_BPS = 100;      // 1% per ancestor in the chain
+    uint256 constant TREASURY_ETH_BPS = 3300;     // 33% of remaining stays as ETH in treasury
     uint256 constant TREASURY_TOKEN_BPS = 5000;   // 50% of devBuy tokens go to treasury (= 33% of total)
-    uint256 constant BPS_DENOMINATOR = 10000;     // 1% + 33% + 66% devBuy = 100%
+    uint256 constant BPS_DENOMINATOR = 10000;
     bytes32 constant TBA_SALT = bytes32(0);
+    
+    // Governance delay after launch before proposals can be created/executed
+    uint256 constant GOVERNANCE_DELAY = 10 minutes;
     
     // Minimum amounts to prevent spam
     uint256 constant MIN_CREATION_FEE = 0.00001 ether;  // ~$0.03
@@ -57,6 +61,9 @@ contract CabalCreationFacet {
     // Default pool config (standard Clanker settings)
     int24 constant DEFAULT_TICK = -230400; // ~10 ETH market cap
     int24 constant DEFAULT_TICK_SPACING = 200;
+    
+    // Maximum children per cabal (hierarchical naming limit)
+    uint256 constant MAX_CHILDREN = 8;
 
     // ============ Events ============
     
@@ -88,11 +95,13 @@ contract CabalCreationFacet {
         uint256 amount
     );
     
-    event TokensClaimed(
+    event AncestorFeeCollected(
         uint256 indexed cabalId,
-        address indexed claimant,
+        address indexed ancestor,
         uint256 amount
     );
+    
+    // NOTE: TokensClaimed event removed - tokens are now auto-staked at launch
     
     event LaunchVoteCast(
         uint256 indexed cabalId,
@@ -115,7 +124,6 @@ contract CabalCreationFacet {
     
     error CabalNotInPresale();
     error CabalNotActive();
-    error AlreadyClaimed();
     error NoContribution();
     error InsufficientCreationFee();
     error InsufficientContribution();
@@ -129,6 +137,7 @@ contract CabalCreationFacet {
     error NotCalledViaDiamond();
     error InvalidParentCabal();
     error CabalClosed();
+    error TooManyChildren();
 
     // ============ External Functions ============
 
@@ -151,6 +160,7 @@ contract CabalCreationFacet {
         CabalData storage parent = LibAppStorage.getCabalData(parentCabalId);
         if (parent.tbaAddress == address(0)) revert InvalidParentCabal();
         if (parent.phase == CabalPhase.Closed) revert CabalClosed();
+        if (parent.childCabalIds.length >= MAX_CHILDREN) revert TooManyChildren();
         
         if (msg.value < MIN_CREATION_FEE) revert InsufficientCreationFee();
         
@@ -168,10 +178,26 @@ contract CabalCreationFacet {
             cabalId
         );
         
-        // Auto-generate name and ticker based on ID
-        string memory idStr = Strings.toString(cabalId);
-        string memory name = string(abi.encodePacked("Cabal ", idStr));
-        string memory symbol = string(abi.encodePacked("CABAL", idStr));
+        // Auto-generate name and ticker
+        // If parent uses new hierarchical scheme (name starts with "C"), append child index
+        // Otherwise, use legacy "CABAL{id}" format
+        string memory name;
+        string memory symbol;
+        
+        bytes memory parentName = bytes(parent.name);
+        if (parentName.length > 0 && parentName[0] == 'C' && parentName.length < 10) {
+            // New hierarchical scheme: C0 -> C01, C01 -> C011, etc.
+            // Child index is 1-based (1-8)
+            uint256 childIndex = parent.childCabalIds.length + 1;
+            string memory indexStr = Strings.toString(childIndex);
+            name = string(abi.encodePacked(parent.name, indexStr));
+            symbol = string(abi.encodePacked("$", name));
+        } else {
+            // Legacy naming: CABAL0, CABAL1, etc.
+            string memory idStr = Strings.toString(cabalId);
+            name = string(abi.encodePacked("CABAL", idStr));
+            symbol = string(abi.encodePacked("CABAL", idStr));
+        }
         
         // Initialize Cabal data with default settings
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
@@ -360,25 +386,32 @@ contract CabalCreationFacet {
      *        - 50% auto-staked to contributors (voting power, claim to unstake+withdraw)
      */
     function _finalizeCabal(uint256 cabalId, CabalData storage cabal) internal {
-        uint256 totalRaised = cabal.totalRaised;
-        
-        // Calculate split amounts for event
-        uint256 protocolFee = (totalRaised * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
-        uint256 remaining = totalRaised - protocolFee;
-        uint256 treasuryEth = (remaining * TREASURY_ETH_BPS) / (BPS_DENOMINATOR - PROTOCOL_FEE_BPS);
-        uint256 devBuyAmount = remaining - treasuryEth;
-        
-        // Deploy token and get contributor tokens amount (also sends protocol fee)
-        (address tokenAddress, uint256 contributorTokens) = _deployTokenAndSplit(cabal);
+        // Deploy token and get contributor tokens amount (sends protocol + ancestry fees)
+        (address tokenAddress, uint256 contributorTokens, uint256 treasuryEth, uint256 devBuyAmount) = 
+            _deployTokenAndSplit(cabalId, cabal);
 
         // Update state
         cabal.tokenAddress = tokenAddress;
         cabal.totalTokensReceived = contributorTokens;
-        cabal.totalStaked = contributorTokens;
         cabal.phase = CabalPhase.Active;
         cabal.launchedAt = block.timestamp;
+        cabal.governanceStartsAt = block.timestamp + GOVERNANCE_DELAY;
+        
+        // Auto-stake tokens for each contributor based on their contribution
+        uint256 totalRaised = cabal.totalRaised;
+        for (uint256 i = 0; i < cabal.contributors.length; i++) {
+            address contributor = cabal.contributors[i];
+            uint256 contribution = LibAppStorage.getContribution(cabalId, contributor);
+            uint256 tokenAmount = (contribution * contributorTokens) / totalRaised;
+            
+            // Set their staked balance (auto-staked)
+            LibAppStorage.setStakedBalance(cabalId, contributor, tokenAmount);
+            
+            // Track that user has stake in this cabal (for indexing)
+            LibAppStorage.getUserStakedCabals(contributor).push(cabalId);
+        }
+        cabal.totalStaked = contributorTokens;
 
-        emit ProtocolFeeCollected(cabalId, protocolFee);
         emit CabalFinalized(cabalId, tokenAddress, totalRaised, treasuryEth, devBuyAmount);
         
         LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Launched, totalRaised);
@@ -387,22 +420,41 @@ contract CabalCreationFacet {
     /**
      * @dev Deploy token via Clanker and return split amounts - separated to reduce stack depth
      */
-    function _deployTokenAndSplit(CabalData storage cabal) internal returns (address tokenAddress, uint256 contributorTokens) {
+    function _deployTokenAndSplit(uint256 cabalId, CabalData storage cabal) internal returns (
+        address tokenAddress, 
+        uint256 contributorTokens,
+        uint256 treasuryEth,
+        uint256 devBuyAmount
+    ) {
         AppStorage storage s = LibAppStorage.appStorage();
         ClankerV4Settings storage c = LibAppStorage.clankerV4Settings();
+        uint256 totalRaised = cabal.totalRaised;
 
-        // Send 1% protocol fee to CABAL0's treasury (root cabal)
-        uint256 protocolFee = (cabal.totalRaised * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
+        // 1. Send 1% protocol fee to CABAL0's treasury (root cabal)
+        uint256 protocolFee = (totalRaised * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
         address protocolTreasury = LibAppStorage.getCabalData(LibAppStorage.getRootCabalId()).tbaAddress;
         CabalTBA(payable(cabal.tbaAddress)).executeCall(protocolTreasury, protocolFee, "");
+        emit ProtocolFeeCollected(cabalId, protocolFee);
         
-        // Calculate amounts after protocol fee
-        uint256 remaining = cabal.totalRaised - protocolFee;
-        uint256 treasuryEth = (remaining * TREASURY_ETH_BPS) / (BPS_DENOMINATOR - PROTOCOL_FEE_BPS);
-        uint256 devBuyAmount = remaining - treasuryEth;
+        // 2. Send 1% to each ancestor (parent, grandparent, etc. up to but not including root)
+        address[] memory ancestors = _getAncestorChain(cabalId);
+        uint256 ancestorFee = (totalRaised * ANCESTOR_FEE_BPS) / BPS_DENOMINATOR;
+        uint256 totalAncestorFees = ancestorFee * ancestors.length;
+        
+        for (uint256 i = 0; i < ancestors.length; i++) {
+            CabalTBA(payable(cabal.tbaAddress)).executeCall(ancestors[i], ancestorFee, "");
+            emit AncestorFeeCollected(cabalId, ancestors[i], ancestorFee);
+        }
+        
+        // 3. Calculate remaining after all fees
+        uint256 remaining = totalRaised - protocolFee - totalAncestorFees;
+        
+        // 4. Split remaining: 33% treasury ETH, 67% dev buy
+        treasuryEth = (remaining * TREASURY_ETH_BPS) / BPS_DENOMINATOR;
+        devBuyAmount = remaining - treasuryEth;
 
         IClankerFactory.DeploymentConfig memory config = _buildDeploymentConfig(
-            cabal.name, cabal.symbol, cabal.image, cabal.tbaAddress, devBuyAmount, s, c
+            cabal.name, cabal.symbol, cabal.image, cabal.tbaAddress, devBuyAmount, s, c, cabalId
         );
 
         // Deploy token - send devBuyAmount ETH for the devBuy extension
@@ -421,41 +473,8 @@ contract CabalCreationFacet {
         contributorTokens = tokensReceived - (tokensReceived * TREASURY_TOKEN_BPS) / BPS_DENOMINATOR;
     }
 
-    /**
-     * @notice Claim tokens from a Cabal (unstake + withdraw)
-     * @param cabalId The Cabal to claim from
-     * @dev Auto-finalizes if launch timer has elapsed. Claiming removes voting power.
-     */
-    function claimTokens(uint256 cabalId) external {
-        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
-        
-        // Lazy finalization: if timer elapsed but not yet finalized, do it now
-        _tryAutoFinalize(cabalId, cabal);
-        
-        if (LibAppStorage.hasClaimed(cabalId, msg.sender)) revert AlreadyClaimed();
-        
-        uint256 contribution = LibAppStorage.getContribution(cabalId, msg.sender);
-        if (contribution == 0) revert NoContribution();
-        
-        // Calculate proportional tokens
-        uint256 tokenAmount = (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
-        
-        // Mark as claimed
-        LibAppStorage.setClaimed(cabalId, msg.sender);
-        
-        // Reduce totalStaked and transfer
-        unchecked { cabal.totalStaked -= tokenAmount; }
-        
-        CabalTBA(payable(cabal.tbaAddress)).executeCall(
-            cabal.tokenAddress,
-            0,
-            abi.encodeWithSelector(IERC20.transfer.selector, msg.sender, tokenAmount)
-        );
-        
-        emit TokensClaimed(cabalId, msg.sender, tokenAmount);
-        
-        LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Claimed, tokenAmount);
-    }
+    // NOTE: claimTokens() has been removed. Tokens are now auto-staked at launch.
+    // Users should use StakingFacet.unstake() to withdraw their tokens.
 
     /**
      * @dev Try to auto-finalize if conditions are met
@@ -465,6 +484,33 @@ contract CabalCreationFacet {
         if (cabal.launchApprovedAt == 0) revert CabalNotActive();
         if (block.timestamp < cabal.launchApprovedAt + LAUNCH_DELAY) revert LaunchTimerNotElapsed();
         _finalizeCabal(cabalId, cabal);
+    }
+
+    /**
+     * @dev Get the ancestor chain for a cabal (excluding root since it gets protocol fee separately)
+     * @param cabalId The cabal to get ancestors for
+     * @return ancestors Array of ancestor TBA addresses, from parent to root (empty for root/direct children of root)
+     */
+    function _getAncestorChain(uint256 cabalId) internal view returns (address[] memory ancestors) {
+        uint256 rootId = LibAppStorage.getRootCabalId();
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        
+        // Count ancestors first (excluding root - it gets protocol fee)
+        uint256 count = 0;
+        uint256 currentId = cabal.parentCabalId;
+        while (currentId != rootId && currentId != 0) {
+            count++;
+            currentId = LibAppStorage.getCabalData(currentId).parentCabalId;
+        }
+        
+        // Build the array
+        ancestors = new address[](count);
+        currentId = cabal.parentCabalId;
+        for (uint256 i = 0; i < count; i++) {
+            CabalData storage ancestor = LibAppStorage.getCabalData(currentId);
+            ancestors[i] = ancestor.tbaAddress;
+            currentId = ancestor.parentCabalId;
+        }
     }
 
     // ============ Admin Functions ============
@@ -481,20 +527,8 @@ contract CabalCreationFacet {
 
     // ============ View Functions ============
 
-    /**
-     * @notice Get claimable token amount for a user
-     */
-    function getClaimable(uint256 cabalId, address user) external view returns (uint256) {
-        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
-        
-        if (cabal.phase != CabalPhase.Active) return 0;
-        if (LibAppStorage.hasClaimed(cabalId, user)) return 0;
-        
-        uint256 contribution = LibAppStorage.getContribution(cabalId, user);
-        if (contribution == 0) return 0;
-        
-        return (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
-    }
+    // NOTE: getClaimable() has been removed. Tokens are now auto-staked at launch.
+    // Use StakingFacet.getStakedBalance() to see user's staked tokens.
 
     /**
      * @notice Get all contributors for a Cabal
@@ -568,7 +602,8 @@ contract CabalCreationFacet {
         address tbaAddress,
         uint256 devBuyAmount,
         AppStorage storage s,
-        ClankerV4Settings storage c
+        ClankerV4Settings storage c,
+        uint256 cabalId
     ) internal view returns (IClankerFactory.DeploymentConfig memory) {
         // Token config
         IClankerFactory.TokenConfig memory tokenConfig = IClankerFactory.TokenConfig({
@@ -585,49 +620,39 @@ contract CabalCreationFacet {
         // Pool config (pair with WETH)
         // poolData for DYNAMIC fee hook V2 encodes: PoolInitializationData { extension, extensionData, feeData }
         // where feeData = [baseFee, maxLpFee, refPeriod, resetPeriod, resetTick, control, decay]
-        // Values from SDK: baseFee=10000, maxLpFee=100000, refPeriod=600, resetPeriod=86400, resetTick=200, control=1000000, decay=9500
-        // Copied directly from clanker-sdk getDeployTransaction output
+        // Values: baseFee=10000 (1%), maxLpFee=10000 (1%), refPeriod=600, resetPeriod=86400, resetTick=200, control=1000000, decay=9500
+        // maxLpFee reduced from 100000 (10%) to 10000 (1%) to prevent excessive sell tax
         IClankerFactory.PoolConfig memory poolConfig = IClankerFactory.PoolConfig({
             hook: c.hook,
             pairedToken: s.weth,
             tickIfToken0IsClanker: DEFAULT_TICK,
             tickSpacing: DEFAULT_TICK_SPACING,
-            poolData: hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000186a00000000000000000000000000000000000000000000000000000000000000258000000000000000000000000000000000000000000000000000000000001518000000000000000000000000000000000000000000000000000000000000000c800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000251c"
+            poolData: hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000002710000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000002580000000000000000000000000000000000000000000000000000000000015180000000000000000000000000000000000000000000000000000000000000c800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000251c"
         });
         
-        // Locker config - Split fees between cabal TBA and CABAL0 protocol treasury
-        // Fees from the hook are collected in ClankerFeeLocker and claimable by rewardRecipients
-        address protocolTreasury = LibAppStorage.isGenesisInitialized() 
-            ? LibAppStorage.getCabalData(LibAppStorage.getRootCabalId()).tbaAddress 
-            : tbaAddress; // Fallback to own TBA if genesis not initialized (shouldn't happen)
+        // Locker config - Trading fees split between cabal and ancestors
+        // Each ancestor gets 1% (100 bps), cabal gets remainder
+        // NOTE: If Clanker locker rejects multiple recipients, we'll use single recipient
+        // and implement a separate distributeAncestorFees() function
+        address[] memory ancestors = _getAncestorChain(cabalId);
+        uint256 recipientCount = 1 + ancestors.length;
         
-        // If this IS the protocol treasury (CABAL0), give 100% to self
-        // Otherwise, split 99% to cabal, 1% to protocol
-        bool isProtocolCabal = (tbaAddress == protocolTreasury);
+        address[] memory rewardAdmins = new address[](recipientCount);
+        address[] memory rewardRecipients = new address[](recipientCount);
+        uint16[] memory rewardBps = new uint16[](recipientCount);
         
-        address[] memory rewardAdmins;
-        address[] memory rewardRecipients;
-        uint16[] memory rewardBps;
+        // Cabal gets remainder after ancestor shares
+        uint16 ancestorBps = 100; // 1% per ancestor
+        uint16 cabalBps = uint16(10000 - (ancestors.length * ancestorBps));
         
-        if (isProtocolCabal) {
-            // CABAL0 gets 100% of its own fees
-            rewardAdmins = new address[](1);
-            rewardAdmins[0] = tbaAddress;
-            rewardRecipients = new address[](1);
-            rewardRecipients[0] = tbaAddress;
-            rewardBps = new uint16[](1);
-            rewardBps[0] = 10000; // 100%
-        } else {
-            // Other cabals: 99% to cabal TBA, 1% to protocol treasury (CABAL0)
-            rewardAdmins = new address[](2);
-            rewardAdmins[0] = tbaAddress;
-            rewardAdmins[1] = protocolTreasury;
-            rewardRecipients = new address[](2);
-            rewardRecipients[0] = tbaAddress;
-            rewardRecipients[1] = protocolTreasury;
-            rewardBps = new uint16[](2);
-            rewardBps[0] = 9900; // 99% to cabal
-            rewardBps[1] = 100;  // 1% to protocol (CABAL0)
+        rewardAdmins[0] = tbaAddress;
+        rewardRecipients[0] = tbaAddress;
+        rewardBps[0] = cabalBps;
+        
+        for (uint256 i = 0; i < ancestors.length; i++) {
+            rewardAdmins[i + 1] = ancestors[i];
+            rewardRecipients[i + 1] = ancestors[i];
+            rewardBps[i + 1] = ancestorBps;
         }
         
         // Standard LP positions (5 positions like Clanker SDK default)

@@ -27,11 +27,9 @@ export interface CabalCreationFacetInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "adminResetLaunchVoting"
-      | "claimTokens"
       | "contribute"
       | "createChildCabal"
       | "finalizeCabal"
-      | "getClaimable"
       | "getContributors"
       | "getLaunchVote"
       | "getLaunchVoteStatus"
@@ -41,6 +39,7 @@ export interface CabalCreationFacetInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "AncestorFeeCollected"
       | "CabalCreated"
       | "CabalFinalized"
       | "Contributed"
@@ -48,15 +47,10 @@ export interface CabalCreationFacetInterface extends Interface {
       | "LaunchVoteCast"
       | "LaunchVoteReset"
       | "ProtocolFeeCollected"
-      | "TokensClaimed"
   ): EventFragment;
 
   encodeFunctionData(
     functionFragment: "adminResetLaunchVoting",
-    values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "claimTokens",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -70,10 +64,6 @@ export interface CabalCreationFacetInterface extends Interface {
   encodeFunctionData(
     functionFragment: "finalizeCabal",
     values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "getClaimable",
-    values: [BigNumberish, AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "getContributors",
@@ -100,10 +90,6 @@ export interface CabalCreationFacetInterface extends Interface {
     functionFragment: "adminResetLaunchVoting",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(
-    functionFragment: "claimTokens",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(functionFragment: "contribute", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "createChildCabal",
@@ -111,10 +97,6 @@ export interface CabalCreationFacetInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "finalizeCabal",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "getClaimable",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -134,6 +116,24 @@ export interface CabalCreationFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "voteLaunch", data: BytesLike): Result;
+}
+
+export namespace AncestorFeeCollectedEvent {
+  export type InputTuple = [
+    cabalId: BigNumberish,
+    ancestor: AddressLike,
+    amount: BigNumberish
+  ];
+  export type OutputTuple = [cabalId: bigint, ancestor: string, amount: bigint];
+  export interface OutputObject {
+    cabalId: bigint;
+    ancestor: string;
+    amount: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace CabalCreatedEvent {
@@ -281,24 +281,6 @@ export namespace ProtocolFeeCollectedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
-export namespace TokensClaimedEvent {
-  export type InputTuple = [
-    cabalId: BigNumberish,
-    claimant: AddressLike,
-    amount: BigNumberish
-  ];
-  export type OutputTuple = [cabalId: bigint, claimant: string, amount: bigint];
-  export interface OutputObject {
-    cabalId: bigint;
-    claimant: string;
-    amount: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
 export interface CabalCreationFacet extends BaseContract {
   connect(runner?: ContractRunner | null): CabalCreationFacet;
   waitForDeployment(): Promise<this>;
@@ -348,12 +330,6 @@ export interface CabalCreationFacet extends BaseContract {
     "nonpayable"
   >;
 
-  claimTokens: TypedContractMethod<
-    [cabalId: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-
   contribute: TypedContractMethod<[cabalId: BigNumberish], [void], "payable">;
 
   createChildCabal: TypedContractMethod<
@@ -366,12 +342,6 @@ export interface CabalCreationFacet extends BaseContract {
     [cabalId: BigNumberish],
     [void],
     "nonpayable"
-  >;
-
-  getClaimable: TypedContractMethod<
-    [cabalId: BigNumberish, user: AddressLike],
-    [bigint],
-    "view"
   >;
 
   getContributors: TypedContractMethod<
@@ -422,9 +392,6 @@ export interface CabalCreationFacet extends BaseContract {
     nameOrSignature: "adminResetLaunchVoting"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
   getFunction(
-    nameOrSignature: "claimTokens"
-  ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
-  getFunction(
     nameOrSignature: "contribute"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "payable">;
   getFunction(
@@ -433,13 +400,6 @@ export interface CabalCreationFacet extends BaseContract {
   getFunction(
     nameOrSignature: "finalizeCabal"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "getClaimable"
-  ): TypedContractMethod<
-    [cabalId: BigNumberish, user: AddressLike],
-    [bigint],
-    "view"
-  >;
   getFunction(
     nameOrSignature: "getContributors"
   ): TypedContractMethod<[cabalId: BigNumberish], [string[]], "view">;
@@ -482,6 +442,13 @@ export interface CabalCreationFacet extends BaseContract {
     "nonpayable"
   >;
 
+  getEvent(
+    key: "AncestorFeeCollected"
+  ): TypedContractEvent<
+    AncestorFeeCollectedEvent.InputTuple,
+    AncestorFeeCollectedEvent.OutputTuple,
+    AncestorFeeCollectedEvent.OutputObject
+  >;
   getEvent(
     key: "CabalCreated"
   ): TypedContractEvent<
@@ -531,15 +498,19 @@ export interface CabalCreationFacet extends BaseContract {
     ProtocolFeeCollectedEvent.OutputTuple,
     ProtocolFeeCollectedEvent.OutputObject
   >;
-  getEvent(
-    key: "TokensClaimed"
-  ): TypedContractEvent<
-    TokensClaimedEvent.InputTuple,
-    TokensClaimedEvent.OutputTuple,
-    TokensClaimedEvent.OutputObject
-  >;
 
   filters: {
+    "AncestorFeeCollected(uint256,address,uint256)": TypedContractEvent<
+      AncestorFeeCollectedEvent.InputTuple,
+      AncestorFeeCollectedEvent.OutputTuple,
+      AncestorFeeCollectedEvent.OutputObject
+    >;
+    AncestorFeeCollected: TypedContractEvent<
+      AncestorFeeCollectedEvent.InputTuple,
+      AncestorFeeCollectedEvent.OutputTuple,
+      AncestorFeeCollectedEvent.OutputObject
+    >;
+
     "CabalCreated(uint256,address,string,string,address)": TypedContractEvent<
       CabalCreatedEvent.InputTuple,
       CabalCreatedEvent.OutputTuple,
@@ -615,17 +586,6 @@ export interface CabalCreationFacet extends BaseContract {
       ProtocolFeeCollectedEvent.InputTuple,
       ProtocolFeeCollectedEvent.OutputTuple,
       ProtocolFeeCollectedEvent.OutputObject
-    >;
-
-    "TokensClaimed(uint256,address,uint256)": TypedContractEvent<
-      TokensClaimedEvent.InputTuple,
-      TokensClaimedEvent.OutputTuple,
-      TokensClaimedEvent.OutputObject
-    >;
-    TokensClaimed: TypedContractEvent<
-      TokensClaimedEvent.InputTuple,
-      TokensClaimedEvent.OutputTuple,
-      TokensClaimedEvent.OutputObject
     >;
   };
 }

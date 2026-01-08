@@ -185,16 +185,16 @@ export function HowItWorksModal() {
             <Step
               icon={<Rocket className="h-5 w-5" />}
               title="Vote & Launch"
-              description="Contributors vote to launch. When 51% vote YES, a 24hr timer starts. After timer, first claim auto-launches. Split: 1% protocol fee, 33% ETH + 33% tokens to treasury, 33% tokens to contributors."
-              technicalDetails="voteLaunch() → 51% threshold → 24hr timer → claimTokens() triggers _finalizeCabal() → 1% to protocol → Clanker deploys token"
+              description="Contributors vote to launch. When 51% vote YES, a timer starts. Anyone can finalize after. Split: 1% protocol fee + 1% per ancestor, 33% ETH to treasury, 67% dev buy with tokens auto-staked."
+              technicalDetails="voteLaunch() → 51% threshold → 10min timer → finalizeCabal() → 1% protocol + 1%/ancestor → Clanker deploys token"
               isTechnical={isTechnical}
             />
             
             <Step
               icon={<Gift className="h-5 w-5" />}
               title="Auto-Staked Voting Power"
-              description="Your 33% token share is auto-staked for voting power. Claim to unstake and withdraw tokens to your wallet."
-              technicalDetails="totalStaked = contributorTokens → votingPower includes unclaimed contribution share → claimTokens() reduces totalStaked"
+              description="Your token share is auto-staked with voting power. Use Unstake to withdraw tokens to your wallet. 10 min governance delay after launch."
+              technicalDetails="Auto-stake at launch → setStakedBalance per contributor → unstake() to withdraw → governanceStartsAt = launchedAt + 10min"
               isTechnical={isTechnical}
             />
             

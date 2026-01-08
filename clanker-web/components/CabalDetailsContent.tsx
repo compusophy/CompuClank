@@ -705,22 +705,11 @@ function ActiveSection({
   }
 
   // Read data
-  const { refetch: refetchClaimable } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    functionName: "getClaimable",
-    args: [cabalId, userAddress as `0x${string}`],
-  })
+  // NOTE: getClaimable and hasClaimed removed - tokens are now auto-staked at launch
   const { data: contribution } = useReadContract({
     address: CABAL_DIAMOND_ADDRESS,
     abi: CABAL_ABI,
     functionName: "getContribution",
-    args: [cabalId, userAddress as `0x${string}`],
-  })
-  const { data: hasClaimed, refetch: refetchHasClaimed } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    functionName: "hasClaimed",
     args: [cabalId, userAddress as `0x${string}`],
   })
   const { data: stakedBalance, refetch: refetchStaked } = useReadContract({
@@ -737,23 +726,14 @@ function ActiveSection({
   })
 
   // Write contracts
-  const { writeContract: claimWrite, data: claimHash, isPending: isClaiming } = useWriteContract()
-  const { isSuccess: claimSuccess, isLoading: claimConfirming } = useWaitForTransactionReceipt({ hash: claimHash })
+  // NOTE: claimTokens removed - tokens are now auto-staked at launch, use unstake instead
   const { writeContract: unstakeWrite, data: unstakeHash, isPending: isUnstaking } = useWriteContract()
   const { isSuccess: unstakeSuccess, isLoading: unstakeConfirming } = useWaitForTransactionReceipt({ hash: unstakeHash })
   const { writeContract: delegate, isPending: isDelegating } = useWriteContract()
   const { writeContract: undelegate, isPending: isUndelegating } = useWriteContract()
   const { writeContract: claimFees, isPending: isFeesClaiming } = useWriteContract()
 
-  useEffect(() => {
-    if (claimSuccess && claimHash) {
-      showTransactionToast(claimHash, "Tokens claimed!")
-      refetchClaimable()
-      refetchHasClaimed()
-      onSuccess()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claimSuccess, claimHash])
+  // NOTE: claimTokens functionality removed - tokens are now auto-staked at launch
 
   useEffect(() => {
     if (unstakeSuccess && unstakeHash) {
@@ -767,15 +747,7 @@ function ActiveSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unstakeSuccess, unstakeHash])
 
-  const handleClaim = () => {
-    if (!CABAL_DIAMOND_ADDRESS) return
-    claimWrite(
-      { address: CABAL_DIAMOND_ADDRESS, abi: CABAL_ABI, functionName: "claimTokens", args: [cabalId] },
-      {
-        onError: (e) => showErrorToast(e),
-      }
-    )
-  }
+  // NOTE: handleClaim removed - use unstake to withdraw auto-staked tokens
 
   const handleUnstake = () => {
     if (!CABAL_DIAMOND_ADDRESS || !unstakeAmount) return
@@ -848,17 +820,9 @@ function ActiveSection({
   }
 
   const contributionAmount = contribution as bigint | undefined
-  const hasClaimedStatus = hasClaimed as boolean | undefined
-
-  // Calculate total claim amount (what they can claim OR have already claimed)
-  // We calculate this manually because getClaimable returns 0 after claiming
-  const totalClaimAmount =
-    contributionAmount && cabal.totalRaised > 0n
-      ? (contributionAmount * cabal.totalTokensReceived) / cabal.totalRaised
-      : 0n
-
-  // Show card only if user contributed AND hasn't claimed yet
-  const showClaimCard = !!contributionAmount && contributionAmount > 0n && totalClaimAmount > 0n && !hasClaimedStatus
+  
+  // Tokens are now auto-staked at launch - users should use unstake to withdraw
+  // The staked balance already reflects their contribution share
 
   // Calculate voting power percentage (user staked / total staked)
   const userStaked = stakedBalance as bigint | undefined
@@ -867,35 +831,23 @@ function ActiveSection({
 
   return (
     <div className="space-y-3.5">
-      {/* Claim Banner - prominent if available */}
-      {showClaimCard && (
-        <Card className={`${hasClaimedStatus ? "bg-muted/50" : "bg-green-500/5 border-green-500/50"}`}>
+      {/* NOTE: Claim card removed - tokens are now auto-staked at launch */}
+      {/* Users should use the Unstake button to withdraw their tokens */}
+      
+      {/* Contribution Info - show if user contributed */}
+      {contributionAmount && contributionAmount > 0n && (
+        <Card className="bg-blue-500/5 border-blue-500/50">
           <CardContent className="py-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Your Contribution</p>
-                  <p className="text-lg font-mono font-bold">
-                    <TokenAmount amount={contributionAmount} symbol="ETH" />
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {hasClaimedStatus ? "Claimed from presale" : "Claimable from presale"}
-                  </p>
-                  <p className="text-xl font-mono font-bold">
-                    <TokenAmount amount={totalClaimAmount} symbol={cabal.symbol} />
-                  </p>
-                </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Your Presale Contribution</p>
+                <p className="text-lg font-mono font-bold">
+                  <TokenAmount amount={contributionAmount} symbol="ETH" />
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Tokens auto-staked at launch. Use Unstake to withdraw.
+                </p>
               </div>
-              <Button
-                onClick={handleClaim}
-                disabled={hasClaimedStatus || isClaiming || claimConfirming}
-                className={hasClaimedStatus ? "" : "bg-green-600 hover:bg-green-700"}
-                variant={hasClaimedStatus ? "secondary" : "default"}
-              >
-                {hasClaimedStatus ? "Already Claimed" : isClaiming || claimConfirming ? "Claiming..." : "Claim Tokens"}
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1038,14 +990,7 @@ function ActiveSection({
                   <TokenAmount amount={contributionAmount} symbol="ETH" />
                 </span>
               </div>
-              {hasClaimedStatus && totalClaimAmount > 0n && (
-                <div className="flex justify-between items-center pt-2 border-t border-primary/10">
-                  <span className="text-sm text-muted-foreground">Claimed from presale</span>
-                  <span className="font-mono font-semibold">
-                    <TokenAmount amount={totalClaimAmount} symbol={cabal.symbol} />
-                  </span>
-                </div>
-              )}
+              {/* NOTE: Claim status removed - tokens are now auto-staked at launch */}
             </div>
           )}
         </CardContent>

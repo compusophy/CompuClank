@@ -103,6 +103,9 @@ struct CabalData {
     // Hierarchy (ADDED AT END to preserve storage layout)
     uint256 parentCabalId;      // Parent cabal ID (0 for root cabal)
     uint256[] childCabalIds;    // Array of child cabal IDs spawned by this cabal
+    
+    // Governance delay (ADDED AT END to preserve storage layout)
+    uint256 governanceStartsAt; // block.timestamp + GOVERNANCE_DELAY after launch (0 if presale)
 }
 
 struct AppStorage {

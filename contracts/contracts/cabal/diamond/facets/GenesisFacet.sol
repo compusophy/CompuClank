@@ -58,7 +58,7 @@ contract GenesisFacet {
         );
         
         // Auto-generate name and ticker for genesis cabal
-        string memory name = "Cabal Genesis";
+        string memory name = "CABAL0";
         string memory symbol = "CABAL0";
         
         // Initialize CABAL0 data

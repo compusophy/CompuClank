@@ -56,6 +56,7 @@ export interface SettingsFacetInterface extends Interface {
       | "reindexCabal"
       | "resetAllCabals"
       | "unpauseCabal"
+      | "updateCabalMetadata"
       | "updateContractAddress"
       | "updateGovernanceSettings"
   ): FunctionFragment;
@@ -63,6 +64,7 @@ export interface SettingsFacetInterface extends Interface {
   getEvent(
     nameOrSignatureOrTopic:
       | "AllCabalsReset"
+      | "CabalMetadataUpdated"
       | "CabalPaused"
       | "CabalUnpaused"
       | "ContractAddressUpdated"
@@ -121,6 +123,10 @@ export interface SettingsFacetInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "updateCabalMetadata",
+    values: [BigNumberish, string, string, string]
+  ): string;
+  encodeFunctionData(
     functionFragment: "updateContractAddress",
     values: [string, AddressLike]
   ): string;
@@ -171,6 +177,10 @@ export interface SettingsFacetInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "updateCabalMetadata",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "updateContractAddress",
     data: BytesLike
   ): Result;
@@ -185,6 +195,31 @@ export namespace AllCabalsResetEvent {
   export type OutputTuple = [previousCount: bigint];
   export interface OutputObject {
     previousCount: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace CabalMetadataUpdatedEvent {
+  export type InputTuple = [
+    cabalId: BigNumberish,
+    name: string,
+    symbol: string,
+    image: string
+  ];
+  export type OutputTuple = [
+    cabalId: bigint,
+    name: string,
+    symbol: string,
+    image: string
+  ];
+  export interface OutputObject {
+    cabalId: bigint;
+    name: string;
+    symbol: string;
+    image: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -395,6 +430,12 @@ export interface SettingsFacet extends BaseContract {
     "nonpayable"
   >;
 
+  updateCabalMetadata: TypedContractMethod<
+    [cabalId: BigNumberish, name: string, symbol: string, image: string],
+    [void],
+    "nonpayable"
+  >;
+
   updateContractAddress: TypedContractMethod<
     [name: string, newAddress: AddressLike],
     [void],
@@ -506,6 +547,13 @@ export interface SettingsFacet extends BaseContract {
     nameOrSignature: "unpauseCabal"
   ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "updateCabalMetadata"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, name: string, symbol: string, image: string],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "updateContractAddress"
   ): TypedContractMethod<
     [name: string, newAddress: AddressLike],
@@ -526,6 +574,13 @@ export interface SettingsFacet extends BaseContract {
     AllCabalsResetEvent.InputTuple,
     AllCabalsResetEvent.OutputTuple,
     AllCabalsResetEvent.OutputObject
+  >;
+  getEvent(
+    key: "CabalMetadataUpdated"
+  ): TypedContractEvent<
+    CabalMetadataUpdatedEvent.InputTuple,
+    CabalMetadataUpdatedEvent.OutputTuple,
+    CabalMetadataUpdatedEvent.OutputObject
   >;
   getEvent(
     key: "CabalPaused"
@@ -566,6 +621,17 @@ export interface SettingsFacet extends BaseContract {
       AllCabalsResetEvent.InputTuple,
       AllCabalsResetEvent.OutputTuple,
       AllCabalsResetEvent.OutputObject
+    >;
+
+    "CabalMetadataUpdated(uint256,string,string,string)": TypedContractEvent<
+      CabalMetadataUpdatedEvent.InputTuple,
+      CabalMetadataUpdatedEvent.OutputTuple,
+      CabalMetadataUpdatedEvent.OutputObject
+    >;
+    CabalMetadataUpdated: TypedContractEvent<
+      CabalMetadataUpdatedEvent.InputTuple,
+      CabalMetadataUpdatedEvent.OutputTuple,
+      CabalMetadataUpdatedEvent.OutputObject
     >;
 
     "CabalPaused(uint256)": TypedContractEvent<

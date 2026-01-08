@@ -148,7 +148,6 @@ export interface ViewFacetInterface extends Interface {
       | "getRootCabalId"
       | "getTotalCabals"
       | "getUserPositions"
-      | "hasClaimed"
       | "isGenesisInitialized"
   ): FunctionFragment;
 
@@ -217,10 +216,6 @@ export interface ViewFacetInterface extends Interface {
     values: [AddressLike, BigNumberish[]]
   ): string;
   encodeFunctionData(
-    functionFragment: "hasClaimed",
-    values: [BigNumberish, AddressLike]
-  ): string;
-  encodeFunctionData(
     functionFragment: "isGenesisInitialized",
     values?: undefined
   ): string;
@@ -283,7 +278,6 @@ export interface ViewFacetInterface extends Interface {
     functionFragment: "getUserPositions",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "hasClaimed", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "isGenesisInitialized",
     data: BytesLike
@@ -411,19 +405,12 @@ export interface ViewFacet extends BaseContract {
   getUserPositions: TypedContractMethod<
     [user: AddressLike, cabalIds: BigNumberish[]],
     [
-      [bigint[], bigint[], bigint[], boolean[]] & {
+      [bigint[], bigint[], bigint[]] & {
         contributions: bigint[];
         stakedBalances: bigint[];
         votingPowers: bigint[];
-        claimed: boolean[];
       }
     ],
-    "view"
-  >;
-
-  hasClaimed: TypedContractMethod<
-    [cabalId: BigNumberish, user: AddressLike],
-    [boolean],
     "view"
   >;
 
@@ -508,20 +495,12 @@ export interface ViewFacet extends BaseContract {
   ): TypedContractMethod<
     [user: AddressLike, cabalIds: BigNumberish[]],
     [
-      [bigint[], bigint[], bigint[], boolean[]] & {
+      [bigint[], bigint[], bigint[]] & {
         contributions: bigint[];
         stakedBalances: bigint[];
         votingPowers: bigint[];
-        claimed: boolean[];
       }
     ],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "hasClaimed"
-  ): TypedContractMethod<
-    [cabalId: BigNumberish, user: AddressLike],
-    [boolean],
     "view"
   >;
   getFunction(

@@ -25,6 +25,7 @@ contract SettingsFacet {
     
     event ContractAddressUpdated(string indexed name, address newAddress);
     event AllCabalsReset(uint256 previousCount);
+    event CabalMetadataUpdated(uint256 indexed cabalId, string name, string symbol, string image);
 
     // ============ Errors ============
     
@@ -300,5 +301,32 @@ contract SettingsFacet {
             c.mevModule,
             c.devBuyExtension
         );
+    }
+
+    /**
+     * @notice Update cabal metadata (name, symbol, image) - admin only
+     * @dev This updates the CabalData storage. Note: The on-chain ERC-20 token's 
+     *      name() and symbol() cannot be changed after deployment.
+     * @param cabalId The cabal to update
+     * @param name New name for the cabal
+     * @param symbol New symbol for the cabal
+     * @param image New image URI for the cabal
+     */
+    function updateCabalMetadata(
+        uint256 cabalId,
+        string calldata name,
+        string calldata symbol,
+        string calldata image
+    ) external {
+        LibDiamond.enforceIsContractOwner();
+        
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        require(cabal.tbaAddress != address(0), "Cabal does not exist");
+        
+        cabal.name = name;
+        cabal.symbol = symbol;
+        cabal.image = image;
+        
+        emit CabalMetadataUpdated(cabalId, name, symbol, image);
     }
 }

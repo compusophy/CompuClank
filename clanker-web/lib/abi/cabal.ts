@@ -17,13 +17,7 @@ export const CABAL_ABI = [
     stateMutability: "nonpayable",
     type: "function",
   },
-  {
-    inputs: [{ name: "cabalId", type: "uint256" }],
-    name: "claimTokens",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
+  // NOTE: claimTokens removed - tokens are now auto-staked at launch, use unstake() instead
   {
     inputs: [
       { name: "cabalId", type: "uint256" },
@@ -321,30 +315,11 @@ export const CABAL_ABI = [
     stateMutability: "view",
     type: "function",
   },
-  {
-    inputs: [
-      { name: "cabalId", type: "uint256" },
-      { name: "user", type: "address" },
-    ],
-    name: "getClaimable",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
+  // NOTE: getClaimable and hasClaimed removed - tokens are now auto-staked at launch
   {
     inputs: [{ name: "cabalId", type: "uint256" }],
     name: "getContributors",
     outputs: [{ name: "", type: "address[]" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
-      { name: "cabalId", type: "uint256" },
-      { name: "user", type: "address" },
-    ],
-    name: "hasClaimed",
-    outputs: [{ name: "", type: "bool" }],
     stateMutability: "view",
     type: "function",
   },
@@ -860,6 +835,68 @@ export const CABAL_ABI = [
       { name: "description", type: "string" },
     ],
     name: "proposeBuyTokens",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "targetCabalId", type: "uint256" },
+      { name: "tokenAmount", type: "uint256" },
+      { name: "minEthOut", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeSellTokens",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "targetCabalId", type: "uint256" },
+      { name: "tokenAmount", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeStake",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "targetCabalId", type: "uint256" },
+      { name: "tokenAmount", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeUnstake",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "targetCabalId", type: "uint256" },
+      { name: "targetProposalId", type: "uint256" },
+      { name: "support", type: "bool" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeVote",
+    outputs: [{ name: "proposalId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "cabalId", type: "uint256" },
+      { name: "targetCabalId", type: "uint256" },
+      { name: "delegatee", type: "address" },
+      { name: "description", type: "string" },
+    ],
+    name: "proposeDelegate",
     outputs: [{ name: "proposalId", type: "uint256" }],
     stateMutability: "nonpayable",
     type: "function",

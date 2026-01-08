@@ -21,6 +21,7 @@ contract ChildCreationFacet {
     uint256 constant CHILD_CREATION_DELAY = 10 minutes;   // Timer after vote passes (TESTING)
     uint256 constant MIN_CREATION_FEE = 0.00001 ether;    // Minimum ETH for child's initial contribution
     bytes32 constant TBA_SALT = bytes32(0);
+    uint256 constant MAX_CHILDREN = 8;                     // Maximum children per cabal (hierarchical naming limit)
 
     // ============ Events ============
     
@@ -56,6 +57,7 @@ contract ChildCreationFacet {
     error ChildCreationTimerNotElapsed();
     error InsufficientTreasuryBalance();
     error TransferFailed();
+    error TooManyChildren();
 
     // ============ External Functions ============
 
@@ -70,6 +72,7 @@ contract ChildCreationFacet {
     function voteCreateChild(uint256 cabalId, bool support) external {
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.childCabalIds.length >= MAX_CHILDREN) revert TooManyChildren();
         
         // Get voting power (staked balance)
         uint256 votingPower = _getVotingPower(cabalId, msg.sender);
@@ -101,6 +104,7 @@ contract ChildCreationFacet {
     function finalizeChildCreation(uint256 cabalId) external returns (uint256 childCabalId) {
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
+        if (cabal.childCabalIds.length >= MAX_CHILDREN) revert TooManyChildren();
         
         // Check vote was approved
         uint256 approvedAt = LibAppStorage.getChildCreationApprovedAt(cabalId);
@@ -185,16 +189,7 @@ contract ChildCreationFacet {
     // ============ Internal Functions ============
 
     function _getVotingPower(uint256 cabalId, address user) internal view returns (uint256) {
-        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
-        
-        // Auto-staked tokens from presale (if not yet claimed)
-        uint256 autoStaked = 0;
-        if (!LibAppStorage.hasClaimed(cabalId, user) && cabal.totalRaised > 0) {
-            uint256 contribution = LibAppStorage.getContribution(cabalId, user);
-            autoStaked = (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
-        }
-        
-        // Manually staked tokens
+        // Tokens are now auto-staked at launch, so just use staked balance
         uint256 ownStake = LibAppStorage.getStakedBalance(cabalId, user);
         
         // Delegated power from others
@@ -206,7 +201,7 @@ contract ChildCreationFacet {
             return delegatedToMe;
         }
 
-        return autoStaked + ownStake + delegatedToMe;
+        return ownStake + delegatedToMe;
     }
 
     function _applyVoteChange(

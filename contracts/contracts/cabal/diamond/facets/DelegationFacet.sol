@@ -113,18 +113,10 @@ contract DelegationFacet {
     function _getTotalDelegatablePower(
         uint256 cabalId, 
         address user, 
-        CabalData storage cabal
+        CabalData storage /* cabal */
     ) internal view returns (uint256) {
-        uint256 manualStake = LibAppStorage.getStakedBalance(cabalId, user);
-        
-        // Include auto-staked tokens if user hasn't claimed
-        uint256 autoStaked = 0;
-        if (!LibAppStorage.hasClaimed(cabalId, user) && cabal.totalRaised > 0) {
-            uint256 contribution = LibAppStorage.getContribution(cabalId, user);
-            autoStaked = (contribution * cabal.totalTokensReceived) / cabal.totalRaised;
-        }
-        
-        return manualStake + autoStaked;
+        // Tokens are now auto-staked at launch, so just use staked balance
+        return LibAppStorage.getStakedBalance(cabalId, user);
     }
 
     // ============ View Functions ============

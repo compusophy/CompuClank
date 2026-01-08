@@ -162,12 +162,8 @@ contract ViewFacet {
         return LibAppStorage.getContribution(cabalId, user);
     }
 
-    /**
-     * @notice Check if user has claimed tokens
-     */
-    function hasClaimed(uint256 cabalId, address user) external view returns (bool) {
-        return LibAppStorage.hasClaimed(cabalId, user);
-    }
+    // NOTE: hasClaimed() has been removed. Tokens are now auto-staked at launch.
+    // Users should use StakingFacet.unstake() to withdraw their tokens.
 
     // ============ Batch Queries ============
 
@@ -204,36 +200,27 @@ contract ViewFacet {
 
     /**
      * @notice Get user's position in multiple Cabals
+     * @dev Tokens are now auto-staked at launch - no more claim tracking
      */
     function getUserPositions(address user, uint256[] calldata cabalIds) external view returns (
         uint256[] memory contributions,
         uint256[] memory stakedBalances,
-        uint256[] memory votingPowers,
-        bool[] memory claimed
+        uint256[] memory votingPowers
     ) {
         contributions = new uint256[](cabalIds.length);
         stakedBalances = new uint256[](cabalIds.length);
         votingPowers = new uint256[](cabalIds.length);
-        claimed = new bool[](cabalIds.length);
         
         for (uint256 i = 0; i < cabalIds.length; i++) {
             uint256 cabalId = cabalIds[i];
-            CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
             
             contributions[i] = LibAppStorage.getContribution(cabalId, user);
             stakedBalances[i] = LibAppStorage.getStakedBalance(cabalId, user);
-            claimed[i] = LibAppStorage.hasClaimed(cabalId, user);
 
-            // Auto-staked tokens from presale (if not yet claimed)
-            uint256 autoStaked = 0;
-            if (!claimed[i] && cabal.totalRaised > 0) {
-                autoStaked = (contributions[i] * cabal.totalTokensReceived) / cabal.totalRaised;
-            }
-            
-            uint256 ownStake = stakedBalances[i];
+            // Voting power = staked + delegated (if not delegating away)
             uint256 delegatedToMe = LibAppStorage.getDelegatedPower(cabalId, user);
             address delegatee = LibAppStorage.getDelegatee(cabalId, user);
-            votingPowers[i] = delegatee != address(0) ? delegatedToMe : autoStaked + ownStake + delegatedToMe;
+            votingPowers[i] = delegatee != address(0) ? delegatedToMe : stakedBalances[i] + delegatedToMe;
         }
     }
 

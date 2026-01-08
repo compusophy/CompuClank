@@ -85,13 +85,29 @@ contract ChildCreationFacet {
         
         LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.ProposalVoted, votingPower);
         
-        // Start timer when threshold first reached
-        if (LibAppStorage.getChildCreationApprovedAt(cabalId) == 0) {
-            uint256 votesFor = LibAppStorage.getChildCreationVotesFor(cabalId);
-            uint256 majorityRequired = (cabal.totalStaked * CHILD_CREATION_MAJORITY_BPS) / BPS_DENOMINATOR;
-            if (votesFor >= majorityRequired) {
+        // Check current vote state
+        uint256 votesFor = LibAppStorage.getChildCreationVotesFor(cabalId);
+        uint256 votesAgainst = LibAppStorage.getChildCreationVotesAgainst(cabalId);
+        uint256 majorityRequired = (cabal.totalStaked * CHILD_CREATION_MAJORITY_BPS) / BPS_DENOMINATOR;
+        uint256 approvedAt = LibAppStorage.getChildCreationApprovedAt(cabalId);
+        
+        // Proposal should be cancelled if:
+        // 1. YES votes drop below 51% threshold, OR
+        // 2. NO votes exceed YES votes
+        bool shouldCancel = (votesFor < majorityRequired) || (votesAgainst > votesFor);
+        
+        if (approvedAt == 0) {
+            // No approval yet - check if YES votes meet threshold AND exceed NO votes
+            if (votesFor >= majorityRequired && votesFor > votesAgainst) {
                 LibAppStorage.setChildCreationApprovedAt(cabalId, block.timestamp);
                 emit ChildCreationApproved(cabalId, block.timestamp + CHILD_CREATION_DELAY);
+            }
+        } else {
+            // Already approved - check if proposal should be cancelled
+            if (shouldCancel) {
+                // Cancel the proposal - reset voting state
+                LibAppStorage.resetChildCreationVoting(cabalId);
+                emit ChildCreationVoteReset(cabalId, msg.sender);
             }
         }
     }

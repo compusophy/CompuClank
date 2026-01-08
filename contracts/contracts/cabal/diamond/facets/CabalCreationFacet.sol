@@ -35,12 +35,14 @@ struct Univ4EthDevBuyExtensionData {
 contract CabalCreationFacet {
     // ============ Constants ============
     
-    // Protocol fee goes to CABAL0's TBA (set dynamically)
-    // Split: 1% protocol fee + 1% per ancestor + remaining split between treasury ETH and dev buy
+    // Fee structure for BOTH launch fees (presale) AND trading fees (locker):
+    // - Protocol fee: 1% to CABAL0 (root) - SEPARATE from ancestor fees
+    // - Ancestor fee: 1% per ancestor INCLUDING root
+    // - So root gets 2% total (1% protocol + 1% ancestor) from all descendants
     uint256 constant PROTOCOL_FEE_BPS = 100;      // 1% protocol fee to CABAL0
-    uint256 constant ANCESTOR_FEE_BPS = 100;      // 1% per ancestor in the chain
-    uint256 constant TREASURY_ETH_BPS = 3300;     // 33% of remaining stays as ETH in treasury
-    uint256 constant TREASURY_TOKEN_BPS = 5000;   // 50% of devBuy tokens go to treasury (= 33% of total)
+    uint256 constant ANCESTOR_FEE_BPS = 100;      // 1% per ancestor in the chain (including root)
+    uint256 constant TREASURY_ETH_BPS = 5000;     // 50% of remaining stays as ETH in treasury
+    uint256 constant TREASURY_TOKEN_BPS = 5000;   // 50% of devBuy tokens go to treasury, 50% to stakers
     uint256 constant BPS_DENOMINATOR = 10000;
     bytes32 constant TBA_SALT = bytes32(0);
     
@@ -449,7 +451,7 @@ contract CabalCreationFacet {
         // 3. Calculate remaining after all fees
         uint256 remaining = totalRaised - protocolFee - totalAncestorFees;
         
-        // 4. Split remaining: 33% treasury ETH, 67% dev buy
+        // 4. Split remaining: 50% treasury ETH, 50% dev buy
         treasuryEth = (remaining * TREASURY_ETH_BPS) / BPS_DENOMINATOR;
         devBuyAmount = remaining - treasuryEth;
 
@@ -492,18 +494,17 @@ contract CabalCreationFacet {
      * @return ancestors Array of ancestor TBA addresses, from parent to root (empty for root/direct children of root)
      */
     function _getAncestorChain(uint256 cabalId) internal view returns (address[] memory ancestors) {
-        uint256 rootId = LibAppStorage.getRootCabalId();
         CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
         
-        // Count ancestors first (excluding root - it gets protocol fee)
+        // Count ALL ancestors including root (root gets 1% of ALL descendant trading fees)
         uint256 count = 0;
         uint256 currentId = cabal.parentCabalId;
-        while (currentId != rootId && currentId != 0) {
+        while (currentId != 0) {
             count++;
             currentId = LibAppStorage.getCabalData(currentId).parentCabalId;
         }
         
-        // Build the array
+        // Build the array - all ancestors get trading fee cuts
         ancestors = new address[](count);
         currentId = cabal.parentCabalId;
         for (uint256 i = 0; i < count; i++) {
@@ -618,55 +619,33 @@ contract CabalCreationFacet {
         });
         
         // Pool config (pair with WETH)
-        // poolData for DYNAMIC fee hook V2 encodes: PoolInitializationData { extension, extensionData, feeData }
-        // where feeData = [baseFee, maxLpFee, refPeriod, resetPeriod, resetTick, control, decay]
-        // Values: baseFee=10000 (1%), maxLpFee=10000 (1%), refPeriod=600, resetPeriod=86400, resetTick=200, control=1000000, decay=9500
-        // maxLpFee reduced from 100000 (10%) to 10000 (1%) to prevent excessive sell tax
+        // poolData copied from clanker-sdk v4 output (Jan 2026)
+        // Contains: { extension=0, extensionData=[], feeData=[10000, 10000] } for static 1% fees
         IClankerFactory.PoolConfig memory poolConfig = IClankerFactory.PoolConfig({
             hook: c.hook,
             pairedToken: s.weth,
             tickIfToken0IsClanker: DEFAULT_TICK,
             tickSpacing: DEFAULT_TICK_SPACING,
-            poolData: hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000002710000000000000000000000000000000000000000000000000000000000000271000000000000000000000000000000000000000000000000000000000000002580000000000000000000000000000000000000000000000000000000000015180000000000000000000000000000000000000000000000000000000000000c800000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000251c"
+            poolData: hex"00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000002710"
         });
         
-        // Locker config - Trading fees split between cabal and ancestors
-        // Each ancestor gets 1% (100 bps), cabal gets remainder
-        // NOTE: If Clanker locker rejects multiple recipients, we'll use single recipient
-        // and implement a separate distributeAncestorFees() function
-        address[] memory ancestors = _getAncestorChain(cabalId);
-        uint256 recipientCount = 1 + ancestors.length;
-        
-        address[] memory rewardAdmins = new address[](recipientCount);
-        address[] memory rewardRecipients = new address[](recipientCount);
-        uint16[] memory rewardBps = new uint16[](recipientCount);
-        
-        // Cabal gets remainder after ancestor shares
-        uint16 ancestorBps = 100; // 1% per ancestor
-        uint16 cabalBps = uint16(10000 - (ancestors.length * ancestorBps));
+        // Locker config - single reward recipient, single LP position
+        // Matches clanker-sdk default config (Jan 2026)
+        address[] memory rewardAdmins = new address[](1);
+        address[] memory rewardRecipients = new address[](1);
+        uint16[] memory rewardBps = new uint16[](1);
         
         rewardAdmins[0] = tbaAddress;
         rewardRecipients[0] = tbaAddress;
-        rewardBps[0] = cabalBps;
+        rewardBps[0] = 10000; // 100%
         
-        for (uint256 i = 0; i < ancestors.length; i++) {
-            rewardAdmins[i + 1] = ancestors[i];
-            rewardRecipients[i + 1] = ancestors[i];
-            rewardBps[i + 1] = ancestorBps;
-        }
+        // LP positions - single full-range position matching SDK
+        int24[] memory tickLower = new int24[](1);
+        int24[] memory tickUpper = new int24[](1);
+        uint16[] memory positionBps = new uint16[](1);
+        tickLower[0] = -230400; tickUpper[0] = -120000; positionBps[0] = 10000;
         
-        // Standard LP positions (5 positions like Clanker SDK default)
-        int24[] memory tickLower = new int24[](5);
-        int24[] memory tickUpper = new int24[](5);
-        uint16[] memory positionBps = new uint16[](5);
-        
-        tickLower[0] = -230400; tickUpper[0] = -214000; positionBps[0] = 1000;
-        tickLower[1] = -214000; tickUpper[1] = -155000; positionBps[1] = 5000;
-        tickLower[2] = -202000; tickUpper[2] = -155000; positionBps[2] = 1500;
-        tickLower[3] = -155000; tickUpper[3] = -120000; positionBps[3] = 2000;
-        tickLower[4] = -141000; tickUpper[4] = -120000; positionBps[4] = 500;
-        
-        // lockerData contains locker-specific configuration
+        // lockerData from clanker-sdk (last byte is 00 not 01)
         IClankerFactory.LockerConfig memory lockerConfig = IClankerFactory.LockerConfig({
             locker: c.locker,
             rewardAdmins: rewardAdmins,
@@ -675,16 +654,14 @@ contract CabalCreationFacet {
             tickLower: tickLower,
             tickUpper: tickUpper,
             positionBps: positionBps,
-            lockerData: hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
+            lockerData: hex"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"
         });
         
-        // MEV module config (Sniper Auction) with standard parameters
-        // Encodes: { startingFee, endingFee, secondsToDecay }
-        // Values from SDK: startingFee=100000 (1000%), endingFee=30000 (300%), secondsToDecay=15
-        // Copied directly from clanker-sdk getDeployTransaction output
+        // MEV module config from clanker-sdk (different values than before)
+        // Values: startingFee=666777, endingFee=666777, secondsToDecay=15
         IClankerFactory.MevModuleConfig memory mevConfig = IClankerFactory.MevModuleConfig({
             mevModule: c.mevModule,
-            mevModuleData: hex"00000000000000000000000000000000000000000000000000000000000186a00000000000000000000000000000000000000000000000000000000000007530000000000000000000000000000000000000000000000000000000000000000f"
+            mevModuleData: hex"00000000000000000000000000000000000000000000000000000000000a2c99000000000000000000000000000000000000000000000000000000000000a2c9000000000000000000000000000000000000000000000000000000000000000f"
         });
         
         // Extension config for devBuy - buys tokens with raised ETH

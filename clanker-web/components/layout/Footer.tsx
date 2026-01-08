@@ -1,29 +1,29 @@
 'use client';
 
-import { Activity, Bell, Code, Network, Search } from 'lucide-react';
+import { Activity, Bell, Info, Network, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { HowItWorksModal } from '@/components/HowItWorksModal';
-import Link from 'next/link';
 
-type ViewTab = 'graph' | 'search';
+export type ViewTab = 'graph' | 'activity' | 'search' | 'info';
 
 interface FooterProps {
-  onActivityClick?: () => void;
   viewTab?: ViewTab;
   onViewTabChange?: (tab: ViewTab) => void;
 }
 
-export function Footer({ onActivityClick, viewTab = 'graph', onViewTabChange }: FooterProps) {
+export function Footer({ viewTab = 'graph', onViewTabChange }: FooterProps) {
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-50 glass-golden border-t border-primary/10 h-14">
       {/* Left corner - absolute */}
       <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-        <HowItWorksModal />
-        <Link href="/old-home">
-          <Button variant="ghost" size="icon" className="rounded-full opacity-50 hover:opacity-100" title="Legacy Cabals">
-            <Code className="h-4 w-4" />
-          </Button>
-        </Link>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`rounded-full ${viewTab === 'info' ? 'bg-primary/20 text-primary' : ''}`}
+          onClick={() => onViewTabChange?.('info')}
+          title="How It Works"
+        >
+          <Info className="h-5 w-5" />
+        </Button>
       </div>
       
       {/* Center - absolute, true center of viewport */}
@@ -40,8 +40,8 @@ export function Footer({ onActivityClick, viewTab = 'graph', onViewTabChange }: 
         <Button 
           variant="ghost" 
           size="icon" 
-          className="rounded-full"
-          onClick={onActivityClick}
+          className={`rounded-full ${viewTab === 'activity' ? 'bg-primary/20 text-primary' : ''}`}
+          onClick={() => onViewTabChange?.('activity')}
           title="Activity"
         >
           <Activity className="h-5 w-5" />

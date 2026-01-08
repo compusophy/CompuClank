@@ -20,6 +20,7 @@ export function WalletButton() {
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({ address });
   const [copied, setCopied] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const copyAddress = () => {
     if (address) {
@@ -43,9 +44,13 @@ export function WalletButton() {
 
   if (!isConnected) {
     return (
-      <DropdownMenu>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="rounded-full focus-visible:ring-0">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={`rounded-full focus-visible:ring-0 ${isOpen ? 'bg-primary/20 text-primary' : ''}`}
+          >
             <Wallet className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
@@ -68,9 +73,13 @@ export function WalletButton() {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full focus-visible:ring-0">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`rounded-full focus-visible:ring-0 ${isOpen ? 'bg-primary/20 text-primary' : ''}`}
+        >
           <Wallet className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>

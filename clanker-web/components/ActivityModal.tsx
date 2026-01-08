@@ -123,6 +123,83 @@ function formatAmount(type: ActivityType, amount: bigint, symbol: string): strin
   return `${num.toFixed(3)} ${unit}`
 }
 
+// Inline Activity View (for tab navigation)
+export function ActivityView() {
+  const { data, isLoading } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "getRecentActivities",
+  })
+
+  const activities = data?.[0] as ActivityItem[] | undefined
+  const count = data?.[1] as bigint | undefined
+  const validActivities = activities && count ? activities.slice(0, Number(count)) : []
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-primary/10">
+        <Activity className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">Activity</h2>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        {isLoading ? (
+          <div className="text-center py-12 text-muted-foreground">
+            Loading...
+          </div>
+        ) : validActivities.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <Activity className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-muted-foreground">No activity yet</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Activity will appear here as people interact with cabals
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {validActivities.map((activity, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  {getActivityIcon(activity.activityType as ActivityType)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm">
+                    <span className="font-mono text-muted-foreground">
+                      {truncateAddress(activity.actor)}
+                    </span>
+                    {" "}
+                    <span>{getActivityLabel(activity.activityType as ActivityType)}</span>
+                    {" "}
+                    <span className="font-semibold font-mono">
+                      $CABAL{activity.cabalId.toString()}
+                    </span>
+                  </p>
+                  {activity.amount > 0n && (
+                    <p className="text-xs text-muted-foreground">
+                      {formatAmount(activity.activityType as ActivityType, activity.amount, `$CABAL${activity.cabalId.toString()}`)}
+                    </p>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  {formatTimeAgo(activity.timestamp)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Modal wrapper (for legacy pages)
 interface ActivityModalProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void

@@ -7,7 +7,7 @@ import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles, TrendingUp, TrendingDown, Lock, Vote, Users, Send } from "lucide-react"
+import { Loader2, Sparkles, TrendingUp, TrendingDown, Lock, Vote, Users, Send, Plus } from "lucide-react"
 import { GovernanceActionModal, GovernanceActionType } from "@/components/GovernanceActionModal"
 import { 
   buildAncestryMap, 
@@ -1260,158 +1260,150 @@ export function GraphExplorer({
     
     // Calculate where the focused node WAS positioned when viewing from parent
     // This is used to position ancestors in the opposite direction
-    let focusedNodeAngleFromParent = Math.PI / 2 // Default: ancestors go to bottom
+    let focusedNodeAngleFromParent = -Math.PI / 2 // Default: focused was above parent
     if (focusedParentId && focusedParentId !== focusedCabalId) {
       const siblings = getChildren(focusedParentId, cabalsData)
       const focusedIndexInSiblings = siblings.findIndex(c => c.id.toString() === focusedCabalId)
       if (focusedIndexInSiblings >= 0 && siblings.length > 0) {
-        const angleStep = (2 * Math.PI) / siblings.length
-        focusedNodeAngleFromParent = -Math.PI / 2 + focusedIndexInSiblings * angleStep
+        // Determine arc direction based on whether grandparent exists
+        const parentCabal = cabalsData?.find(c => c.id.toString() === focusedParentId)
+        const parentIsRoot = parentCabal ? parentCabal.parentCabalId.toString() === focusedParentId : false
+        const baseAngle = parentIsRoot ? Math.PI / 2 : -Math.PI / 2
+        
+        if (siblings.length === 1) {
+          focusedNodeAngleFromParent = baseAngle
+        } else {
+          const arcSpan = Math.PI * 0.6
+          const arcStart = baseAngle - arcSpan / 2
+          const step = arcSpan / (siblings.length - 1)
+          focusedNodeAngleFromParent = arcStart + focusedIndexInSiblings * step
+        }
       }
     }
     
     // Helper: recursively calculate node position
-    // positionCache stores {x, y, radius} for each node
-    const positionCache = new Map<string, {x: number, y: number, radius: number}>()
+    // ========================================================================
+    // STATIC TREE LAYOUT - Structure is FIXED, only viewport moves on focus change
+    // ========================================================================
     
-    // Calculate size based on distance from focused
-    const getNodeRadius = (nodeId: string): number => {
-      const ancestorDist = getAncestorDistance(focusedCabalId, nodeId, ancestryMap)
-      const descendantDist = getDescendantDistance(focusedCabalId, nodeId, ancestryMap)
-      const isSibling = areSiblings(focusedCabalId, nodeId, cabalsData)
-      
-      if (ancestorDist === 0 && descendantDist === 0) {
-        return FULL_NODE_RADIUS  // Focused node
-      } else if (ancestorDist > 0) {
-        return FULL_NODE_RADIUS * Math.pow(PHI, ancestorDist)  // Ancestors get larger
-      } else if (descendantDist > 0) {
-        return FULL_NODE_RADIUS * Math.pow(PHI_INV, descendantDist)  // Descendants get smaller
-      } else if (isSibling) {
-        return FULL_NODE_RADIUS  // Siblings same size as focused
-      } else {
-        return FULL_NODE_RADIUS * Math.pow(PHI_INV, 3)  // Unrelated - tiny
-      }
+    // Step 1: Build absolute tree positions (root at origin, children expand outward)
+    const absolutePositions = new Map<string, {x: number, y: number, radius: number}>()
+    
+    // Find root cabal
+    const rootCabal = cabalsData.find(c => c.parentCabalId.toString() === c.id.toString())
+    const rootId = rootCabal?.id.toString() || '0'
+    
+    // Calculate radius based on depth from root (not from focused)
+    const getDepthFromRoot = (nodeId: string): number => {
+      const ancestors = ancestryMap.get(nodeId) || []
+      return ancestors.length
     }
     
-    // Recursive position calculator
-    const getNodePosition = (nodeId: string): {x: number, y: number, radius: number} => {
-      // Check cache first
-      if (positionCache.has(nodeId)) {
-        return positionCache.get(nodeId)!
-      }
-      
+    const getNodeRadius = (nodeId: string): number => {
+      const depth = getDepthFromRoot(nodeId)
+      // Root is largest, each level gets smaller by PHI_INV
+      return FULL_NODE_RADIUS * Math.pow(PHI_INV, depth)
+    }
+    
+    // Store angles for each node (for animation purposes)
+    const nodeAngles = new Map<string, number>()
+    
+    // Build tree positions recursively starting from root
+    const buildTreePositions = (nodeId: string, parentX: number, parentY: number, angleFromParent: number) => {
       const cabal = cabalsData.find(c => c.id.toString() === nodeId)
-      if (!cabal) return {x: 9999, y: 9999, radius: FULL_NODE_RADIUS * 0.1}
+      if (!cabal) return
       
-      const thisRadius = getNodeRadius(nodeId)
-      const ancestorDist = getAncestorDistance(focusedCabalId, nodeId, ancestryMap)
-      const descendantDist = getDescendantDistance(focusedCabalId, nodeId, ancestryMap)
-      const isSibling = areSiblings(focusedCabalId, nodeId, cabalsData)
+      const radius = getNodeRadius(nodeId)
+      const isRoot = cabal.parentCabalId.toString() === nodeId
       const parentId = cabal.parentCabalId.toString()
       
-      let x = 0, y = 0
+      // Store angle for this node
+      nodeAngles.set(nodeId, angleFromParent)
       
-      if (nodeId === focusedCabalId) {
-        // Focused node at center
+      let x: number, y: number
+      if (isRoot) {
         x = 0
         y = 0
-      } else if (ancestorDist > 0) {
-        // Ancestors: position behind focused, stacking outward
-        // Each ancestor is positioned behind its child in the chain
-        const angle = focusedNodeAngleFromParent + Math.PI
-        
-        // Calculate cumulative distance for this ancestor level
-        let cumulativeDistance = 0
-        for (let level = 1; level <= ancestorDist; level++) {
-          const levelRadius = FULL_NODE_RADIUS * Math.pow(PHI, level)
-          const prevRadius = level === 1 ? FULL_NODE_RADIUS : FULL_NODE_RADIUS * Math.pow(PHI, level - 1)
-          // Use animated distance for level 1 (parent)
-          if (level === 1 && animatedParentDistance !== null) {
-            cumulativeDistance = animatedParentDistance
-          } else {
-            cumulativeDistance += prevRadius + levelRadius
-          }
-        }
-        
-        x = Math.cos(angle) * cumulativeDistance
-        y = Math.sin(angle) * cumulativeDistance
-      } else if (descendantDist > 0) {
-        // Descendants: position around their parent
-        // First, get parent's position recursively
-        const parentPos = getNodePosition(parentId)
-        const parentRadius = parentPos.radius
-        
-        // Get siblings (children of this node's parent)
-        const siblings = getChildren(parentId, cabalsData)
-        const myIndex = siblings.findIndex(c => c.id.toString() === nodeId)
-        const siblingCount = siblings.length
-        
-        // Calculate angle around parent
-        const angleStep = (2 * Math.PI) / siblingCount
-        const angle = -Math.PI / 2 + myIndex * angleStep
-        
-        // Calculate distance from parent
-        let distFromParent: number
-        if (descendantDist === 1 && animatedChildDistance !== null) {
-          // Direct child of focused - use animated distance from CENTER
-          distFromParent = animatedChildDistance
-          // For direct children, position from center, not from parent
-          x = Math.cos(angle) * distFromParent
-          y = Math.sin(angle) * distFromParent
-        } else {
-          // Deeper descendants - position around their parent
-          distFromParent = parentRadius + thisRadius
-          x = parentPos.x + Math.cos(angle) * distFromParent
-          y = parentPos.y + Math.sin(angle) * distFromParent
-        }
-      } else if (isSibling) {
-        // Siblings of focused: positioned around the parent
-        const parentPos = getNodePosition(focusedParentId!)
-        const parentRadius = parentPos.radius
-        
-        // Get all siblings including focused
-        const allSiblings = getChildren(focusedParentId!, cabalsData)
-        const myIndex = allSiblings.findIndex(c => c.id.toString() === nodeId)
-        const siblingCount = allSiblings.length
-        
-        const angleStep = (2 * Math.PI) / siblingCount
-        const angle = -Math.PI / 2 + myIndex * angleStep
-        const distFromParent = parentRadius + thisRadius
-        
-        x = parentPos.x + Math.cos(angle) * distFromParent
-        y = parentPos.y + Math.sin(angle) * distFromParent
       } else {
-        // Unrelated node - position relative to its parent if parent is visible
-        // This keeps children attached to their parents during transitions
-        const parentPos = getNodePosition(parentId)
+        // Position relative to parent
+        const parentRadius = absolutePositions.get(parentId)?.radius || FULL_NODE_RADIUS
         
-        // If parent is off-screen, we're also off-screen
-        if (Math.abs(parentPos.x) > 2000 || Math.abs(parentPos.y) > 2000) {
-          x = 9999
-          y = 9999
+        // Check if this node's parent is the focused node with menu open
+        // If so, use animated distance for smooth expansion
+        let dist: number
+        if (parentId === focusedCabalId && radialMenu.isOpen && radialMenu.cabalId === focusedCabalId && animatedChildDistance !== null) {
+          // Parent is focused with open menu - use animated distance
+          dist = animatedChildDistance
         } else {
-          // Stay attached to parent
-          const siblings = getChildren(parentId, cabalsData)
-          const myIndex = siblings.findIndex(c => c.id.toString() === nodeId)
-          const siblingCount = Math.max(1, siblings.length)
-          
-          const angleStep = (2 * Math.PI) / siblingCount
-          const angle = -Math.PI / 2 + myIndex * angleStep
-          const distFromParent = parentPos.radius + thisRadius
-          
-          x = parentPos.x + Math.cos(angle) * distFromParent
-          y = parentPos.y + Math.sin(angle) * distFromParent
+          // Normal distance
+          dist = parentRadius + radius
         }
+        
+        x = parentX + Math.cos(angleFromParent) * dist
+        y = parentY + Math.sin(angleFromParent) * dist
       }
       
-      const result = {x, y, radius: thisRadius}
-      positionCache.set(nodeId, result)
-      return result
+      absolutePositions.set(nodeId, { x, y, radius })
+      
+      // Position children in a downward arc (expanding outward)
+      const children = getChildren(nodeId, cabalsData)
+      if (children.length > 0) {
+        // Children expand in the same direction as this node went from its parent
+        // For root, children go downward
+        const baseAngle = isRoot ? Math.PI / 2 : angleFromParent
+        const arcSpan = Math.PI * 0.6 // 108° arc
+        
+        children.forEach((child, index) => {
+          let childAngle: number
+          if (children.length === 1) {
+            childAngle = baseAngle
+          } else {
+            const arcStart = baseAngle - arcSpan / 2
+            const step = arcSpan / (children.length - 1)
+            childAngle = arcStart + index * step
+          }
+          buildTreePositions(child.id.toString(), x, y, childAngle)
+        })
+      }
     }
     
-    // Calculate positions and interpolate for smooth sacred geometry transitions
-    const t = focusTransitionProgress
+    // Build the static tree
+    if (rootCabal) {
+      buildTreePositions(rootId, 0, 0, Math.PI / 2)
+    }
     
+    // Step 2: Calculate animated offset to center the focused node
+    // The offset animates smoothly when focus changes
+    const focusedAbsPos = absolutePositions.get(focusedCabalId) || { x: 0, y: 0, radius: FULL_NODE_RADIUS }
+    
+    // Get previous focused node position for smooth transition
+    const prevFocusedId = previousFocusRef.current
+    const prevFocusedAbsPos = absolutePositions.get(prevFocusedId) || focusedAbsPos
+    
+    // Interpolate offset based on focus transition progress
+    const t = focusTransitionProgress
+    const targetOffsetX = -focusedAbsPos.x
+    const targetOffsetY = -focusedAbsPos.y
+    const prevOffsetX = -prevFocusedAbsPos.x
+    const prevOffsetY = -prevFocusedAbsPos.y
+    
+    // Smooth interpolation of the whole viewport
+    const offsetX = prevOffsetX + (targetOffsetX - prevOffsetX) * t
+    const offsetY = prevOffsetY + (targetOffsetY - prevOffsetY) * t
+    
+    // Step 3: Apply offset to get view positions (focused at center)
+    const getNodePosition = (nodeId: string): {x: number, y: number, radius: number} => {
+      const absPos = absolutePositions.get(nodeId)
+      if (!absPos) return { x: 9999, y: 9999, radius: FULL_NODE_RADIUS * 0.1 }
+      
+      return {
+        x: absPos.x + offsetX,
+        y: absPos.y + offsetY,
+        radius: absPos.radius
+      }
+    }
+    
+    // Build graph nodes using the computed positions
     cabalsData.forEach((cabal) => {
       const nodeId = cabal.id.toString()
       const isSelected = radialMenu.isOpen && radialMenu.cabalId === nodeId
@@ -1423,28 +1415,8 @@ export function GraphExplorer({
         (isSelected && isLaunchApproved)
       )
       
-      // Get TARGET position using the recursive position calculator
-      // Positions are calculated relative to parents
-      const {x: targetX, y: targetY, radius: targetRadius} = getNodePosition(nodeId)
-      
-      // Get PREVIOUS position from snapshot (taken before focus change)
-      const prevPos = previousNodePositionsRef.current.get(nodeId)
-      
-      // Interpolate from previous to target using sacred easing
-      // t=0: show previous position, t=1: show target position
-      let currentX: number, currentY: number, currentRadius: number
-      
-      if (prevPos && t < 1) {
-        // Smooth interpolation with easing (already applied by animateValue)
-        currentX = prevPos.x + (targetX - prevPos.x) * t
-        currentY = prevPos.y + (targetY - prevPos.y) * t
-        currentRadius = prevPos.radius + (targetRadius - prevPos.radius) * t
-      } else {
-        // No previous position or transition complete
-        currentX = targetX
-        currentY = targetY
-        currentRadius = targetRadius
-      }
+      // Get position (already includes animated offset for focus transitions)
+      const {x: currentX, y: currentY, radius: currentRadius} = getNodePosition(nodeId)
       
       const node: GraphNode = {
         id: nodeId,
@@ -2339,123 +2311,148 @@ export function GraphExplorer({
                   // Can vote if has stake and treasury has funds
                   const canVote = hasStake && hasTreasuryFunds
                   
+                  // Check if user voted NO (vote value 2)
+                  const userVotedChildNo = !isUserChildVoteFetching && (userChildVote ?? 0n) === 2n
+                  const userHasVoted = userVotedChildYes || userVotedChildNo
+                  
+                  // Active child creation vote in progress
+                  const hasActiveChildVote = votesFor > 0n || votesAgainst > 0n || majorityMet
+                  
+                  // Calculate user's voting power
+                  const userPowerPercent = (() => {
+                    const totalStaked = selectedCabal?.totalStaked ?? 0n
+                    const userStaked = stakedBalance ?? 0n
+                    if (totalStaked === 0n) return "0.00"
+                    const pct = Number((userStaked * 10000n) / totalStaked) / 100
+                    return pct.toFixed(2)
+                  })()
+                  
                   return (
                     <div className="px-3 py-2 space-y-1.5 w-full text-center">
-                      {majorityMet ? (
-                        // Vote passed - show finalize or countdown
-                        isChildFinalizable ? (
-                          <Button
-                            onClick={handleFinalizeChildCreation}
-                            disabled={isChildFinalizeLoading}
-                            className="w-full h-8 text-xs"
-                            size="sm"
-                          >
-                            {isChildFinalizeLoading ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
+                      {/* Power display - always show at top */}
+                      <div className="flex justify-between text-xs pb-1 border-b border-primary/10">
+                        <span className="text-muted-foreground">Power:</span>
+                        <span className={hasStake ? 'text-primary font-medium' : 'text-muted-foreground'}>{userPowerPercent}%</span>
+                      </div>
+                      
+                      {hasActiveChildVote ? (
+                        // Active Vote - show vote UI only, no button grid
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-medium text-primary">Create CABAL</p>
+                          
+                          {majorityMet ? (
+                            // Vote passed - show finalize or countdown
+                            isChildFinalizable ? (
+                              <>
+                                <p className="text-[9px] text-green-500">Passed</p>
+                                <Button
+                                  onClick={handleFinalizeChildCreation}
+                                  disabled={isChildFinalizeLoading}
+                                  className="w-full h-7 text-xs"
+                                  size="sm"
+                                >
+                                  {isChildFinalizeLoading ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    "Finalize"
+                                  )}
+                                </Button>
+                              </>
                             ) : (
-                              "Create CABAL"
-                            )}
-                          </Button>
-                        ) : (
-                          <>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Creating in</p>
-                            <p className="text-lg font-mono font-bold">{childMinsRemaining} min</p>
-                          </>
-                        )
-                      ) : (
-                        // Voting in progress or no proposal yet - show UI even if can't vote (greyed)
-                        <>
-                          {/* Power display - always show */}
-                          <div className={`space-y-1 ${!canVote ? 'opacity-50' : ''}`}>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Power:</span>
-                              <span>{(() => {
-                                const totalStaked = selectedCabal?.totalStaked ?? 0n
-                                const userStaked = stakedBalance ?? 0n
-                                if (totalStaked === 0n) return "0.00%"
-                                const pct = Number((userStaked * 10000n) / totalStaked) / 100
-                                return pct.toFixed(2) + "%"
-                              })()}</span>
-                            </div>
-                            {/* Vote Progress bar - only show if there are votes */}
-                            {votesFor > 0n && (
-                              <div className="h-2 bg-muted rounded-full overflow-hidden relative">
+                              <div className="text-center">
+                                <p className="text-[9px] text-green-500">Passed</p>
+                                <p className="text-xs text-muted-foreground">{childMinsRemaining}m</p>
+                              </div>
+                            )
+                          ) : (
+                            // Vote in progress - show progress and YES/NO buttons
+                            <>
+                              <div className="flex justify-between text-[9px]">
+                                <span className="text-green-500">{childYesPercent}%</span>
+                                <span className="text-muted-foreground">51%</span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
                                 <div 
-                                  className="absolute left-0 top-0 bottom-0 bg-primary rounded-l-full transition-all"
-                                  style={{ width: `${childYesPercent}%` }}
+                                  className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-l-full transition-all"
+                                  style={{ width: `${Math.min(childYesPercent, 100)}%` }}
                                 />
                               </div>
-                            )}
-                          </div>
-                          {/* Vote Button - disabled if no stake or no treasury funds */}
-                          <Button
+                              <div className="flex gap-1">
+                                <Button
+                                  onClick={() => handleVoteChildCreation(true)}
+                                  disabled={!canVote || isChildVoteLoading || userVotedChildYes}
+                                  className="flex-1 h-6 text-[10px] bg-green-600 hover:bg-green-700"
+                                  size="sm"
+                                >
+                                  {userVotedChildYes ? "Yes" : "Yes"}
+                                </Button>
+                                <Button
+                                  onClick={() => handleVoteChildCreation(false)}
+                                  disabled={!canVote || isChildVoteLoading || userVotedChildNo}
+                                  className="flex-1 h-6 text-[10px] bg-red-600 hover:bg-red-700"
+                                  size="sm"
+                                  variant="destructive"
+                                >
+                                  {userVotedChildNo ? "No" : "No"}
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        // No active vote - show governance grid
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
                             onClick={() => handleVoteChildCreation(true)}
-                            disabled={!canVote || isChildVoteLoading || userVotedChildYes}
-                            className="w-full h-7 text-xs"
-                            size="sm"
+                            disabled={!canVote}
+                            className={`flex flex-col items-center gap-0.5 py-1 px-1 rounded transition-colors ${
+                              !canVote ? 'opacity-40 cursor-not-allowed' : 'hover:bg-primary/10'
+                            }`}
+                            title="Create new CABAL"
                           >
-                            {isChildVoteLoading ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              userVotedChildYes ? "✓ Voted" : "Create CABAL"
-                            )}
-                          </Button>
-                        </>
-                      )}
-                      
-                      {/* Governance Actions Grid - only show when no active child creation vote */}
-                      {votesFor === 0n && !majorityMet && (
-                        <div className="pt-1 border-t border-primary/20 mt-1">
-                          <div className="grid grid-cols-3 gap-1">
-                            <button
-                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'contribute' })}
-                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                              title="Contribute to presale"
-                            >
-                              <Send className="h-3 w-3 text-primary" />
-                              <span className="text-[8px] text-muted-foreground">Contrib</span>
-                            </button>
-                            <button
-                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'buy' })}
-                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                              title="Buy tokens"
-                            >
-                              <TrendingUp className="h-3 w-3 text-green-500" />
-                              <span className="text-[8px] text-muted-foreground">Buy</span>
-                            </button>
-                            <button
-                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'sell' })}
-                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                              title="Sell tokens"
-                            >
-                              <TrendingDown className="h-3 w-3 text-red-500" />
-                              <span className="text-[8px] text-muted-foreground">Sell</span>
-                            </button>
-                            <button
-                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'stake' })}
-                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                              title="Stake in cabal"
-                            >
-                              <Lock className="h-3 w-3 text-blue-500" />
-                              <span className="text-[8px] text-muted-foreground">Stake</span>
-                            </button>
-                            <button
-                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'vote' })}
-                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                              title="Vote in cabal"
-                            >
-                              <Vote className="h-3 w-3 text-purple-500" />
-                              <span className="text-[8px] text-muted-foreground">Vote</span>
-                            </button>
-                            <button
-                              onClick={() => setGovernanceAction({ isOpen: true, actionType: 'delegate' })}
-                              className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                              title="Delegate power"
-                            >
-                              <Users className="h-3 w-3 text-orange-500" />
-                              <span className="text-[8px] text-muted-foreground">Deleg</span>
-                            </button>
-                          </div>
+                            <Plus className="h-3 w-3 text-primary" />
+                            <span className="text-[8px] text-muted-foreground">Create</span>
+                          </button>
+                          <button
+                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'contribute' })}
+                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                            title="Contribute to presale"
+                          >
+                            <Send className="h-3 w-3 text-primary" />
+                            <span className="text-[8px] text-muted-foreground">Contrib</span>
+                          </button>
+                          <button
+                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'buy' })}
+                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                            title="Buy tokens"
+                          >
+                            <TrendingUp className="h-3 w-3 text-green-500" />
+                            <span className="text-[8px] text-muted-foreground">Buy</span>
+                          </button>
+                          <button
+                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'sell' })}
+                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                            title="Sell tokens"
+                          >
+                            <TrendingDown className="h-3 w-3 text-red-500" />
+                            <span className="text-[8px] text-muted-foreground">Sell</span>
+                          </button>
+                          <button
+                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'stake' })}
+                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                            title="Stake in cabal"
+                          >
+                            <Lock className="h-3 w-3 text-blue-500" />
+                            <span className="text-[8px] text-muted-foreground">Stake</span>
+                          </button>
+                          <button
+                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'delegate' })}
+                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
+                            title="Delegate power"
+                          >
+                            <Users className="h-3 w-3 text-orange-500" />
+                            <span className="text-[8px] text-muted-foreground">Deleg</span>
+                          </button>
                         </div>
                       )}
                   </div>

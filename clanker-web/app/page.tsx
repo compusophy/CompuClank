@@ -20,12 +20,13 @@ import { haptics } from "@/lib/haptics"
 import { useHierarchicalCabals } from "@/hooks/useHierarchicalCabals"
 import { useUserCabalPositions } from "@/hooks/useUserCabalPositions"
 import { useLaunchingCabals } from "@/hooks/useLaunchingCabals"
-import { ActivityModal } from "@/components/ActivityModal"
+import { ActivityView } from "@/components/ActivityModal"
+import { HowItWorksView } from "@/components/HowItWorksModal"
 import { GraphExplorer } from "@/components/GraphExplorer"
+import { ViewTab } from "@/components/layout/Footer"
 
 type PhaseFilter = "all" | "active" | "launching" | "presale"
 type SortOrder = "newest" | "oldest"
-type ViewTab = "graph" | "search"
 
 function formatPercent(value: number): string {
   if (value === 0) return "0.00%"
@@ -220,7 +221,6 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCabalId, setSelectedCabalId] = useState<bigint | null>(null)
   const [isTradeModalOpen, setIsTradeModalOpen] = useState(false)
-  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false)
 
   // Hierarchical cabals only (CABAL0 and descendants, excludes legacy)
   const { 
@@ -326,6 +326,14 @@ export default function HomePage() {
 
   // Handle back navigation
   const handleBack = () => setSelectedCabalId(null)
+  
+  // Handle tab changes - close details view when switching to graph/activity/info
+  const handleViewTabChange = (tab: ViewTab) => {
+    if (tab !== 'search') {
+      setSelectedCabalId(null) // Close details view
+    }
+    setViewTab(tab)
+  }
 
   // Handle create success
   const handleCreateSuccess = async (newCabalId?: bigint) => {
@@ -367,7 +375,7 @@ export default function HomePage() {
             </div>
           </Card>
         </main>
-        <Footer onActivityClick={() => setIsActivityModalOpen(true)} />
+        <Footer viewTab={viewTab} onViewTabChange={handleViewTabChange} />
       </div>
     )
   }
@@ -393,17 +401,45 @@ export default function HomePage() {
       </header>
 
       {/* Main Content */}
-      {viewTab === "graph" && !isViewingDetails ? (
-        /* Graph view - fixed position filling between header and footer */
+      
+      {/* Graph view - always mounted to preserve state, hidden via CSS when not active */}
+      <div 
+        className="fixed p-3.5"
+        style={{ 
+          top: 56, 
+          bottom: 56, 
+          left: 0, 
+          right: 0,
+          display: viewTab === "graph" && !isViewingDetails ? 'block' : 'none'
+        }}
+      >
+        <GraphExplorer
+          onSelectCabal={setSelectedCabalId}
+        />
+      </div>
+      
+      {/* Activity view - fixed position filling between header and footer */}
+      {viewTab === "activity" && !isViewingDetails ? (
         <div 
-          className="fixed p-3.5"
+          className="fixed"
           style={{ top: 56, bottom: 56, left: 0, right: 0 }}
         >
-          <GraphExplorer
-            onSelectCabal={setSelectedCabalId}
-          />
+          <ActivityView />
         </div>
-      ) : (
+      ) : null}
+      
+      {/* Info/How It Works view - fixed position filling between header and footer */}
+      {viewTab === "info" && !isViewingDetails ? (
+        <div 
+          className="fixed"
+          style={{ top: 56, bottom: 56, left: 0, right: 0 }}
+        >
+          <HowItWorksView />
+        </div>
+      ) : null}
+      
+      {/* Normal scrollable content (search, details) */}
+      {(viewTab === "search" || isViewingDetails) && (
         /* Normal scrollable content */
         <main className="page-container py-3.5">
           {isViewingDetails ? (
@@ -577,9 +613,8 @@ export default function HomePage() {
 
       {/* Footer */}
       <Footer 
-        onActivityClick={() => setIsActivityModalOpen(true)} 
         viewTab={viewTab}
-        onViewTabChange={setViewTab}
+        onViewTabChange={handleViewTabChange}
       />
 
       {/* Trade Modal for Primary CTA */}
@@ -593,12 +628,6 @@ export default function HomePage() {
           initialTab="buy"
         />
       )}
-
-      {/* Activity Modal */}
-      <ActivityModal
-        isOpen={isActivityModalOpen}
-        onOpenChange={setIsActivityModalOpen}
-      />
     </div>
   )
 }

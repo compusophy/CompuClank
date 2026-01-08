@@ -19,6 +19,7 @@ export function SettingsModal() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [uiScale, setUiScale] = React.useState(100)
+  const [isOpen, setIsOpen] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
@@ -48,9 +49,13 @@ export function SettingsModal() {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full focus-visible:ring-0">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`rounded-full focus-visible:ring-0 ${isOpen ? 'bg-primary/20 text-primary' : ''}`}
+        >
           <Settings className="h-5 w-5" />
           <span className="sr-only">Settings</span>
         </Button>

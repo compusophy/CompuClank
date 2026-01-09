@@ -11,9 +11,6 @@ import { Loader2, Sparkles, TrendingUp, TrendingDown, Lock, Vote, Users, Send, P
 import { GovernanceActionModal, GovernanceActionType } from "@/components/GovernanceActionModal"
 import { 
   buildAncestryMap, 
-  getAncestorDistance, 
-  getDescendantDistance, 
-  areSiblings, 
   getChildren,
   CabalInfo 
 } from "@/lib/graph-helpers"
@@ -34,7 +31,7 @@ import dynamic from "next/dynamic"
 import { toast } from "sonner"
 import { haptics } from "@/lib/haptics"
 import { formatCompact } from "@/lib/utils"
-import { animateValue, ANIM_DURATION, easing } from "@/lib/animations"
+import { animateValue, animateValues, ANIM_DURATION, easing } from "@/lib/animations"
 import { forceCollide, forceManyBody } from "d3-force"
 import { useTheme } from "next-themes"
 
@@ -143,6 +140,10 @@ export function GraphExplorer({
     ? Math.min(dimensions.width, dimensions.height) / 2 - CONTAINER_PADDING
     : 175
   
+  // Golden ratio constants
+  const PHI = 1.61803      // φ - the golden ratio
+  const PHI_INV = 0.61803  // φ⁻¹ = 1/φ = φ-1
+  
   // Scale so expanded panels fit inside availableRadius
   // Panel outer edge = SMALL_NODE_RADIUS + PANEL_SIZE = SMALL_NODE_RADIUS × 4.236
   // SMALL_NODE_RADIUS = FULL_NODE_RADIUS × 0.618
@@ -150,9 +151,9 @@ export function GraphExplorer({
   // Therefore: FULL_NODE_RADIUS = availableRadius / 2.618
   const FULL_NODE_RADIUS = availableRadius / 2.618
   // When expanded with panels, node shrinks to φ⁻¹ of its size
-  const SMALL_NODE_RADIUS = FULL_NODE_RADIUS * 0.61803
+  const SMALL_NODE_RADIUS = FULL_NODE_RADIUS * PHI_INV
   // Panels are φ (1.61803) × the shrunken center node
-  const NODE_RADIUS = SMALL_NODE_RADIUS * 1.61803
+  const NODE_RADIUS = SMALL_NODE_RADIUS * PHI
   
   // Contribution input state
   const [contributionAmount, setContributionAmount] = useState("0.00001")
@@ -1023,79 +1024,17 @@ export function GraphExplorer({
     }
   }, [animatedRadius, FULL_NODE_RADIUS])
   
-  // Smooth radius animation when menu opens/closes
-  useEffect(() => {
-    const isEntering = menuAnimState === 'entering'
-    const isExiting = menuAnimState === 'exiting'
-    
-    // Only animate on actual transitions
-    if (!isEntering && !isExiting) {
-      return
-    }
-    
-    const targetRadius = isExiting ? FULL_NODE_RADIUS : SMALL_NODE_RADIUS
-    const startRadius = animatedRadius || FULL_NODE_RADIUS
-    
-    if (Math.abs(targetRadius - startRadius) < 1) {
-      setAnimatedRadius(targetRadius)
-      return
-    }
-    
-    const cleanup = animateValue({
-      from: startRadius,
-      to: targetRadius,
-      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
-      easing: easing.easeOutCubic,
-      onUpdate: setAnimatedRadius,
-    })
-    
-    return cleanup
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
+  // Get the natural radius of focused node
+  // With generation-based sizing, focused node is ALWAYS FULL_NODE_RADIUS
+  const getFocusedNaturalRadius = useCallback(() => {
+    return FULL_NODE_RADIUS
+  }, [FULL_NODE_RADIUS])
 
-  // Animate child node distance when parent expands/collapses
-  useEffect(() => {
-    const isEntering = menuAnimState === 'entering'
-    const isExiting = menuAnimState === 'exiting'
-    
-    // Only animate on actual transitions
-    if (!isEntering && !isExiting) {
-      return
-    }
-    
-    const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
-    const panelOuterEdge = SMALL_NODE_RADIUS + panelSize
-    const childRadius = FULL_NODE_RADIUS * 0.61803
-    const expandedDistance = panelOuterEdge + childRadius
-    const collapsedDistance = FULL_NODE_RADIUS + childRadius
-    
-    const targetDistance = isExiting ? collapsedDistance : expandedDistance
-    const startDistance = animatedChildDistance ?? collapsedDistance
-    
-    if (Math.abs(targetDistance - startDistance) < 1) {
-      setAnimatedChildDistance(targetDistance)
-      return
-    }
-    
-    const cleanup = animateValue({
-      from: startDistance,
-      to: targetDistance,
-      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
-      easing: easing.easeOutCubic,
-      onUpdate: setAnimatedChildDistance,
-    })
-    
-    return cleanup
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
-
-  // Animate parent node distance when focused node's menu expands/collapses
-  const parentDistanceStartRef = useRef<number | null>(null)
+  // Unified menu expand/collapse animation
+  // All values animate together with synchronized timing for sacred geometry harmony
   const prevMenuAnimStateRef = useRef<string>('exited')
   
   useEffect(() => {
-    // Only animate on actual state transitions, not on initial render
-    const wasExited = prevMenuAnimStateRef.current === 'exited'
     const isEntering = menuAnimState === 'entering'
     const isExiting = menuAnimState === 'exiting'
     
@@ -1107,68 +1046,58 @@ export function GraphExplorer({
     
     prevMenuAnimStateRef.current = menuAnimState
     
-    const PHI = 1.61803
-    const parentRadius = FULL_NODE_RADIUS * PHI
-    const panelSize = SMALL_NODE_RADIUS * 2 * PHI
-    const ringRadius = SMALL_NODE_RADIUS + panelSize
+    // Calculate all collapsed and expanded values using golden ratio math
+    const focusedRadius = FULL_NODE_RADIUS
+    const childRadius = focusedRadius * PHI_INV
+    const parentRadius = focusedRadius * PHI
+    const shrunkRadius = focusedRadius * PHI_INV
+    // Panel outer edge = FULL × φ² (shrunkCenter + panelRadius×2 where panelRadius = FULL)
+    const panelOuterEdge = focusedRadius * PHI * PHI  // = FULL × φ² = FULL × 2.618
     
-    const expandedDistance = ringRadius + parentRadius
-    const collapsedDistance = FULL_NODE_RADIUS + parentRadius
+    // Collapsed state (menu closed) - all nodes tangent
+    const collapsedNodeRadius = focusedRadius                     // Focused at full size
+    const collapsedChildDist = focusedRadius + childRadius        // = FULL × φ
+    const collapsedParentDist = focusedRadius + parentRadius      // = FULL × φ²
+    const collapsedRingRadius = focusedRadius                     // Ring at node edge
     
-    const targetDistance = isExiting ? collapsedDistance : expandedDistance
-    const startDistance = animatedParentDistance ?? collapsedDistance
+    // Expanded state (menu open) - nodes pushed out for panels
+    const expandedNodeRadius = shrunkRadius                       // Shrink to φ⁻¹
+    const expandedChildDist = panelOuterEdge + childRadius        // Panel edge + child radius
+    const expandedParentDist = panelOuterEdge + parentRadius      // Panel edge + parent radius
+    const expandedRingRadius = panelOuterEdge                     // Ring at panel outer edge = FULL × φ²
     
-    if (Math.abs(targetDistance - startDistance) < 1) {
-      setAnimatedParentDistance(targetDistance)
-      return
-    }
+    // Get current values for smooth reversal (use current animated value, not default)
+    // Also handle 0 as invalid (means not yet initialized)
+    const currentNodeRadius = (animatedRadius && animatedRadius > 0) ? animatedRadius : (isEntering ? collapsedNodeRadius : expandedNodeRadius)
+    const currentChildDist = animatedChildDistance ?? (isEntering ? collapsedChildDist : expandedChildDist)
+    const currentParentDist = animatedParentDistance ?? (isEntering ? collapsedParentDist : expandedParentDist)
+    const currentRingRadius = animatedSubmenuRingRadius ?? (isEntering ? collapsedRingRadius : expandedRingRadius)
     
-    const cleanup = animateValue({
-      from: startDistance,
-      to: targetDistance,
-      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
-      easing: easing.easeOutCubic,
-      onUpdate: setAnimatedParentDistance,
+    // Target values based on direction
+    const targetNodeRadius = isExiting ? collapsedNodeRadius : expandedNodeRadius
+    const targetChildDist = isExiting ? collapsedChildDist : expandedChildDist
+    const targetParentDist = isExiting ? collapsedParentDist : expandedParentDist
+    const targetRingRadius = isExiting ? collapsedRingRadius : expandedRingRadius
+    
+    // Use same duration and easing for all - φ⁻¹ seconds (618ms) for sacred timing
+    const duration = ANIM_DURATION.slow  // 618ms = φ⁻¹ seconds
+    const easingFn = easing.easeOutCubic
+    
+    // Animate all values in parallel for perfect synchronization
+    const cleanup = animateValues({
+      values: [
+        { from: currentNodeRadius, to: targetNodeRadius, onUpdate: setAnimatedRadius },
+        { from: currentChildDist, to: targetChildDist, onUpdate: setAnimatedChildDistance },
+        { from: currentParentDist, to: targetParentDist, onUpdate: setAnimatedParentDistance },
+        { from: currentRingRadius, to: targetRingRadius, onUpdate: setAnimatedSubmenuRingRadius },
+      ],
+      duration,
+      easing: easingFn,
     })
     
     return cleanup
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
-
-  // Animate submenu ring radius when menu opens/closes
-  useEffect(() => {
-    const isEntering = menuAnimState === 'entering'
-    const isExiting = menuAnimState === 'exiting'
-    
-    // Only animate on actual transitions
-    if (!isEntering && !isExiting) {
-      return
-    }
-    
-    const panelSize = SMALL_NODE_RADIUS * 2 * 1.61803
-    const panelOffset = SMALL_NODE_RADIUS + panelSize / 2
-    const expandedRingRadius = panelOffset + panelSize / 2
-    const collapsedRingRadius = FULL_NODE_RADIUS
-    
-    const targetRadius = isExiting ? collapsedRingRadius : expandedRingRadius
-    const startRadius = animatedSubmenuRingRadius ?? collapsedRingRadius
-    
-    if (Math.abs(targetRadius - startRadius) < 1) {
-      setAnimatedSubmenuRingRadius(targetRadius)
-      return
-    }
-    
-    const cleanup = animateValue({
-      from: startRadius,
-      to: targetRadius,
-      duration: isExiting ? ANIM_DURATION.relaxed : ANIM_DURATION.smooth,
-      easing: easing.easeOutCubic,
-      onUpdate: setAnimatedSubmenuRingRadius,
-    })
-    
-    return cleanup
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuAnimState, FULL_NODE_RADIUS, SMALL_NODE_RADIUS])
+  }, [menuAnimState, FULL_NODE_RADIUS])
 
   // Entrance animation - bloom nodes in when data first loads
   useEffect(() => {
@@ -1281,35 +1210,54 @@ export function GraphExplorer({
       }
     }
     
-    // Helper: recursively calculate node position
     // ========================================================================
-    // STATIC TREE LAYOUT - Structure is FIXED, only viewport moves on focus change
+    // TREE WITH PRESERVED ATTACHMENTS
+    // ========================================================================
+    // When menu opens, children push out AND their descendants stay attached
+    // Parent also pushes out AND its ancestors stay attached
     // ========================================================================
     
-    // Step 1: Build absolute tree positions (root at origin, children expand outward)
-    const absolutePositions = new Map<string, {x: number, y: number, radius: number}>()
+    const absolutePositions = new Map<string, {x: number, y: number, radius: number, angle: number}>()
     
-    // Find root cabal
+    // Find root
     const rootCabal = cabalsData.find(c => c.parentCabalId.toString() === c.id.toString())
     const rootId = rootCabal?.id.toString() || '0'
     
-    // Calculate radius based on depth from root (not from focused)
-    const getDepthFromRoot = (nodeId: string): number => {
-      const ancestors = ancestryMap.get(nodeId) || []
-      return ancestors.length
-    }
-    
+    // GENERATION-BASED SIZING: The meta-structure NEVER changes
+    // Each node's generation (depth from root) determines its base size
+    // When focused on a node, the whole tree scales uniformly so focused = FULL_NODE_RADIUS
+    // 
+    // Formula: radius = FULL_NODE_RADIUS * PHI^(focusedGeneration - nodeGeneration)
+    // - Same generation as focused: PHI^0 = 1 → FULL_NODE_RADIUS
+    // - Parent generation: PHI^1 = 1.618 → larger
+    // - Child generation: PHI^(-1) = 0.618 → smaller
+    // - All relative relationships are preserved regardless of focus
     const getNodeRadius = (nodeId: string): number => {
-      const depth = getDepthFromRoot(nodeId)
-      // Root is largest, each level gets smaller by PHI_INV
-      return FULL_NODE_RADIUS * Math.pow(PHI_INV, depth)
+      // Get generation (depth from root) for this node
+      const nodeAncestors = ancestryMap.get(nodeId) || []
+      const nodeGeneration = nodeAncestors.length
+      
+      // Get generation of focused node
+      const focusedAncestors = ancestryMap.get(focusedCabalId) || []
+      const focusedGeneration = focusedAncestors.length
+      
+      // Scale so focused node is at FULL_NODE_RADIUS
+      // All other nodes scale proportionally based on their generation difference
+      const generationDiff = focusedGeneration - nodeGeneration
+      return FULL_NODE_RADIUS * Math.pow(PHI, generationDiff)
     }
     
-    // Store angles for each node (for animation purposes)
-    const nodeAngles = new Map<string, number>()
+    // Check if menu is open on focused node
+    const menuIsOpen = radialMenu.isOpen && radialMenu.cabalId === focusedCabalId
     
-    // Build tree positions recursively starting from root
-    const buildTreePositions = (nodeId: string, parentX: number, parentY: number, angleFromParent: number) => {
+    // Calculate expansion distance
+    const focusedRadius = getNodeRadius(focusedCabalId)
+    const focusedChildRadius = focusedRadius * PHI_INV
+    const collapsedChildDist = focusedRadius + focusedChildRadius
+    const expandedChildDist = animatedChildDistance ?? collapsedChildDist
+    
+    // Build tree with expansion applied at the right place
+    const buildTree = (nodeId: string, parentX: number, parentY: number, angle: number) => {
       const cabal = cabalsData.find(c => c.id.toString() === nodeId)
       if (!cabal) return
       
@@ -1317,90 +1265,141 @@ export function GraphExplorer({
       const isRoot = cabal.parentCabalId.toString() === nodeId
       const parentId = cabal.parentCabalId.toString()
       
-      // Store angle for this node
-      nodeAngles.set(nodeId, angleFromParent)
-      
       let x: number, y: number
+      
       if (isRoot) {
         x = 0
         y = 0
       } else {
-        // Position relative to parent
-        const parentRadius = absolutePositions.get(parentId)?.radius || FULL_NODE_RADIUS
+        const parentData = absolutePositions.get(parentId)
+        const parentRadius = parentData?.radius || FULL_NODE_RADIUS
         
-        // Check if this node's parent is the focused node with menu open
-        // If so, use animated distance for smooth expansion
-        let dist: number
-        if (parentId === focusedCabalId && radialMenu.isOpen && radialMenu.cabalId === focusedCabalId && animatedChildDistance !== null) {
-          // Parent is focused with open menu - use animated distance
-          dist = animatedChildDistance
-        } else {
-          // Normal distance
-          dist = parentRadius + radius
+        // Normal distance: tangent circles
+        let dist = parentRadius + radius
+        
+        // If my parent is the focused node AND menu is open, use expanded distance
+        if (menuIsOpen && parentId === focusedCabalId) {
+          dist = expandedChildDist
         }
         
-        x = parentX + Math.cos(angleFromParent) * dist
-        y = parentY + Math.sin(angleFromParent) * dist
+        x = parentX + Math.cos(angle) * dist
+        y = parentY + Math.sin(angle) * dist
       }
       
-      absolutePositions.set(nodeId, { x, y, radius })
+      absolutePositions.set(nodeId, { x, y, radius, angle })
       
-      // Position children in a downward arc (expanding outward)
+      // Position children - they inherit parent's position so stay attached
       const children = getChildren(nodeId, cabalsData)
       if (children.length > 0) {
-        // Children expand in the same direction as this node went from its parent
-        // For root, children go downward
-        const baseAngle = isRoot ? Math.PI / 2 : angleFromParent
-        const arcSpan = Math.PI * 0.6 // 108° arc
+        const baseAngle = isRoot ? Math.PI / 2 : angle
+        const arcSpan = Math.PI * 0.6
         
-        children.forEach((child, index) => {
-          let childAngle: number
-          if (children.length === 1) {
-            childAngle = baseAngle
-          } else {
-            const arcStart = baseAngle - arcSpan / 2
-            const step = arcSpan / (children.length - 1)
-            childAngle = arcStart + index * step
-          }
-          buildTreePositions(child.id.toString(), x, y, childAngle)
+        children.forEach((child, i) => {
+          const childAngle = children.length === 1 
+            ? baseAngle 
+            : baseAngle - arcSpan/2 + (i / (children.length - 1)) * arcSpan
+          buildTree(child.id.toString(), x, y, childAngle)
         })
       }
     }
     
-    // Build the static tree
+    // Build from root
     if (rootCabal) {
-      buildTreePositions(rootId, 0, 0, Math.PI / 2)
+      buildTree(rootId, 0, 0, Math.PI / 2)
     }
     
-    // Step 2: Calculate animated offset to center the focused node
-    // The offset animates smoothly when focus changes
-    const focusedAbsPos = absolutePositions.get(focusedCabalId) || { x: 0, y: 0, radius: FULL_NODE_RADIUS }
+    // Now handle parent expansion - parent of focused also needs to push out
+    // We need to shift the parent (and all its ancestors) outward
+    // Parent uses animatedParentDistance (not child distance) since parent is bigger
+    const parentRadiusForExpansion = FULL_NODE_RADIUS * PHI
+    // Panel outer edge = FULL × φ² (matches animation calculation)
+    const panelOuterEdgeForExpansion = FULL_NODE_RADIUS * PHI * PHI
+    const expandedParentDist = animatedParentDistance ?? (panelOuterEdgeForExpansion + parentRadiusForExpansion)
     
-    // Get previous focused node position for smooth transition
-    const prevFocusedId = previousFocusRef.current
-    const prevFocusedAbsPos = absolutePositions.get(prevFocusedId) || focusedAbsPos
-    
-    // Interpolate offset based on focus transition progress
-    const t = focusTransitionProgress
-    const targetOffsetX = -focusedAbsPos.x
-    const targetOffsetY = -focusedAbsPos.y
-    const prevOffsetX = -prevFocusedAbsPos.x
-    const prevOffsetY = -prevFocusedAbsPos.y
-    
-    // Smooth interpolation of the whole viewport
-    const offsetX = prevOffsetX + (targetOffsetX - prevOffsetX) * t
-    const offsetY = prevOffsetY + (targetOffsetY - prevOffsetY) * t
-    
-    // Step 3: Apply offset to get view positions (focused at center)
-    const getNodePosition = (nodeId: string): {x: number, y: number, radius: number} => {
-      const absPos = absolutePositions.get(nodeId)
-      if (!absPos) return { x: 9999, y: 9999, radius: FULL_NODE_RADIUS * 0.1 }
+    if (menuIsOpen && focusedParentId && focusedParentId !== focusedCabalId) {
+      const parentPos = absolutePositions.get(focusedParentId)
+      const focusedPos = absolutePositions.get(focusedCabalId)
       
-      return {
-        x: absPos.x + offsetX,
-        y: absPos.y + offsetY,
-        radius: absPos.radius
+      if (parentPos && focusedPos) {
+        // Calculate how much to shift (expand outward from focused)
+        const currentDist = Math.sqrt(
+          Math.pow(parentPos.x - focusedPos.x, 2) + 
+          Math.pow(parentPos.y - focusedPos.y, 2)
+        )
+        const targetDist = expandedParentDist
+        const shift = targetDist - currentDist
+        
+        if (shift > 0) {
+          // Direction from focused to parent
+          const dx = parentPos.x - focusedPos.x
+          const dy = parentPos.y - focusedPos.y
+          const dist = Math.sqrt(dx*dx + dy*dy)
+          if (dist > 0.1) {
+            const shiftX = (dx / dist) * shift
+            const shiftY = (dy / dist) * shift
+            
+            // Build set of focused node's descendants (they expand differently, not shifted)
+            const focusedDescendants = new Set<string>([focusedCabalId])
+            const collectDescendants = (nodeId: string) => {
+              const children = getChildren(nodeId, cabalsData)
+              children.forEach(child => {
+                focusedDescendants.add(child.id.toString())
+                collectDescendants(child.id.toString())
+              })
+            }
+            collectDescendants(focusedCabalId)
+            
+            // Shift ALL nodes EXCEPT focused and its descendants
+            // This moves the entire graph as a unit
+            absolutePositions.forEach((pos, nodeId) => {
+              if (!focusedDescendants.has(nodeId)) {
+                absolutePositions.set(nodeId, {
+                  ...pos,
+                  x: pos.x + shiftX,
+                  y: pos.y + shiftY
+                })
+              }
+            })
+          }
+        }
       }
+    }
+    
+    // Calculate final offset to center focused node (at t=1)
+    const focusedPos = absolutePositions.get(focusedCabalId) || { x: 0, y: 0, radius: FULL_NODE_RADIUS }
+    const finalOffsetX = -focusedPos.x
+    const finalOffsetY = -focusedPos.y
+    
+    const t = focusTransitionProgress
+    
+    // Get final view position with interpolated position AND radius together
+    // This maintains tangency throughout the transition - circles stay touching
+    const getNodePosition = (nodeId: string): {x: number, y: number, radius: number} => {
+      const pos = absolutePositions.get(nodeId)
+      if (!pos) return { x: 9999, y: 9999, radius: FULL_NODE_RADIUS * 0.1 }
+      
+      // Get previous rendered position (already includes old view offset)
+      const prevPos = previousNodePositionsRef.current.get(nodeId)
+      
+      // Calculate NEW final rendered position (new absolute + new view offset)
+      const newFinalX = pos.x + finalOffsetX
+      const newFinalY = pos.y + finalOffsetY
+      const newRadius = pos.radius
+      
+      // If no previous position, use new position (new node or initial load)
+      if (!prevPos) {
+        return { x: newFinalX, y: newFinalY, radius: newRadius }
+      }
+      
+      // Interpolate BOTH position AND radius together
+      // OLD state: prevPos (tangent in old focus context)
+      // NEW state: newFinal (tangent in new focus context)
+      // This keeps circles anchored at their tangent points throughout transition
+      const interpolatedX = prevPos.x + (newFinalX - prevPos.x) * t
+      const interpolatedY = prevPos.y + (newFinalY - prevPos.y) * t
+      const interpolatedRadius = prevPos.radius + (newRadius - prevPos.radius) * t
+      
+      return { x: interpolatedX, y: interpolatedY, radius: interpolatedRadius }
     }
     
     // Build graph nodes using the computed positions
@@ -1460,11 +1459,18 @@ export function GraphExplorer({
     // Trigger exit animation - node expands immediately
     setMenuAnimState('exiting')
     
+    // Wait for animation to complete (618ms = ANIM_DURATION.slow)
     menuAnimTimeoutRef.current = setTimeout(() => {
       setRadialMenu(prev => ({ ...prev, isOpen: false }))
       setMenuAnimState('exited')
       setContributionAmount("0.00001")
-    }, 500) // Match expand animation duration (500ms)
+      // Reset animated values to collapsed state so next open starts correctly
+      // animatedRadius will be re-initialized by the init effect
+      setAnimatedRadius(0)
+      setAnimatedChildDistance(null)
+      setAnimatedParentDistance(null)
+      setAnimatedSubmenuRingRadius(null)
+    }, 618) // Match animation duration (ANIM_DURATION.slow = 618ms)
   }, [])
   
   // Handle finalize (launch) success - placed after closeRadialMenu is defined
@@ -1482,10 +1488,10 @@ export function GraphExplorer({
     (node: GraphNode) => {
       // Debounce rapid clicks (prevents touch + click double-firing)
       const now = Date.now()
-      if (now - lastNodeClickRef.current < 300) {
+      if (now - lastClickRef.current < 150) {
         return
       }
-      lastNodeClickRef.current = now
+      lastClickRef.current = now
       
       // Haptic feedback on tap
       haptics.cardTap()
@@ -1542,18 +1548,62 @@ export function GraphExplorer({
       setMenuAnimState('entering')
       menuAnimTimeoutRef.current = setTimeout(() => {
         setMenuAnimState('entered')
-      }, 400) // Match animation duration (0.382s + buffer)
+      }, 618) // Match animation duration (ANIM_DURATION.slow = 618ms)
     },
     [dimensions.width, dimensions.height, radialMenu.isOpen, radialMenu.cabalId, closeRadialMenu, focusedCabalId, snapshotNodePositions]
   )
   
-  // Track if we just handled a touch to prevent click handler from closing menu
+  // Track if we just handled a touch to prevent click handler from double-firing
   const justTouchedNodeRef = useRef(false)
-  // Debounce node clicks to prevent double-firing on mobile
-  const lastNodeClickRef = useRef(0)
+  const justTouchedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Debounce clicks to prevent double-firing on mobile (touch + click)
+  const lastClickRef = useRef(0)
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (justTouchedTimeoutRef.current) {
+        clearTimeout(justTouchedTimeoutRef.current)
+      }
+    }
+  }, [])
+  
+  // Handle background click - close menu OR go upstream to parent
+  const handleBackgroundClick = useCallback(() => {
+    // If menu is open, just close it (don't also navigate)
+    if (radialMenu.isOpen) {
+      closeRadialMenu()
+      return
+    }
+    
+    // Menu is closed - navigate upstream to parent
+    const focusedCabal = cabalsData?.find(c => c.id.toString() === focusedCabalId)
+    const parentId = focusedCabal?.parentCabalId?.toString()
+    
+    // If there's a parent (not at root), focus on it
+    if (parentId && parentId !== focusedCabalId) {
+      // Snapshot current positions BEFORE changing focus
+      snapshotNodePositions()
+      // Reset transition progress to 0
+      setFocusTransitionProgress(0)
+      // Reset animated distances for the new focus context
+      setAnimatedChildDistance(null)
+      setAnimatedParentDistance(null)
+      setAnimatedSubmenuRingRadius(null)
+      // Focus on parent
+      setFocusedCabalId(parentId)
+      // Haptic feedback for navigation
+      haptics.cardTap()
+    }
+  }, [radialMenu.isOpen, closeRadialMenu, cabalsData, focusedCabalId, snapshotNodePositions])
   
   // Custom touch handler for immediate tap response on mobile
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    // Debounce - prevent rapid fire
+    const now = Date.now()
+    if (now - lastClickRef.current < 150) return
+    lastClickRef.current = now
+    
     if (!graphRef.current || !containerRef.current) return
     
     const touch = e.changedTouches[0]
@@ -1564,37 +1614,49 @@ export function GraphExplorer({
     // Convert screen coords to graph coords
     const graphCoords = graphRef.current.screen2GraphCoords(screenX, screenY)
     
-    // Check if any node was touched - find the CLOSEST node to the touch point
-    // This ensures smaller child nodes (visually on top) get priority over larger parent nodes
-    const hitRadius = radialMenu.isOpen ? Math.max(animatedRadius, SMALL_NODE_RADIUS) : FULL_NODE_RADIUS
+    // Find closest node using squared distances (avoid sqrt for performance)
     let touchedNode: GraphNode | undefined
-    let closestDistance = Infinity
+    let closestDistSq = Infinity
     
     for (const node of graphData.nodes) {
-      const nodeX = node.x || 0
-      const nodeY = node.y || 0
-      const dx = graphCoords.x - nodeX
-      const dy = graphCoords.y - nodeY
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      // Use appropriate radius for touch hit area
-      if (distance < hitRadius * 1.2 && distance < closestDistance) {
-        closestDistance = distance
+      const dx = graphCoords.x - (node.x || 0)
+      const dy = graphCoords.y - (node.y || 0)
+      const distSq = dx * dx + dy * dy
+      
+      // Use node's actual radius for hit detection
+      const isSelected = radialMenu.isOpen && radialMenu.cabalId === node.id
+      const nodeRadius = node.nodeRadius || FULL_NODE_RADIUS
+      const hitRadius = isSelected 
+        ? Math.max(animatedRadius, nodeRadius * PHI_INV) 
+        : nodeRadius
+      const hitRadiusSq = (hitRadius * 1.2) * (hitRadius * 1.2)
+      
+      if (distSq < hitRadiusSq && distSq < closestDistSq) {
+        closestDistSq = distSq
         touchedNode = node
       }
     }
     
+    // Always prevent default to avoid browser gestures
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Mark as touched - clear any pending timeout first
+    if (justTouchedTimeoutRef.current) {
+      clearTimeout(justTouchedTimeoutRef.current)
+    }
+    justTouchedNodeRef.current = true
+    justTouchedTimeoutRef.current = setTimeout(() => {
+      justTouchedNodeRef.current = false
+      justTouchedTimeoutRef.current = null
+    }, 100)
+    
     if (touchedNode) {
-      e.preventDefault()
-      e.stopPropagation()
-      justTouchedNodeRef.current = true
-      // Clear flag after a short delay
-      setTimeout(() => { justTouchedNodeRef.current = false }, 100)
       handleNodeClick(touchedNode)
     } else {
-      // Touched background - close menu
-      closeRadialMenu()
+      handleBackgroundClick()
     }
-  }, [graphData.nodes, handleNodeClick, closeRadialMenu, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, radialMenu.isOpen, animatedRadius])
+  }, [graphData.nodes, handleNodeClick, handleBackgroundClick, FULL_NODE_RADIUS, radialMenu.isOpen, radialMenu.cabalId, animatedRadius])
   
   const handleContribute = useCallback(() => {
     if (!CABAL_DIAMOND_ADDRESS || !contributionAmount) return
@@ -1741,20 +1803,26 @@ export function GraphExplorer({
     )
   }
 
-  // Panel sizes - φ (1.61803) × shrunken center diameter, touching (no gap)
-  const PANEL_SIZE = SMALL_NODE_RADIUS * 2 * 1.61803 // φ × shrunken diameter
-  // Panels tangent to center node (no gap)
-  const PANEL_OFFSET = SMALL_NODE_RADIUS + PANEL_SIZE / 2
+  // Panel sizes - CENTER is φ⁻¹ of PANELS (center smaller than panels)
+  // shrunkCenterRadius = FULL × φ⁻¹, panel radius = FULL (so center = panel × φ⁻¹)
+  const shrunkCenterRadius = FULL_NODE_RADIUS * PHI_INV   // = FULL × 0.618
+  const PANEL_RADIUS = FULL_NODE_RADIUS                   // = FULL (panels are bigger!)
+  const PANEL_SIZE = PANEL_RADIUS * 2                     // Diameter = FULL × 2
+  // Panels tangent to shrunk center node
+  const PANEL_OFFSET = shrunkCenterRadius + PANEL_RADIUS  // = FULL × (0.618 + 1) = FULL × 1.618 = FULL × φ
+  // Panel outer edge = offset + radius = FULL × φ + FULL = FULL × (φ + 1) = FULL × φ²
+  const PANEL_OUTER_EDGE = PANEL_OFFSET + PANEL_RADIUS    // = FULL × φ² = FULL × 2.618
   
-  // Ring tangent to the OUTER EDGE of child nodes (top of CABAL1)
-  // Animates with CABAL1 when parent expands/collapses
-  const childRadius = FULL_NODE_RADIUS * 0.61803
-  const defaultChildCenterDistance = FULL_NODE_RADIUS + childRadius
-  // Use animated distance if available, otherwise use default
+  // Ring radius tracks the animated submenu ring (expands from node to panel edge)
+  const currentRingRadius = animatedSubmenuRingRadius ?? FULL_NODE_RADIUS
+  
+  // Calculate focused node's natural radius for outer ring
+  const focusedNaturalRadius = getFocusedNaturalRadius()
+  const focusedChildRadius = focusedNaturalRadius * PHI_INV
+  const defaultChildCenterDistance = focusedNaturalRadius + focusedChildRadius
   const currentChildCenterDistance = animatedChildDistance ?? defaultChildCenterDistance
-  // Outer ring is fixed at child node outer edge (fractal consistency)
-  // This doesn't change with menu expansion - children push outward but ring stays fixed
-  const OUTER_CIRCLE_RADIUS = FULL_NODE_RADIUS + childRadius * 2
+  // Outer ring is at child node outer edge
+  const OUTER_CIRCLE_RADIUS = currentChildCenterDistance + focusedChildRadius
   
   const isPresale = radialMenu.phase === CabalPhase.Presale
   const isActive = radialMenu.phase === CabalPhase.Active
@@ -1844,9 +1912,13 @@ export function GraphExplorer({
       onClick={(e) => {
         // Skip if we just handled a touch event
         if (justTouchedNodeRef.current) return
-        // Close menu if clicking on background (not a node)
+        // Background click - consistent with touch behavior
         if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'CANVAS') {
-          closeRadialMenu()
+          // Debounce
+          const now = Date.now()
+          if (now - lastClickRef.current < 150) return
+          lastClickRef.current = now
+          handleBackgroundClick()
         }
       }}
     >
@@ -1883,7 +1955,7 @@ export function GraphExplorer({
             <circle
               cx={dimensions.width / 2}
               cy={dimensions.height / 2}
-              r={animatedSubmenuRingRadius ?? FULL_NODE_RADIUS}
+              r={currentRingRadius}
               fill="none"
               stroke={`rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.25)`}
               strokeWidth="1"
@@ -1906,6 +1978,7 @@ export function GraphExplorer({
             linkWidth={0}
             linkDirectionalArrowLength={0} 
             onNodeClick={handleNodeClick as (node: object) => void}
+            onBackgroundClick={handleBackgroundClick}
             enablePointerInteraction={true}
             enableZoomInteraction={false}
             enablePanInteraction={false}
@@ -1915,9 +1988,16 @@ export function GraphExplorer({
             d3AlphaMin={0.001}
             nodeCanvasObjectMode={() => "replace"}
           nodePointerAreaPaint={(node, color, ctx, globalScale) => {
-            // Hit area uses FULL_NODE_RADIUS to match visual size
+            // Hit area matches the node's actual visual radius
             const n = node as GraphNode
-            const radius = FULL_NODE_RADIUS / globalScale
+            const isSelected = radialMenu.isOpen && radialMenu.cabalId === n.id
+            // Use the node's actual radius (generation-based sizing)
+            const nodeRadius = n.nodeRadius || FULL_NODE_RADIUS
+            // If selected with menu open, use the shrunken radius
+            const hitRadius = isSelected 
+              ? (animatedRadius || nodeRadius * PHI_INV)
+              : nodeRadius
+            const radius = hitRadius / globalScale
             const x = n.x || 0
             const y = n.y || 0
             ctx.beginPath()
@@ -1930,10 +2010,10 @@ export function GraphExplorer({
             const label = n.label
             const isSelected = radialMenu.isOpen && radialMenu.cabalId === n.id
             
-            // Use node's own radius (children are 0.618x parent)
+            // Use node's own radius (generation-based sizing)
             const nodeBaseRadius = n.nodeRadius || FULL_NODE_RADIUS
-            // Selected nodes shrink for radial menu
-            const baseRadius = isSelected ? (animatedRadius || nodeBaseRadius * 0.35) : nodeBaseRadius
+            // Selected nodes shrink for radial menu (to φ⁻¹ of original)
+            const baseRadius = isSelected ? (animatedRadius || nodeBaseRadius * PHI_INV) : nodeBaseRadius
             // Apply entrance animation scale (blooms from 0 to 1)
             const scaledRadius = baseRadius * nodeEntranceScale
             const radius = scaledRadius / globalScale
@@ -1978,12 +2058,27 @@ export function GraphExplorer({
         )}
         
         {/* Radial Fractal UI */}
-        {(radialMenu.isOpen || menuAnimState === 'exiting') && (
+        {(radialMenu.isOpen || menuAnimState === 'exiting') && (() => {
+          // Calculate dynamic screen position from current node position
+          // This ensures the menu follows the node during animations
+          const selectedNode = graphData.nodes.find(n => n.id === radialMenu.cabalId)
+          const fg = graphRef.current
+          let menuX = radialMenu.screenX
+          let menuY = radialMenu.screenY
+          
+          if (selectedNode && fg) {
+            // Convert graph coords to screen coords
+            const screenPos = fg.graph2ScreenCoords(selectedNode.x || 0, selectedNode.y || 0)
+            menuX = screenPos.x
+            menuY = screenPos.y
+          }
+          
+          return (
           <div 
             className={`absolute pointer-events-none z-10 radial-menu-container ${menuAnimState}`}
             style={{
-              left: radialMenu.screenX,
-              top: radialMenu.screenY,
+              left: menuX,
+              top: menuY,
               transform: 'translate(-50%, -50%)',
             }}
             onTouchEnd={(e) => e.stopPropagation()}
@@ -2546,7 +2641,7 @@ export function GraphExplorer({
               </div>
             )}
           </div>
-        )}
+        )})()}
         
         {/* Launch Confirmation Dialog */}
         <Dialog open={showLaunchConfirm} onOpenChange={setShowLaunchConfirm}>

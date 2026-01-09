@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent } from "wagmi"
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useSendTransaction } from "wagmi"
 import { useQueryClient } from "@tanstack/react-query"
-import { formatEther, parseEther, erc20Abi } from "viem"
+import { formatEther, parseEther, erc20Abi, encodeFunctionData } from "viem"
 import { toast } from "sonner"
 import { ExternalLink, Coins, Vote, Settings, History, Rocket, Loader2 } from "lucide-react"
 
@@ -100,8 +100,8 @@ function LaunchSection({
   const { writeContract: voteWrite, data: voteHash, isPending: isVoting } = useWriteContract()
   const { isLoading: isVoteConfirming, isSuccess: voteSuccess } = useWaitForTransactionReceipt({ hash: voteHash })
 
-  // Finalize (launch) transaction
-  const { writeContract: finalizeWrite, data: finalizeHash, isPending: isFinalizing } = useWriteContract()
+  // Finalize (launch) transaction - uses sendTransaction to bypass simulation issues
+  const { sendTransaction: finalizeSend, data: finalizeHash, isPending: isFinalizing } = useSendTransaction()
   const { isLoading: isFinalizeConfirming, isSuccess: finalizeSuccess } = useWaitForTransactionReceipt({ hash: finalizeHash })
 
   useEffect(() => {
@@ -143,12 +143,19 @@ function LaunchSection({
 
   const handleFinalize = () => {
     if (!CABAL_DIAMOND_ADDRESS) return
-    finalizeWrite(
+    
+    // Encode the function call manually to bypass writeContract simulation
+    const calldata = encodeFunctionData({
+      abi: CABAL_ABI,
+      functionName: "finalizeCabal",
+      args: [cabalId],
+    })
+    
+    // Use sendTransaction which doesn't do preflight simulation
+    finalizeSend(
       {
-        address: CABAL_DIAMOND_ADDRESS,
-        abi: CABAL_ABI,
-        functionName: "finalizeCabal",
-        args: [cabalId],
+        to: CABAL_DIAMOND_ADDRESS,
+        data: calldata,
         gas: 7_000_000n, // High gas for Clanker deployment
       },
       {

@@ -1,8 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount, useBalance, useSignTypedData, useChainId } from "wagmi"
-import { parseEther, formatEther, erc20Abi, hexToSignature } from "viem"
+import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount, useBalance, useSignTypedData, useChainId, useSendTransaction } from "wagmi"
+import { parseEther, formatEther, erc20Abi, hexToSignature, encodeFunctionData } from "viem"
 import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
@@ -348,8 +348,8 @@ export function GraphExplorer({
   const { writeContract: voteWrite, data: voteHash, isPending: isVoting, reset: resetVote } = useWriteContract()
   const { isLoading: isVoteConfirming, isSuccess: voteSuccess } = useWaitForTransactionReceipt({ hash: voteHash })
   
-  // Finalize (launch) transaction
-  const { writeContract: finalizeWrite, data: finalizeHash, isPending: isFinalizing, reset: resetFinalize } = useWriteContract()
+  // Finalize (launch) transaction - uses sendTransaction to bypass simulation issues
+  const { sendTransaction: finalizeSend, data: finalizeHash, isPending: isFinalizing, reset: resetFinalize } = useSendTransaction()
   const { isLoading: isFinalizeConfirming, isSuccess: finalizeSuccess } = useWaitForTransactionReceipt({ hash: finalizeHash })
   
   // Trading hooks for active cabals
@@ -1703,11 +1703,17 @@ export function GraphExplorer({
   const handleFinalize = useCallback(() => {
     if (!CABAL_DIAMOND_ADDRESS) return
     
-    finalizeWrite({
-      address: CABAL_DIAMOND_ADDRESS,
+    // Encode the function call manually to bypass writeContract simulation
+    const calldata = encodeFunctionData({
       abi: CABAL_ABI,
       functionName: "finalizeCabal",
       args: [BigInt(radialMenu.cabalId)],
+    })
+    
+    // Use sendTransaction which doesn't do preflight simulation
+    finalizeSend({
+      to: CABAL_DIAMOND_ADDRESS,
+      data: calldata,
       gas: 7_000_000n, // High gas for Clanker deployment
     }, {
       onError: (e) => {
@@ -1720,7 +1726,7 @@ export function GraphExplorer({
         }
       },
     })
-  }, [radialMenu.cabalId, finalizeWrite])
+  }, [radialMenu.cabalId, finalizeSend])
 
   const isLoading = isLoadingIds || isLoadingCabals
 

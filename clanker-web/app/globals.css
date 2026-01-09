@@ -792,9 +792,9 @@
   animation-delay: 120ms;
 }
 
-/* Collapse animation - smooth exit, matches node expansion timing */
+/* Collapse animation - matches enter timing (382ms = φ⁻¹ × 618) */
 .radial-panel-exit {
-  animation: radial-collapse 0.4s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+  animation: radial-collapse 0.382s cubic-bezier(0.32, 0, 0.67, 0) forwards;
 }
 
 /* Outer ring expansion/contraction animation */

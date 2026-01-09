@@ -149,6 +149,7 @@ function LaunchSection({
         abi: CABAL_ABI,
         functionName: "finalizeCabal",
         args: [cabalId],
+        gas: 7_000_000n, // High gas for Clanker deployment
       },
       {
         onError: (e) => showErrorToast(e),

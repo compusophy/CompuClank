@@ -1456,7 +1456,7 @@ export function GraphExplorer({
       menuAnimTimeoutRef.current = null
     }
     
-    // Trigger exit animation - node expands immediately
+    // Trigger exit animation
     setMenuAnimState('exiting')
     
     // Wait for animation to complete (618ms = ANIM_DURATION.slow)
@@ -1464,13 +1464,12 @@ export function GraphExplorer({
       setRadialMenu(prev => ({ ...prev, isOpen: false }))
       setMenuAnimState('exited')
       setContributionAmount("0.00001")
-      // Reset animated values to collapsed state so next open starts correctly
-      // animatedRadius will be re-initialized by the init effect
+      // Reset animated values
       setAnimatedRadius(0)
       setAnimatedChildDistance(null)
       setAnimatedParentDistance(null)
       setAnimatedSubmenuRingRadius(null)
-    }, 618) // Match animation duration (ANIM_DURATION.slow = 618ms)
+    }, 618)
   }, [])
   
   // Handle finalize (launch) success - placed after closeRadialMenu is defined
@@ -1486,51 +1485,55 @@ export function GraphExplorer({
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
-      // Debounce rapid clicks (prevents touch + click double-firing)
+      // Debounce rapid node clicks
       const now = Date.now()
-      if (now - lastClickRef.current < 150) {
-        return
-      }
-      lastClickRef.current = now
+      if (now - lastNodeClickRef.current < 150) return
+      lastNodeClickRef.current = now
       
-      // Haptic feedback on tap
+      // Determine if menu is "active" (open or animating)
+      const menuIsActive = menuAnimState === 'entering' || menuAnimState === 'entered' || menuAnimState === 'exiting'
+      
+      // Haptic feedback
       haptics.cardTap()
       
-      // If clicking a non-focused node, zoom into it (make it focused)
+      // CASE 1: Clicking a non-focused node
       if (node.id !== focusedCabalId) {
-        // If menu is open, just close it - don't also refocus
-        if (radialMenu.isOpen) {
-          closeRadialMenu()
+        // If menu is active, just close/ignore - don't refocus during animation
+        if (menuIsActive) {
+          if (menuAnimState !== 'exiting') {
+            closeRadialMenu()
+          }
           return
         }
-        // Menu is closed, so refocus to the clicked node
-        // Snapshot current positions BEFORE changing focus
+        // Menu is fully closed - refocus to clicked node
         snapshotNodePositions()
-        // Reset transition progress to 0 IMMEDIATELY to prevent flash
         setFocusTransitionProgress(0)
-        // Reset animated distances for the new focus context
         setAnimatedChildDistance(null)
         setAnimatedParentDistance(null)
         setAnimatedSubmenuRingRadius(null)
-        // Set the clicked node as focused - this will re-center the view
         setFocusedCabalId(node.id)
         return
       }
       
-      // Clicking the focused node - toggle radial menu
-      if (radialMenu.isOpen && radialMenu.cabalId === node.id) {
+      // CASE 2: Clicking the focused node
+      // If menu is animating, ignore click (wait for animation to finish)
+      if (menuAnimState === 'entering' || menuAnimState === 'exiting') {
+        return
+      }
+      
+      // If menu is open (entered), close it
+      if (menuAnimState === 'entered') {
         closeRadialMenu()
         return
       }
       
-      // Convert node's graph coordinates to screen coordinates
+      // Menu is fully closed (exited) - open it
       if (!graphRef.current) return
       
-      // Focused node is always at center (0,0)
       const screenX = dimensions.width / 2
       const screenY = dimensions.height / 2
       
-      // Clear any pending exit animation
+      // Clear any pending timeout
       if (menuAnimTimeoutRef.current) {
         clearTimeout(menuAnimTimeoutRef.current)
         menuAnimTimeoutRef.current = null
@@ -1544,20 +1547,20 @@ export function GraphExplorer({
         screenY,
       })
       
-      // Trigger entering animation
       setMenuAnimState('entering')
       menuAnimTimeoutRef.current = setTimeout(() => {
         setMenuAnimState('entered')
-      }, 618) // Match animation duration (ANIM_DURATION.slow = 618ms)
+      }, 618)
     },
-    [dimensions.width, dimensions.height, radialMenu.isOpen, radialMenu.cabalId, closeRadialMenu, focusedCabalId, snapshotNodePositions]
+    [dimensions.width, dimensions.height, menuAnimState, closeRadialMenu, focusedCabalId, snapshotNodePositions]
   )
   
   // Track if we just handled a touch to prevent click handler from double-firing
   const justTouchedNodeRef = useRef(false)
   const justTouchedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Debounce clicks to prevent double-firing on mobile (touch + click)
-  const lastClickRef = useRef(0)
+  // Separate debounce refs for different click types (prevents cross-blocking)
+  const lastNodeClickRef = useRef(0)
+  const lastBgClickRef = useRef(0)
   
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -1570,66 +1573,75 @@ export function GraphExplorer({
   
   // Handle background click - close menu OR go upstream to parent
   const handleBackgroundClick = useCallback(() => {
-    // If menu is open, just close it (don't also navigate)
-    if (radialMenu.isOpen) {
-      closeRadialMenu()
+    // Debounce rapid background clicks
+    const now = Date.now()
+    if (now - lastBgClickRef.current < 150) return
+    lastBgClickRef.current = now
+    
+    // If menu is active (open or animating), close/ignore
+    const menuIsActive = menuAnimState === 'entering' || menuAnimState === 'entered' || menuAnimState === 'exiting'
+    if (menuIsActive) {
+      if (menuAnimState !== 'exiting') {
+        closeRadialMenu()
+      }
       return
     }
     
-    // Menu is closed - navigate upstream to parent
+    // Menu is fully closed - navigate upstream to parent
     const focusedCabal = cabalsData?.find(c => c.id.toString() === focusedCabalId)
     const parentId = focusedCabal?.parentCabalId?.toString()
     
-    // If there's a parent (not at root), focus on it
     if (parentId && parentId !== focusedCabalId) {
-      // Snapshot current positions BEFORE changing focus
       snapshotNodePositions()
-      // Reset transition progress to 0
       setFocusTransitionProgress(0)
-      // Reset animated distances for the new focus context
       setAnimatedChildDistance(null)
       setAnimatedParentDistance(null)
       setAnimatedSubmenuRingRadius(null)
-      // Focus on parent
       setFocusedCabalId(parentId)
-      // Haptic feedback for navigation
       haptics.cardTap()
     }
-  }, [radialMenu.isOpen, closeRadialMenu, cabalsData, focusedCabalId, snapshotNodePositions])
+  }, [menuAnimState, closeRadialMenu, cabalsData, focusedCabalId, snapshotNodePositions])
   
   // Custom touch handler for immediate tap response on mobile
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    // Debounce - prevent rapid fire
-    const now = Date.now()
-    if (now - lastClickRef.current < 150) return
-    lastClickRef.current = now
-    
     if (!graphRef.current || !containerRef.current) return
+    
+    // Prevent default immediately
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Mark as touched to prevent double-firing with click
+    if (justTouchedTimeoutRef.current) clearTimeout(justTouchedTimeoutRef.current)
+    justTouchedNodeRef.current = true
+    justTouchedTimeoutRef.current = setTimeout(() => {
+      justTouchedNodeRef.current = false
+      justTouchedTimeoutRef.current = null
+    }, 100)
     
     const touch = e.changedTouches[0]
     const rect = containerRef.current.getBoundingClientRect()
-    const screenX = touch.clientX - rect.left
-    const screenY = touch.clientY - rect.top
+    const graphCoords = graphRef.current.screen2GraphCoords(
+      touch.clientX - rect.left,
+      touch.clientY - rect.top
+    )
     
-    // Convert screen coords to graph coords
-    const graphCoords = graphRef.current.screen2GraphCoords(screenX, screenY)
-    
-    // Find closest node using squared distances (avoid sqrt for performance)
+    // Find touched node
     let touchedNode: GraphNode | undefined
     let closestDistSq = Infinity
+    const menuActive = menuAnimState !== 'exited'
     
     for (const node of graphData.nodes) {
       const dx = graphCoords.x - (node.x || 0)
       const dy = graphCoords.y - (node.y || 0)
       const distSq = dx * dx + dy * dy
       
-      // Use node's actual radius for hit detection
-      const isSelected = radialMenu.isOpen && radialMenu.cabalId === node.id
+      // Use animated radius for focused node when menu is active
+      const isFocused = node.id === focusedCabalId
       const nodeRadius = node.nodeRadius || FULL_NODE_RADIUS
-      const hitRadius = isSelected 
-        ? Math.max(animatedRadius, nodeRadius * PHI_INV) 
+      const hitRadius = (menuActive && isFocused) 
+        ? Math.max(animatedRadius || nodeRadius, nodeRadius * PHI_INV)
         : nodeRadius
-      const hitRadiusSq = (hitRadius * 1.2) * (hitRadius * 1.2)
+      const hitRadiusSq = (hitRadius * 1.2) ** 2
       
       if (distSq < hitRadiusSq && distSq < closestDistSq) {
         closestDistSq = distSq
@@ -1637,26 +1649,12 @@ export function GraphExplorer({
       }
     }
     
-    // Always prevent default to avoid browser gestures
-    e.preventDefault()
-    e.stopPropagation()
-    
-    // Mark as touched - clear any pending timeout first
-    if (justTouchedTimeoutRef.current) {
-      clearTimeout(justTouchedTimeoutRef.current)
-    }
-    justTouchedNodeRef.current = true
-    justTouchedTimeoutRef.current = setTimeout(() => {
-      justTouchedNodeRef.current = false
-      justTouchedTimeoutRef.current = null
-    }, 100)
-    
     if (touchedNode) {
       handleNodeClick(touchedNode)
     } else {
       handleBackgroundClick()
     }
-  }, [graphData.nodes, handleNodeClick, handleBackgroundClick, FULL_NODE_RADIUS, radialMenu.isOpen, radialMenu.cabalId, animatedRadius])
+  }, [graphData.nodes, handleNodeClick, handleBackgroundClick, FULL_NODE_RADIUS, focusedCabalId, menuAnimState, animatedRadius])
   
   const handleContribute = useCallback(() => {
     if (!CABAL_DIAMOND_ADDRESS || !contributionAmount) return
@@ -1710,6 +1708,7 @@ export function GraphExplorer({
       abi: CABAL_ABI,
       functionName: "finalizeCabal",
       args: [BigInt(radialMenu.cabalId)],
+      gas: 7_000_000n, // High gas for Clanker deployment
     }, {
       onError: (e) => {
         haptics.error()
@@ -1914,10 +1913,6 @@ export function GraphExplorer({
         if (justTouchedNodeRef.current) return
         // Background click - consistent with touch behavior
         if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'CANVAS') {
-          // Debounce
-          const now = Date.now()
-          if (now - lastClickRef.current < 150) return
-          lastClickRef.current = now
           handleBackgroundClick()
         }
       }}
@@ -1988,20 +1983,16 @@ export function GraphExplorer({
             d3AlphaMin={0.001}
             nodeCanvasObjectMode={() => "replace"}
           nodePointerAreaPaint={(node, color, ctx, globalScale) => {
-            // Hit area matches the node's actual visual radius
             const n = node as GraphNode
-            const isSelected = radialMenu.isOpen && radialMenu.cabalId === n.id
-            // Use the node's actual radius (generation-based sizing)
+            const menuActive = menuAnimState !== 'exited'
+            const isFocused = n.id === focusedCabalId
             const nodeRadius = n.nodeRadius || FULL_NODE_RADIUS
-            // If selected with menu open, use the shrunken radius
-            const hitRadius = isSelected 
+            // Use animated radius for focused node when menu active
+            const hitRadius = (menuActive && isFocused)
               ? (animatedRadius || nodeRadius * PHI_INV)
               : nodeRadius
-            const radius = hitRadius / globalScale
-            const x = n.x || 0
-            const y = n.y || 0
             ctx.beginPath()
-            ctx.arc(x, y, radius, 0, 2 * Math.PI)
+            ctx.arc(n.x || 0, n.y || 0, hitRadius / globalScale, 0, 2 * Math.PI)
             ctx.fillStyle = color
             ctx.fill()
           }}

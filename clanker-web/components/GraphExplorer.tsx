@@ -122,8 +122,19 @@ export function GraphExplorer({
   
   // Focused cabal - the node that is centered in the view
   // Clicking a child "zooms into" it, making it the focused node
-  const [focusedCabalId, setFocusedCabalId] = useState<string>("0")
+  const [focusedCabalId, setFocusedCabalIdState] = useState<string>("0")
+  // Ref to avoid stale closure issues in callbacks (especially in iframe context)
+  const focusedCabalIdRef = useRef<string>("0")
+  // Wrapper to update both state and ref
+  const setFocusedCabalId = useCallback((id: string) => {
+    console.log('[setFocusedCabalId] Setting to:', id, 'prev:', focusedCabalIdRef.current)
+    focusedCabalIdRef.current = id
+    setFocusedCabalIdState(id)
+  }, [])
   
+  // Ref for handleNodeClick to avoid ForceGraph2D caching stale callbacks
+  const handleNodeClickRef = useRef<((node: GraphNode) => void) | null>(null)
+
   // Animated focus transition (0 = old positions, 1 = new positions)
   const [focusTransitionProgress, setFocusTransitionProgress] = useState<number>(1)
   const focusAnimationFrameRef = useRef<number | null>(null)
@@ -1485,49 +1496,70 @@ export function GraphExplorer({
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
+      // Mark that we just clicked a node - prevents background click from firing (event bubbling)
+      justClickedNodeRef.current = true
+      setTimeout(() => { justClickedNodeRef.current = false }, 50)
+      
+      // Use ref to avoid stale closure in iframe context
+      const currentFocusedId = focusedCabalIdRef.current
+      console.log('[handleNodeClick] Called with node:', node.id, 'focusedCabalId:', currentFocusedId)
+      
       // Debounce rapid node clicks
       const now = Date.now()
-      if (now - lastNodeClickRef.current < 150) return
+      if (now - lastNodeClickRef.current < 150) {
+        console.log('[handleNodeClick] Debounced, skipping')
+        return
+      }
       lastNodeClickRef.current = now
       
       // Determine if menu is "active" (open or animating)
       const menuIsActive = menuAnimState === 'entering' || menuAnimState === 'entered' || menuAnimState === 'exiting'
+      console.log('[handleNodeClick] menuAnimState:', menuAnimState, 'menuIsActive:', menuIsActive)
       
       // Haptic feedback
       haptics.cardTap()
       
       // CASE 1: Clicking a non-focused node
-      if (node.id !== focusedCabalId) {
+      if (node.id !== currentFocusedId) {
+        console.log('[handleNodeClick] CASE 1: non-focused node clicked, refocusing to:', node.id)
         // If menu is active, just close/ignore - don't refocus during animation
         if (menuIsActive) {
+          console.log('[handleNodeClick] CASE 1: menu is active, closing instead of refocusing')
           if (menuAnimState !== 'exiting') {
             closeRadialMenu()
           }
           return
         }
         // Menu is fully closed - refocus to clicked node
+        console.log('[handleNodeClick] CASE 1: calling setFocusedCabalId with:', node.id)
         snapshotNodePositions()
         setFocusTransitionProgress(0)
         setAnimatedChildDistance(null)
         setAnimatedParentDistance(null)
         setAnimatedSubmenuRingRadius(null)
         setFocusedCabalId(node.id)
+        console.log('[handleNodeClick] CASE 1: after setFocusedCabalId, ref is now:', focusedCabalIdRef.current)
         return
       }
       
       // CASE 2: Clicking the focused node
+      console.log('[handleNodeClick] Clicked focused node, menuAnimState:', menuAnimState)
+      
       // If menu is animating, ignore click (wait for animation to finish)
       if (menuAnimState === 'entering' || menuAnimState === 'exiting') {
+        console.log('[handleNodeClick] Ignoring - menu is animating')
         return
       }
       
       // If menu is open (entered), close it
       if (menuAnimState === 'entered') {
+        console.log('[handleNodeClick] Closing menu')
         closeRadialMenu()
         return
       }
       
       // Menu is fully closed (exited) - open it
+      console.log('[handleNodeClick] Opening menu, graphRef:', !!graphRef.current)
       if (!graphRef.current) return
       
       const screenX = dimensions.width / 2
@@ -1552,8 +1584,21 @@ export function GraphExplorer({
         setMenuAnimState('entered')
       }, 618)
     },
-    [dimensions.width, dimensions.height, menuAnimState, closeRadialMenu, focusedCabalId, snapshotNodePositions]
+    // Note: focusedCabalId removed - using focusedCabalIdRef to avoid stale closure in iframe
+    [dimensions.width, dimensions.height, menuAnimState, closeRadialMenu, snapshotNodePositions]
   )
+  
+  // Keep handleNodeClick ref updated for ForceGraph2D
+  useEffect(() => {
+    handleNodeClickRef.current = handleNodeClick
+  }, [handleNodeClick])
+  
+  // Stable wrapper that ForceGraph2D can use - always calls latest handleNodeClick via ref
+  const handleNodeClickStable = useCallback((node: object) => {
+    if (handleNodeClickRef.current) {
+      handleNodeClickRef.current(node as GraphNode)
+    }
+  }, [])
   
   // Track if we just handled a touch to prevent click handler from double-firing
   const justTouchedNodeRef = useRef(false)
@@ -1561,6 +1606,8 @@ export function GraphExplorer({
   // Separate debounce refs for different click types (prevents cross-blocking)
   const lastNodeClickRef = useRef(0)
   const lastBgClickRef = useRef(0)
+  // Track if we just clicked a node - prevents background click from firing after node click (event bubbling)
+  const justClickedNodeRef = useRef(false)
   
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -1573,6 +1620,12 @@ export function GraphExplorer({
   
   // Handle background click - close menu OR go upstream to parent
   const handleBackgroundClick = useCallback(() => {
+    // Skip if we just clicked a node (event bubbling prevention)
+    if (justClickedNodeRef.current) {
+      console.log('[handleBackgroundClick] Skipping - just clicked a node')
+      return
+    }
+    
     // Debounce rapid background clicks
     const now = Date.now()
     if (now - lastBgClickRef.current < 150) return
@@ -1587,11 +1640,15 @@ export function GraphExplorer({
       return
     }
     
+    // Use ref to avoid stale closure in iframe context
+    const currentFocusedId = focusedCabalIdRef.current
+    
     // Menu is fully closed - navigate upstream to parent
-    const focusedCabal = cabalsData?.find(c => c.id.toString() === focusedCabalId)
+    const focusedCabal = cabalsData?.find(c => c.id.toString() === currentFocusedId)
     const parentId = focusedCabal?.parentCabalId?.toString()
     
-    if (parentId && parentId !== focusedCabalId) {
+    if (parentId && parentId !== currentFocusedId) {
+      console.log('[handleBackgroundClick] Navigating to parent:', parentId, 'from:', currentFocusedId)
       snapshotNodePositions()
       setFocusTransitionProgress(0)
       setAnimatedChildDistance(null)
@@ -1599,12 +1656,19 @@ export function GraphExplorer({
       setAnimatedSubmenuRingRadius(null)
       setFocusedCabalId(parentId)
       haptics.cardTap()
+    } else {
+      console.log('[handleBackgroundClick] No parent to navigate to, currentFocusedId:', currentFocusedId, 'parentId:', parentId)
     }
-  }, [menuAnimState, closeRadialMenu, cabalsData, focusedCabalId, snapshotNodePositions])
+    // Note: focusedCabalId removed from deps - using ref instead
+  }, [menuAnimState, closeRadialMenu, cabalsData, snapshotNodePositions, setFocusedCabalId])
   
   // Custom touch handler for immediate tap response on mobile
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!graphRef.current || !containerRef.current) return
+    console.log('[handleTouchEnd] Touch event received')
+    if (!graphRef.current || !containerRef.current) {
+      console.log('[handleTouchEnd] Missing refs, graphRef:', !!graphRef.current, 'containerRef:', !!containerRef.current)
+      return
+    }
     
     // Prevent default immediately
     e.preventDefault()
@@ -1625,7 +1689,8 @@ export function GraphExplorer({
       touch.clientY - rect.top
     )
     
-    // Find touched node
+    // Find touched node - use ref to avoid stale closure in iframe
+    const currentFocusedId = focusedCabalIdRef.current
     let touchedNode: GraphNode | undefined
     let closestDistSq = Infinity
     const menuActive = menuAnimState !== 'exited'
@@ -1636,7 +1701,7 @@ export function GraphExplorer({
       const distSq = dx * dx + dy * dy
       
       // Use animated radius for focused node when menu is active
-      const isFocused = node.id === focusedCabalId
+      const isFocused = node.id === currentFocusedId
       const nodeRadius = node.nodeRadius || FULL_NODE_RADIUS
       const hitRadius = (menuActive && isFocused) 
         ? Math.max(animatedRadius || nodeRadius, nodeRadius * PHI_INV)
@@ -1649,12 +1714,15 @@ export function GraphExplorer({
       }
     }
     
+    console.log('[handleTouchEnd] touchedNode:', touchedNode?.id, 'focusedCabalId:', currentFocusedId, 'isFocused:', touchedNode?.id === currentFocusedId)
+    
     if (touchedNode) {
       handleNodeClick(touchedNode)
     } else {
       handleBackgroundClick()
     }
-  }, [graphData.nodes, handleNodeClick, handleBackgroundClick, FULL_NODE_RADIUS, focusedCabalId, menuAnimState, animatedRadius])
+    // Note: focusedCabalId removed from deps - using ref instead
+  }, [graphData.nodes, handleNodeClick, handleBackgroundClick, FULL_NODE_RADIUS, menuAnimState, animatedRadius])
   
   const handleContribute = useCallback(() => {
     if (!CABAL_DIAMOND_ADDRESS || !contributionAmount) return
@@ -1918,8 +1986,14 @@ export function GraphExplorer({
         // Skip if we just handled a touch event
         if (justTouchedNodeRef.current) return
         // Background click - consistent with touch behavior
+        // Use a small delay to allow ForceGraph2D's onNodeClick to fire first
+        // (ForceGraph2D processes clicks slightly after the native click event)
         if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'CANVAS') {
-          handleBackgroundClick()
+          requestAnimationFrame(() => {
+            // Check justClickedNodeRef AFTER the delay - ForceGraph2D's onNodeClick should have set it by now
+            if (justClickedNodeRef.current) return
+            handleBackgroundClick()
+          })
         }
       }}
     >
@@ -1978,8 +2052,9 @@ export function GraphExplorer({
             linkColor={() => 'transparent'}
             linkWidth={0}
             linkDirectionalArrowLength={0} 
-            onNodeClick={handleNodeClick as (node: object) => void}
-            onBackgroundClick={handleBackgroundClick}
+            onNodeClick={handleNodeClickStable}
+            // NOTE: Removed onBackgroundClick - handled by container onClick instead
+            // ForceGraph2D fires onBackgroundClick BEFORE onNodeClick which breaks our click protection
             enablePointerInteraction={true}
             enableZoomInteraction={false}
             enablePanInteraction={false}

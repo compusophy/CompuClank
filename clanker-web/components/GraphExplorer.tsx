@@ -7,7 +7,7 @@ import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles, TrendingUp, TrendingDown, Lock, Vote, Users, Send, Plus } from "lucide-react"
+import { Loader2, Sparkles, TrendingUp, Lock, Vote, Users, Send, Plus } from "lucide-react"
 import { GovernanceActionModal, GovernanceActionType } from "@/components/GovernanceActionModal"
 import { 
   buildAncestryMap, 
@@ -1267,8 +1267,16 @@ export function GraphExplorer({
     const collapsedChildDist = focusedRadius + focusedChildRadius
     const expandedChildDist = animatedChildDistance ?? collapsedChildDist
     
-    // Build tree with expansion applied at the right place
-    const buildTree = (nodeId: string, parentX: number, parentY: number, angle: number) => {
+    // Build tree with golden ratio sacred geometry - no overlapping
+    // Key insight: Calculate minimum angular separation based on actual node sizes
+    // For two sibling circles to not touch: angle >= 2 * arcsin(childRadius / distance)
+    const buildTree = (
+      nodeId: string, 
+      parentX: number, 
+      parentY: number, 
+      angle: number,
+      depth: number
+    ) => {
       const cabal = cabalsData.find(c => c.id.toString() === nodeId)
       if (!cabal) return
       
@@ -1299,24 +1307,61 @@ export function GraphExplorer({
       
       absolutePositions.set(nodeId, { x, y, radius, angle })
       
-      // Position children - they inherit parent's position so stay attached
+      // Position children using sacred geometry - evenly distributed with no overlap
       const children = getChildren(nodeId, cabalsData)
       if (children.length > 0) {
-        const baseAngle = isRoot ? Math.PI / 2 : angle
-        const arcSpan = Math.PI * 0.6
+        // Child radius (all siblings same size)
+        const childRadius = radius * PHI_INV
         
-        children.forEach((child, i) => {
-          const childAngle = children.length === 1 
-            ? baseAngle 
-            : baseAngle - arcSpan/2 + (i / (children.length - 1)) * arcSpan
-          buildTree(child.id.toString(), x, y, childAngle)
-        })
+        // Distance from this node to children (tangent circles)
+        let childDist = radius + childRadius
+        if (menuIsOpen && nodeId === focusedCabalId) {
+          childDist = expandedChildDist
+        }
+        
+        // Calculate minimum angular separation for children to not overlap
+        // Two circles touch when: 2 * childRadius = 2 * childDist * sin(angle/2)
+        // So minimum angle = 2 * arcsin(childRadius / childDist)
+        // Add 20% padding for visual breathing room
+        const minAngleBetween = 2 * Math.asin(childRadius / childDist) * 1.2
+        
+        // Total arc needed for all children
+        const totalArcNeeded = minAngleBetween * (children.length - 1)
+        
+        if (isRoot) {
+          // Root children: evenly distributed around full circle, first at top
+          const angleStep = (2 * Math.PI) / children.length
+          children.forEach((child, i) => {
+            const childAngle = -Math.PI / 2 + i * angleStep
+            buildTree(child.id.toString(), x, y, childAngle, depth + 1)
+          })
+        } else {
+          // Non-root: distribute children centered on parent's angle
+          // But ensure they don't overlap with parent's siblings by using proper spacing
+          
+          if (children.length === 1) {
+            // Single child: place at same angle as parent
+            buildTree(children[0].id.toString(), x, y, angle, depth + 1)
+          } else {
+            // Multiple children: spread symmetrically around parent's angle
+            // Use the larger of: calculated min separation OR even distribution
+            const evenSpacing = (2 * Math.PI) / (children.length * Math.pow(PHI, depth))
+            const actualSpacing = Math.max(minAngleBetween, evenSpacing)
+            
+            children.forEach((child, i) => {
+              // Center the spread around parent's angle
+              const offset = (i - (children.length - 1) / 2) * actualSpacing
+              const childAngle = angle + offset
+              buildTree(child.id.toString(), x, y, childAngle, depth + 1)
+            })
+          }
+        }
       }
     }
     
     // Build from root
     if (rootCabal) {
-      buildTree(rootId, 0, 0, Math.PI / 2)
+      buildTree(rootId, 0, 0, -Math.PI / 2, 0)
     }
     
     // Now handle parent expansion - parent of focused also needs to push out
@@ -2105,9 +2150,20 @@ export function GraphExplorer({
             ctx.fill()
             
             // Gold border using BRAND_GOLD at 40% opacity (matches border-primary/40)
+            // Presale nodes get a dashed border to indicate they're not yet launched
+            const isPresaleNode = n.phase === CabalPhase.Presale
+            if (isPresaleNode) {
+              // Dashed line for presale - dash and gap scale with node size
+              const dashSize = radius * 0.3
+              ctx.setLineDash([dashSize, dashSize * 0.5])
+            }
             ctx.strokeStyle = `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.4)`
             ctx.lineWidth = 1 / globalScale
             ctx.stroke()
+            // Reset dash pattern for subsequent rendering
+            if (isPresaleNode) {
+              ctx.setLineDash([])
+            }
 
             // Label - use Geist Mono for slashed zeros like submenu panels
             ctx.font = `600 ${fontSize}px "Geist Mono", ui-monospace, monospace`
@@ -2589,20 +2645,12 @@ export function GraphExplorer({
                             <span className="text-[8px] text-muted-foreground">Contrib</span>
                           </button>
                           <button
-                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'buy' })}
+                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'trade' })}
                             className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                            title="Buy tokens"
+                            title="Trade tokens"
                           >
                             <TrendingUp className="h-3 w-3 text-green-500" />
-                            <span className="text-[8px] text-muted-foreground">Buy</span>
-                          </button>
-                          <button
-                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'sell' })}
-                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                            title="Sell tokens"
-                          >
-                            <TrendingDown className="h-3 w-3 text-red-500" />
-                            <span className="text-[8px] text-muted-foreground">Sell</span>
+                            <span className="text-[8px] text-muted-foreground">Trade</span>
                           </button>
                           <button
                             onClick={() => setGovernanceAction({ isOpen: true, actionType: 'stake' })}

@@ -287,6 +287,17 @@ contract CabalCreationFacet {
         emit Contributed(cabalId, msg.sender, msg.value, cabal.totalRaised);
         
         LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.Contributed, msg.value);
+        
+        // Re-check launch approval conditions after contribution increases totalRaised
+        // This handles the case where contribution pushes us over MIN_LAUNCH_AMOUNT
+        // and 51% majority was already voting YES
+        if (cabal.launchApprovedAt == 0) {
+            uint256 majorityRequired = (cabal.totalRaised * LAUNCH_MAJORITY_BPS) / BPS_DENOMINATOR;
+            if (cabal.launchVotesFor >= majorityRequired && cabal.totalRaised >= MIN_LAUNCH_AMOUNT) {
+                cabal.launchApprovedAt = block.timestamp;
+                emit LaunchApproved(cabalId, block.timestamp + LAUNCH_DELAY);
+            }
+        }
     }
 
     /**
@@ -313,9 +324,10 @@ contract CabalCreationFacet {
         LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.VotedLaunch, contribution);
         
         // Start launch timer when threshold first reached
+        // Requires BOTH: 51% majority AND minimum 0.001 ETH raised
         if (cabal.launchApprovedAt == 0) {
             uint256 majorityRequired = (cabal.totalRaised * LAUNCH_MAJORITY_BPS) / BPS_DENOMINATOR;
-            if (cabal.launchVotesFor >= majorityRequired) {
+            if (cabal.launchVotesFor >= majorityRequired && cabal.totalRaised >= MIN_LAUNCH_AMOUNT) {
                 cabal.launchApprovedAt = block.timestamp;
                 emit LaunchApproved(cabalId, block.timestamp + LAUNCH_DELAY);
             }

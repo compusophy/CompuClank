@@ -32,6 +32,7 @@ export type GovernanceActionType =
   | 'contribute'    // Contribute ETH to another cabal's presale
   | 'buy'           // Buy tokens from another cabal
   | 'sell'          // Sell tokens of another cabal
+  | 'trade'         // Buy or sell tokens (combined UI)
   | 'stake'         // Stake tokens in another cabal
   | 'unstake'       // Unstake tokens from another cabal
   | 'vote'          // Vote in another cabal's proposal
@@ -81,6 +82,14 @@ const ACTION_CONFIG: Record<GovernanceActionType, {
     targetFilter: 'active',
     amountLabel: "Token Amount",
     amountUnit: "tokens",
+  },
+  trade: {
+    title: "Trade Tokens",
+    description: "Propose to buy or sell tokens of another cabal",
+    icon: <TrendingUp className="h-5 w-5" />,
+    targetFilter: 'active',
+    amountLabel: "Amount",
+    amountUnit: "",
   },
   stake: {
     title: "Stake in CABAL",
@@ -139,6 +148,7 @@ export function GovernanceActionModal({
   const [voteSupport, setVoteSupport] = useState<boolean>(true)
   const [delegatee, setDelegatee] = useState<string>("")
   const [description, setDescription] = useState<string>("")
+  const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy')
   
   // Write contract
   const { writeContract, data: txHash, isPending } = useWriteContract()
@@ -153,6 +163,7 @@ export function GovernanceActionModal({
       setVoteSupport(true)
       setDelegatee("")
       setDescription("")
+      setTradeMode('buy')
     }
   }, [isOpen])
   
@@ -234,6 +245,24 @@ export function GovernanceActionModal({
           functionName: 'proposeSellTokens',
           args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
         }, { onError })
+        break
+      case 'trade':
+        // Use the selected trade mode (buy or sell)
+        if (tradeMode === 'buy') {
+          writeContract({
+            address: CABAL_DIAMOND_ADDRESS,
+            abi: CABAL_ABI,
+            functionName: 'proposeBuyTokens',
+            args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
+          }, { onError })
+        } else {
+          writeContract({
+            address: CABAL_DIAMOND_ADDRESS,
+            abi: CABAL_ABI,
+            functionName: 'proposeSellTokens',
+            args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
+          }, { onError })
+        }
         break
       case 'stake':
         writeContract({
@@ -322,10 +351,41 @@ export function GovernanceActionModal({
             </Select>
           </div>
           
+          {/* Trade Mode Toggle (for trade action) */}
+          {actionType === 'trade' && (
+            <div className="space-y-2">
+              <Label>Trade Type</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={tradeMode === 'buy' ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTradeMode('buy')}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  Buy
+                </Button>
+                <Button
+                  type="button"
+                  variant={tradeMode === 'sell' ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTradeMode('sell')}
+                  disabled={isLoading}
+                  className="flex-1"
+                >
+                  <TrendingDown className="h-4 w-4 mr-1" />
+                  Sell
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Amount Input */}
           {config.amountLabel && (
             <div className="space-y-2">
-              <Label>{config.amountLabel}</Label>
+              <Label>{actionType === 'trade' ? (tradeMode === 'buy' ? 'ETH to Spend' : 'Token Amount') : config.amountLabel}</Label>
               <div className="flex gap-2">
                 <Input
                   type="number"
@@ -338,7 +398,7 @@ export function GovernanceActionModal({
                   disabled={isLoading}
                 />
                 <span className="flex items-center text-sm text-muted-foreground px-2">
-                  {config.amountUnit}
+                  {actionType === 'trade' ? (tradeMode === 'buy' ? 'ETH' : 'tokens') : config.amountUnit}
                 </span>
               </div>
             </div>

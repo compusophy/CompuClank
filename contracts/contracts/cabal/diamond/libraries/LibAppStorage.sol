@@ -16,7 +16,8 @@ enum ProposalState {
     Succeeded,
     Defeated,
     Executed,
-    Cancelled
+    Cancelled,
+    Expired     // Proposal succeeded but wasn't executed within execution window
 }
 
 enum ActivityType {

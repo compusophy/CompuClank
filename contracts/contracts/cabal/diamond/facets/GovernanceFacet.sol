@@ -13,6 +13,10 @@ contract GovernanceFacet {
     
     uint256 constant BPS_DENOMINATOR = 10000;
     // NOTE: Governance delay is now stored in cabal.governanceStartsAt (set at launch)
+    
+    // Execution window: proposals expire 300 blocks (~10 minutes on Base) after voting ends
+    // If not executed within this window, proposal automatically expires (sunset)
+    uint256 constant EXECUTION_WINDOW_BLOCKS = 300;
 
     // ============ Enums ============
     
@@ -572,18 +576,27 @@ contract GovernanceFacet {
         if (proposal.executed) return ProposalState.Executed;
         if (block.number <= proposal.endBlock) return ProposalState.Active;
         
+        // Check if execution window has passed (sunset)
+        uint256 executionDeadline = proposal.endBlock + EXECUTION_WINDOW_BLOCKS;
+        bool isExpired = block.number > executionDeadline;
+        
         // Check if passed
         uint256 totalVotes = proposal.forVotes + proposal.againstVotes;
         uint256 quorumVotes = (cabal.totalStaked * cabal.settings.quorumBps) / BPS_DENOMINATOR;
         
-        if (totalVotes < quorumVotes) return ProposalState.Defeated;
+        if (totalVotes < quorumVotes) {
+            // Didn't meet quorum - expired or defeated
+            return isExpired ? ProposalState.Expired : ProposalState.Defeated;
+        }
         
         uint256 majorityVotes = (totalVotes * cabal.settings.majorityBps) / BPS_DENOMINATOR;
         if (proposal.forVotes >= majorityVotes) {
-            return ProposalState.Succeeded;
+            // Met quorum and majority - expired or succeeded
+            return isExpired ? ProposalState.Expired : ProposalState.Succeeded;
         }
         
-        return ProposalState.Defeated;
+        // Met quorum but not majority - expired or defeated
+        return isExpired ? ProposalState.Expired : ProposalState.Defeated;
     }
 
     function _getVotingPower(uint256 cabalId, address user) internal view returns (uint256) {

@@ -45,6 +45,7 @@ export type GovernanceSettingsStructOutput = [
 export interface SettingsFacetInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "adminUpdateGovernanceSettings"
       | "getClankerAddresses"
       | "getContractAddresses"
       | "getGovernanceSettings"
@@ -71,6 +72,10 @@ export interface SettingsFacetInterface extends Interface {
       | "GovernanceSettingsUpdated"
   ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "adminUpdateGovernanceSettings",
+    values: [BigNumberish, GovernanceSettingsStruct]
+  ): string;
   encodeFunctionData(
     functionFragment: "getClankerAddresses",
     values?: undefined
@@ -135,6 +140,10 @@ export interface SettingsFacetInterface extends Interface {
     values: [BigNumberish, GovernanceSettingsStruct]
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "adminUpdateGovernanceSettings",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "getClankerAddresses",
     data: BytesLike
@@ -335,6 +344,12 @@ export interface SettingsFacet extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  adminUpdateGovernanceSettings: TypedContractMethod<
+    [cabalId: BigNumberish, newSettings: GovernanceSettingsStruct],
+    [void],
+    "nonpayable"
+  >;
+
   getClankerAddresses: TypedContractMethod<
     [],
     [
@@ -452,6 +467,13 @@ export interface SettingsFacet extends BaseContract {
     key: string | FunctionFragment
   ): T;
 
+  getFunction(
+    nameOrSignature: "adminUpdateGovernanceSettings"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, newSettings: GovernanceSettingsStruct],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "getClankerAddresses"
   ): TypedContractMethod<

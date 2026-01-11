@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount, useBalance, useSignTypedData, useChainId, useSendTransaction } from "wagmi"
+import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount, useBalance, useSignTypedData, useChainId, useSendTransaction, useBlockNumber } from "wagmi"
 import { parseEther, formatEther, erc20Abi, hexToSignature, encodeFunctionData } from "viem"
 import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
@@ -197,6 +197,12 @@ export function GraphExplorer({
   const { isConnected, address } = useAccount()
   const chainId = useChainId()
   const { signTypedDataAsync } = useSignTypedData()
+  
+  // Current block number for proposal countdown
+  const { data: currentBlockNumber } = useBlockNumber({ 
+    watch: true,
+    query: { refetchInterval: 2000 } // Refresh every 2 seconds
+  })
   
   // Genesis initialization
   const { writeContract: initGenesis, data: genesisTxHash, isPending: isGenesisLoading } = useWriteContract()
@@ -474,7 +480,10 @@ export function GraphExplorer({
     abi: CABAL_ABI,
     functionName: "getProposal",
     args: selectedCurrentProposalId !== null && hasSelectedCabal ? [selectedCabalId, selectedCurrentProposalId] : undefined,
-    query: { enabled: selectedCurrentProposalId !== null && hasSelectedCabal },
+    query: { 
+      enabled: selectedCurrentProposalId !== null && hasSelectedCabal,
+      refetchInterval: 5000, // Refresh every 5 seconds to get updated vote counts
+    },
   })
   
   const { data: selectedProposalState, refetch: refetchSelectedProposalState } = useReadContract({
@@ -482,7 +491,10 @@ export function GraphExplorer({
     abi: CABAL_ABI,
     functionName: "getProposalState",
     args: selectedCurrentProposalId !== null && hasSelectedCabal ? [selectedCabalId, selectedCurrentProposalId] : undefined,
-    query: { enabled: selectedCurrentProposalId !== null && hasSelectedCabal },
+    query: { 
+      enabled: selectedCurrentProposalId !== null && hasSelectedCabal,
+      refetchInterval: 3000, // Refresh every 3 seconds to catch state changes when voting period ends
+    },
   })
   
   const { data: userHasVotedProposal, refetch: refetchUserHasVotedProposal } = useReadContract({
@@ -2655,7 +2667,14 @@ export function GraphExplorer({
                             <span className="text-green-500">{selectedProposalForVotes + selectedProposalAgainstVotes > 0n 
                               ? Number((selectedProposalForVotes * 100n) / (selectedProposalForVotes + selectedProposalAgainstVotes)) 
                               : 0}%</span>
-                            <span className="text-muted-foreground">{isProposalSucceeded ? "Passed" : "Voting"}</span>
+                            <span className="text-muted-foreground">
+                              {isProposalSucceeded ? "Passed ✓" : (
+                                // Show countdown for active proposals
+                                currentBlockNumber && selectedProposalEndBlock > 0n && currentBlockNumber < selectedProposalEndBlock
+                                  ? `${Math.ceil(Number(selectedProposalEndBlock - currentBlockNumber) * 2 / 60)} min`
+                                  : "Voting"
+                              )}
+                            </span>
                           </div>
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
                             <div 

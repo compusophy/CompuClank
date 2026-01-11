@@ -1154,8 +1154,8 @@
       ]
     },
     "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\SettingsFacet.sol": {
-      "lastModificationDate": 1767834024194,
-      "contentHash": "7f85911da8690092135fa6e8389b220b",
+      "lastModificationDate": 1768119894522,
+      "contentHash": "ba39f934ade2a77b1bad66e670c1326f",
       "sourceName": "contracts/cabal/diamond/facets/SettingsFacet.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -2921,8 +2921,8 @@
       ]
     },
     "C:\\25\\dec-25\\csdk\\contracts\\contracts\\cabal\\diamond\\facets\\GovernanceFacet.sol": {
-      "lastModificationDate": 1768004268925,
-      "contentHash": "54d831833e6d6f1db530b16c62f0d1fe",
+      "lastModificationDate": 1768120076765,
+      "contentHash": "44bb3d45890a23172459a6e40b1c6444",
       "sourceName": "contracts/cabal/diamond/facets/GovernanceFacet.sol",
       "solcConfig": {
         "version": "0.8.26",
@@ -2955,7 +2955,8 @@
         }
       },
       "imports": [
-        "../libraries/LibAppStorage.sol"
+        "../libraries/LibAppStorage.sol",
+        "../libraries/LibDiamond.sol"
       ],
       "versionPragmas": [
         "^0.8.20"

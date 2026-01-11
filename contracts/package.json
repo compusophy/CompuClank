@@ -5,7 +5,9 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.ts --network base",
-    "deploy:cabal": "hardhat run scripts/deploy-cabal.ts --network base"
+    "deploy:cabal": "hardhat run scripts/deploy-cabal.ts --network base",
+    "check-fees": "hardhat run scripts/check-fees.ts --network base",
+    "claim-all-fees": "hardhat run scripts/claim-all-fees.ts --network base"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

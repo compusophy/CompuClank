@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { LibAppStorage, AppStorage, CabalData, CabalPhase, Proposal, ProposalState, GovernanceSettings, ActivityType } from "../libraries/LibAppStorage.sol";
+import { LibDiamond } from "../libraries/LibDiamond.sol";
 
 /**
  * @title GovernanceFacet
@@ -225,9 +226,26 @@ contract GovernanceFacet {
         Proposal storage proposal = LibAppStorage.getProposal(cabalId, proposalId);
         if (msg.sender != proposal.proposer) revert NotProposer();
         if (proposal.executed) revert ProposalAlreadyExecuted();
-        
+
         proposal.cancelled = true;
+
+        emit ProposalCancelled(cabalId, proposalId);
+    }
+
+    /**
+     * @notice Admin function to cancel any proposal (owner only)
+     * @dev Emergency use only - bypasses proposer check
+     * @param cabalId The Cabal
+     * @param proposalId The proposal to cancel
+     */
+    function adminCancelProposal(uint256 cabalId, uint256 proposalId) external {
+        LibDiamond.enforceIsContractOwner();
         
+        Proposal storage proposal = LibAppStorage.getProposal(cabalId, proposalId);
+        if (proposal.executed) revert ProposalAlreadyExecuted();
+
+        proposal.cancelled = true;
+
         emit ProposalCancelled(cabalId, proposalId);
     }
 

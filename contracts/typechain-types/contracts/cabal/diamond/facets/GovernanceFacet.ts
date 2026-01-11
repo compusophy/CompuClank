@@ -26,6 +26,7 @@ import type {
 export interface GovernanceFacetInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "adminCancelProposal"
       | "cancelProposal"
       | "createProposal"
       | "executeProposal"
@@ -53,6 +54,10 @@ export interface GovernanceFacetInterface extends Interface {
       | "VoteCast"
   ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "adminCancelProposal",
+    values: [BigNumberish, BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "cancelProposal",
     values: [BigNumberish, BigNumberish]
@@ -122,6 +127,10 @@ export interface GovernanceFacetInterface extends Interface {
     values: [BigNumberish, BigNumberish, boolean]
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "adminCancelProposal",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "cancelProposal",
     data: BytesLike
@@ -323,6 +332,12 @@ export interface GovernanceFacet extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  adminCancelProposal: TypedContractMethod<
+    [cabalId: BigNumberish, proposalId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   cancelProposal: TypedContractMethod<
     [cabalId: BigNumberish, proposalId: BigNumberish],
     [void],
@@ -495,6 +510,13 @@ export interface GovernanceFacet extends BaseContract {
     key: string | FunctionFragment
   ): T;
 
+  getFunction(
+    nameOrSignature: "adminCancelProposal"
+  ): TypedContractMethod<
+    [cabalId: BigNumberish, proposalId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
   getFunction(
     nameOrSignature: "cancelProposal"
   ): TypedContractMethod<

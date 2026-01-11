@@ -264,6 +264,37 @@ contract SettingsFacet {
     }
 
     /**
+     * @notice Admin function to update governance settings directly (owner only)
+     * @dev Bypasses normal governance for emergency fixes
+     * @param cabalId The cabal to update
+     * @param newSettings The new governance settings
+     */
+    function adminUpdateGovernanceSettings(
+        uint256 cabalId,
+        GovernanceSettings calldata newSettings
+    ) external {
+        LibDiamond.enforceIsContractOwner();
+        
+        CabalData storage cabal = LibAppStorage.getCabalData(cabalId);
+        require(cabal.tbaAddress != address(0), "Cabal does not exist");
+        
+        // Validate settings
+        if (newSettings.votingPeriod == 0) revert InvalidSettings();
+        if (newSettings.quorumBps > 10000) revert InvalidSettings();
+        if (newSettings.majorityBps < 5000 || newSettings.majorityBps > 10000) revert InvalidSettings();
+        
+        cabal.settings = newSettings;
+        
+        emit GovernanceSettingsUpdated(
+            cabalId,
+            newSettings.votingPeriod,
+            newSettings.quorumBps,
+            newSettings.majorityBps,
+            newSettings.proposalThreshold
+        );
+    }
+
+    /**
      * @notice Get contract addresses
      */
     function getContractAddresses() external view returns (

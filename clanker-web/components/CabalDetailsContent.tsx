@@ -5,7 +5,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { useQueryClient } from "@tanstack/react-query"
 import { formatEther, parseEther, erc20Abi, encodeFunctionData } from "viem"
 import { toast } from "sonner"
-import { ExternalLink, Coins, Vote, Settings, History, Rocket, Loader2 } from "lucide-react"
+import { ExternalLink, Coins, Vote, History, Rocket, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,7 +26,7 @@ import { StakeModal } from "@/components/StakeModal"
 import { ContributeCTA } from "@/components/layout/ContributeCTA"
 import { CABAL_ABI, CabalInfo, CabalPhase, ProposalState } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Network, GitBranch, Lock } from "lucide-react"
+import { GitBranch, Lock } from "lucide-react"
 
 function showErrorToast(error: Error) {
   const msg = error.message || "Transaction failed"
@@ -509,6 +509,15 @@ function ProposalSection({
   const { writeContract: executeWrite, data: executeHash, isPending: isExecuting } = useWriteContract()
   const { isLoading: isExecuteConfirming, isSuccess: executeSuccess } = useWaitForTransactionReceipt({ hash: executeHash })
 
+  // Countdown timer state - must be before early return
+  const [timeLeft, setTimeLeft] = useState<string>("")
+  
+  // Get current block number for accurate countdown - must be before early return
+  const { data: currentBlock } = useBlockNumber({ 
+    watch: true,
+    query: { refetchInterval: 2000 } // Refresh every 2 seconds (Base block time)
+  })
+
   useEffect(() => {
     if (voteSuccess && voteHash) {
       showTransactionToast(voteHash, "Vote cast!")
@@ -560,18 +569,14 @@ function ProposalSection({
     )
   }
 
-  // No proposals yet
-  if (!currentProposalId || currentProposalId < 0n || !proposal) {
-    return (
-      <div className="text-center py-6 border-2 border-dashed rounded-lg">
-        <p className="text-muted-foreground">No proposals yet</p>
-      </div>
-    )
-  }
-
-  const [, , forVotes, againstVotes, startBlock, endBlock, executed, cancelled, description] = proposal as [
-    bigint, string, bigint, bigint, bigint, bigint, boolean, boolean, string
-  ]
+  // Parse proposal data (safe even if null)
+  const proposalData = proposal as [bigint, string, bigint, bigint, bigint, bigint, boolean, boolean, string] | undefined
+  const forVotes = proposalData?.[2] ?? 0n
+  const againstVotes = proposalData?.[3] ?? 0n
+  const endBlock = proposalData?.[5] ?? 0n
+  const executed = proposalData?.[6] ?? false
+  const cancelled = proposalData?.[7] ?? false
+  const description = proposalData?.[8] ?? ""
 
   const state = proposalState as ProposalState | undefined
   const totalVotes = forVotes + againstVotes
@@ -588,15 +593,6 @@ function ProposalSection({
   const isVoteLoading = isVoting || isVoteConfirming
   const isExecuteLoading = isExecuting || isExecuteConfirming
 
-  // Countdown timer state
-  const [timeLeft, setTimeLeft] = useState<string>("")
-  
-  // Get current block number for accurate countdown
-  const { data: currentBlock } = useBlockNumber({ 
-    watch: true,
-    query: { refetchInterval: 2000 } // Refresh every 2 seconds (Base block time)
-  })
-  
   // Calculate time remaining for voting or execution window
   useEffect(() => {
     if (!endBlock || !currentBlock) return
@@ -638,6 +634,15 @@ function ProposalSection({
       setTimeLeft(`${label} in ${seconds}s`)
     }
   }, [endBlock, currentBlock, isActive, isSucceeded])
+
+  // No proposals yet
+  if (!currentProposalId || currentProposalId < 0n || !proposal) {
+    return (
+      <div className="text-center py-6 border-2 border-dashed rounded-lg">
+        <p className="text-muted-foreground">No proposals yet</p>
+      </div>
+    )
+  }
 
   // Get state label
   const getStateLabel = () => {

@@ -7,14 +7,14 @@ import { readContract } from "@wagmi/core"
 import { config as wagmiConfig } from "@/lib/wagmi-config"
 import { CABAL_ABI, CabalPhase, CabalInfo as FullCabalInfo } from "@/lib/abi/cabal"
 import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
-import { Loader2, Sparkles, TrendingUp, Lock, Vote, Users, Send, Plus } from "lucide-react"
+import { Loader2, Sparkles } from "lucide-react"
 import { GovernanceActionModal, GovernanceActionType } from "@/components/GovernanceActionModal"
 import { 
   buildAncestryMap, 
   getChildren,
   CabalInfo 
 } from "@/lib/graph-helpers"
-import { PHI, PHI_INV, SACRED_COLORS, GENESIS_CONTRIBUTION, BRAND_GOLD, BRAND_BG } from "@/lib/graph-constants"
+import { SACRED_COLORS, GENESIS_CONTRIBUTION, BRAND_GOLD, BRAND_BG } from "@/lib/graph-constants"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -458,6 +458,62 @@ export function GraphExplorer({
   const { writeContract: approveWrite, data: approveHash, isPending: approving } = useWriteContract()
   const { isLoading: approveConfirming, isSuccess: approveSuccess } = useWaitForTransactionReceipt({ hash: approveHash })
   
+  // Governance proposal hooks for selected cabal
+  const { data: selectedNextProposalId, refetch: refetchSelectedNextProposalId } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "getNextProposalId",
+    args: hasSelectedCabal ? [selectedCabalId] : undefined,
+    query: { enabled: hasSelectedCabal && radialMenu.phase === CabalPhase.Active },
+  })
+  
+  const selectedCurrentProposalId = selectedNextProposalId && selectedNextProposalId > 0n ? selectedNextProposalId - 1n : null
+  
+  const { data: selectedProposal, refetch: refetchSelectedProposal } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "getProposal",
+    args: selectedCurrentProposalId !== null && hasSelectedCabal ? [selectedCabalId, selectedCurrentProposalId] : undefined,
+    query: { enabled: selectedCurrentProposalId !== null && hasSelectedCabal },
+  })
+  
+  const { data: selectedProposalState, refetch: refetchSelectedProposalState } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "getProposalState",
+    args: selectedCurrentProposalId !== null && hasSelectedCabal ? [selectedCabalId, selectedCurrentProposalId] : undefined,
+    query: { enabled: selectedCurrentProposalId !== null && hasSelectedCabal },
+  })
+  
+  const { data: userHasVotedProposal, refetch: refetchUserHasVotedProposal } = useReadContract({
+    address: CABAL_DIAMOND_ADDRESS,
+    abi: CABAL_ABI,
+    functionName: "hasVoted",
+    args: selectedCurrentProposalId !== null && hasSelectedCabal && address 
+      ? [selectedCabalId, selectedCurrentProposalId, address] 
+      : undefined,
+    query: { enabled: selectedCurrentProposalId !== null && hasSelectedCabal && !!address },
+  })
+  
+  // Governance vote transaction
+  const { writeContract: govVoteWrite, data: govVoteHash, isPending: isGovVoting, reset: resetGovVote } = useWriteContract()
+  const { isLoading: govVoteConfirming, isSuccess: govVoteSuccess } = useWaitForTransactionReceipt({ hash: govVoteHash })
+  
+  // Governance execute transaction
+  const { writeContract: govExecuteWrite, data: govExecuteHash, isPending: isGovExecuting, reset: resetGovExecute } = useWriteContract()
+  const { isLoading: govExecuteConfirming, isSuccess: govExecuteSuccess } = useWaitForTransactionReceipt({ hash: govExecuteHash })
+  
+  // Parse selected proposal data
+  const selectedProposalData = selectedProposal as [bigint, string, bigint, bigint, bigint, bigint, boolean, boolean, string] | undefined
+  const selectedProposalForVotes = selectedProposalData?.[2] ?? 0n
+  const selectedProposalAgainstVotes = selectedProposalData?.[3] ?? 0n
+  const selectedProposalEndBlock = selectedProposalData?.[5] ?? 0n
+  const selectedProposalDescription = selectedProposalData?.[8] ?? ""
+  
+  const isProposalActive = selectedProposalState === 1 // Active
+  const isProposalSucceeded = selectedProposalState === 2 // Succeeded
+  const hasActiveProposalForVoting = isProposalActive || isProposalSucceeded
+  
   // ETH Balance for trading
   const { data: ethBalance } = useBalance({ address })
   
@@ -574,6 +630,35 @@ export function GraphExplorer({
     }
   }, [voteSuccess, voteHash, refetchVoteStatus, refetchUserVote, refetchSelectedCabal, resetVote])
   
+  // Handle governance vote success
+  useEffect(() => {
+    if (govVoteSuccess && govVoteHash) {
+      haptics.success()
+      toast.success("Vote cast on proposal!")
+      refetchSelectedProposal()
+      refetchSelectedProposalState()
+      refetchUserHasVotedProposal()
+      refetchSelectedNextProposalId()
+      resetGovVote()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [govVoteSuccess, govVoteHash])
+  
+  // Handle governance execute success
+  useEffect(() => {
+    if (govExecuteSuccess && govExecuteHash) {
+      haptics.sacredRhythm()
+      toast.success("Proposal executed!")
+      refetchSelectedProposal()
+      refetchSelectedProposalState()
+      refetchSelectedNextProposalId()
+      refetchCabalsData()
+      refetchHierarchicalIds()
+      resetGovExecute()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [govExecuteSuccess, govExecuteHash])
+
   // Handle buy success
   useEffect(() => {
     if (buySuccess && buyHash) {
@@ -894,6 +979,50 @@ export function GraphExplorer({
     }
   }, [stakeTab, handleStake, handleUnstake])
   
+  // Handle governance proposal vote
+  const handleGovVote = useCallback((support: boolean) => {
+    if (!CABAL_DIAMOND_ADDRESS || !address || selectedCurrentProposalId === null) return
+    
+    govVoteWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: 'vote',
+      args: [BigInt(radialMenu.cabalId), selectedCurrentProposalId, support],
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to vote"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 60))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, address, selectedCurrentProposalId, govVoteWrite])
+  
+  // Handle governance proposal execute
+  const handleGovExecute = useCallback(() => {
+    if (!CABAL_DIAMOND_ADDRESS || !address || selectedCurrentProposalId === null) return
+    
+    govExecuteWrite({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: 'executeProposal',
+      args: [BigInt(radialMenu.cabalId), selectedCurrentProposalId],
+    }, {
+      onError: (e) => {
+        haptics.error()
+        const msg = e.message || "Failed to execute"
+        if (msg.includes("User denied") || msg.includes("User rejected")) {
+          toast.error("Transaction cancelled")
+        } else {
+          toast.error(msg.split("\n")[0].slice(0, 60))
+        }
+      },
+    })
+  }, [radialMenu.cabalId, address, selectedCurrentProposalId, govExecuteWrite])
+
   const handleInitializeGenesis = useCallback(() => {
     initGenesis({
       address: CABAL_DIAMOND_ADDRESS!,
@@ -2513,15 +2642,78 @@ export function GraphExplorer({
                         })()}%
                       </span>
                     </div>
-                    {/* Create Proposal Button */}
-                    <Button
-                      onClick={() => setGovernanceAction({ isOpen: true, actionType: 'create' })}
-                      disabled={(stakedBalance ?? 0n) === 0n}
-                      className="w-full h-7 text-xs"
-                      size="sm"
-                    >
-                      Create Proposal
-                    </Button>
+                    
+                    {hasActiveProposalForVoting ? (
+                      // Active proposal - show voting UI
+                      <>
+                        <p className="text-[9px] text-muted-foreground truncate max-w-full" title={selectedProposalDescription}>
+                          {selectedProposalDescription.slice(0, 20) || "Proposal"}
+                        </p>
+                        {/* Vote Progress */}
+                        <div className="space-y-0.5">
+                          <div className="flex justify-between text-[9px]">
+                            <span className="text-green-500">{selectedProposalForVotes + selectedProposalAgainstVotes > 0n 
+                              ? Number((selectedProposalForVotes * 100n) / (selectedProposalForVotes + selectedProposalAgainstVotes)) 
+                              : 0}%</span>
+                            <span className="text-muted-foreground">{isProposalSucceeded ? "Passed" : "Voting"}</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
+                            <div 
+                              className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-l-full transition-all"
+                              style={{ width: `${selectedProposalForVotes + selectedProposalAgainstVotes > 0n 
+                                ? Number((selectedProposalForVotes * 100n) / (selectedProposalForVotes + selectedProposalAgainstVotes)) 
+                                : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                        {isProposalSucceeded ? (
+                          // Can execute
+                          <Button
+                            onClick={handleGovExecute}
+                            disabled={isGovExecuting || govExecuteConfirming}
+                            className="w-full h-6 text-[10px]"
+                            size="sm"
+                          >
+                            {(isGovExecuting || govExecuteConfirming) ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "Execute"
+                            )}
+                          </Button>
+                        ) : (
+                          // Voting buttons
+                          <div className="flex gap-1">
+                            <Button
+                              onClick={() => handleGovVote(true)}
+                              disabled={(stakedBalance ?? 0n) === 0n || isGovVoting || govVoteConfirming || userHasVotedProposal === true}
+                              className="flex-1 h-6 text-[10px] bg-green-600 hover:bg-green-700"
+                              size="sm"
+                            >
+                              {userHasVotedProposal ? "✓" : "Yes"}
+                            </Button>
+                            <Button
+                              onClick={() => handleGovVote(false)}
+                              disabled={(stakedBalance ?? 0n) === 0n || isGovVoting || govVoteConfirming || userHasVotedProposal === true}
+                              className="flex-1 h-6 text-[10px] bg-red-600 hover:bg-red-700"
+                              size="sm"
+                              variant="destructive"
+                            >
+                              No
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      // No active proposal - show Create Proposal button
+                      <Button
+                        onClick={() => setGovernanceAction({ isOpen: true, actionType: 'create' })}
+                        disabled={(stakedBalance ?? 0n) === 0n}
+                        className="w-full h-7 text-xs"
+                        size="sm"
+                      >
+                        Create Proposal
+                      </Button>
+                    )}
                   </div>
                 )
               ) : (

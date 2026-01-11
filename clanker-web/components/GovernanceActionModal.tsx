@@ -65,7 +65,6 @@ export function GovernanceActionModal({
   onClose,
   cabalId,
   cabals,
-  childCabalIds = [],
   stakedBalance = 0n,
   totalStaked = 0n,
   onSuccess,
@@ -101,8 +100,6 @@ export function GovernanceActionModal({
         return c.phase === CabalPhase.Presale
       case 'active':
         return c.phase === CabalPhase.Active
-      case 'child':
-        return childCabalIds.some(id => id.toString() === cId)
       default:
         return true
     }

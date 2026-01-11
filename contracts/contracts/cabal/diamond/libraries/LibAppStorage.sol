@@ -41,7 +41,7 @@ enum ActivityType {
 // ============ Structs ============
 
 struct GovernanceSettings {
-    uint256 votingPeriod;       // Blocks for voting (e.g., 50400 = ~1 week on Base)
+    uint256 votingPeriod;       // Blocks for voting (e.g., 300 = 10 min on Base)
     uint256 quorumBps;          // Basis points (e.g., 1000 = 10% of staked supply)
     uint256 majorityBps;        // Basis points (e.g., 5100 = 51%)
     uint256 proposalThreshold;  // Min voting power to create proposal

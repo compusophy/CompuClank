@@ -50,6 +50,7 @@ interface GraphNode {
   label: string
   phase: number
   isLaunching?: boolean
+  hasActiveProposal?: boolean  // Active cabal has pending/active/succeeded proposal
   x?: number
   y?: number
   fx?: number
@@ -172,8 +173,6 @@ export function GraphExplorer({
   // Launch confirmation dialog
   const [showLaunchConfirm, setShowLaunchConfirm] = useState(false)
   
-  // Child creation confirmation dialog
-  const [showChildCreateConfirm, setShowChildCreateConfirm] = useState(false)
   
   // Track which cabals are in "launching" state (presale + approved)
   // This persists across selection changes so nodes stay orange
@@ -264,6 +263,92 @@ export function GraphExplorer({
     })
     return launching
   }, [allLaunchStatuses, presaleCabalIds])
+
+  // Get active cabal IDs to batch fetch their proposal status
+  const activeCabalIds = useMemo(() => {
+    if (!cabalsData) return []
+    return cabalsData
+      .filter(c => c.phase === CabalPhase.Active)
+      .map(c => c.id)
+  }, [cabalsData])
+
+  // Batch fetch next proposal ID for all active cabals
+  const proposalIdContracts = useMemo(() => {
+    if (!CABAL_DIAMOND_ADDRESS || activeCabalIds.length === 0) return []
+    return activeCabalIds.map(cabalId => ({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: "getNextProposalId" as const,
+      args: [cabalId] as const,
+    }))
+  }, [activeCabalIds])
+
+  const { data: allNextProposalIds } = useReadContracts({
+    contracts: proposalIdContracts,
+    query: { 
+      enabled: proposalIdContracts.length > 0,
+      refetchInterval: 5000, // Refresh every 5 seconds to catch new proposals
+    },
+  })
+
+  // Build list of ALL proposals for each cabal (not just latest)
+  const allCabalProposals = useMemo(() => {
+    const result: { cabalId: bigint; proposalId: bigint }[] = []
+    if (!allNextProposalIds || !activeCabalIds) return result
+
+    allNextProposalIds.forEach((res, index) => {
+      if (res.status === 'success' && res.result) {
+        const nextId = res.result as bigint
+        // Add ALL proposals (0 to nextId-1) for this cabal
+        for (let i = 0n; i < nextId; i++) {
+          result.push({
+            cabalId: activeCabalIds[index],
+            proposalId: i,
+          })
+        }
+      }
+    })
+    return result
+  }, [allNextProposalIds, activeCabalIds])
+
+  // Batch fetch proposal state for ALL proposals
+  const proposalStateContracts = useMemo(() => {
+    if (!CABAL_DIAMOND_ADDRESS || allCabalProposals.length === 0) return []
+    return allCabalProposals.map(({ cabalId, proposalId }) => ({
+      address: CABAL_DIAMOND_ADDRESS,
+      abi: CABAL_ABI,
+      functionName: "getProposalState" as const,
+      args: [cabalId, proposalId] as const,
+    }))
+  }, [allCabalProposals])
+
+  const { data: allProposalStates } = useReadContracts({
+    contracts: proposalStateContracts,
+    query: { 
+      enabled: proposalStateContracts.length > 0,
+      refetchInterval: 5000, // Refresh every 5 seconds to catch state changes
+    },
+  })
+
+  // Build set of cabal IDs with active proposals (state 0=Pending, 1=Active, 2=Succeeded)
+  const cabalsWithActiveProposals = useMemo(() => {
+    const active = new Set<string>()
+    if (!allProposalStates || !allCabalProposals) return active
+
+    allProposalStates.forEach((res, index) => {
+      if (res.status === 'success' && res.result !== undefined) {
+        const state = res.result as number
+        const cabalId = allCabalProposals[index].cabalId.toString()
+        // 0=Pending, 1=Active, 2=Succeeded - all count as "active" for visual purposes
+        if (state <= 2) {
+          active.add(cabalId)
+        }
+      }
+    })
+    return active
+  }, [allProposalStates, allCabalProposals])
+
+  // Note: autoPauseRedraw={false} on ForceGraph2D ensures continuous canvas redraws for animations
 
   // Check if genesis is initialized
   const { data: isGenesisInitialized, refetch: refetchGenesis } = useReadContract({
@@ -436,49 +521,19 @@ export function GraphExplorer({
   const { writeContract: unstakeWrite, data: unstakeHash, isPending: isUnstaking, reset: resetUnstake } = useWriteContract()
   const { isLoading: unstakeConfirming, isSuccess: unstakeSuccess } = useWaitForTransactionReceipt({ hash: unstakeHash })
   
-  // Child creation voting (simple voting like launch voting)
-  const { writeContract: voteChildWrite, data: voteChildHash, isPending: isVotingChild, reset: resetVoteChild } = useWriteContract()
-  const { isLoading: voteChildConfirming, isSuccess: voteChildSuccess } = useWaitForTransactionReceipt({ hash: voteChildHash })
-  
-  const { writeContract: finalizeChildWrite, data: finalizeChildHash, isPending: isFinalizingChild, reset: resetFinalizeChild } = useWriteContract()
-  const { isLoading: finalizeChildConfirming, isSuccess: finalizeChildSuccess } = useWaitForTransactionReceipt({ hash: finalizeChildHash })
-  
-  // Get child creation vote status
-  const { data: childVoteStatus, refetch: refetchChildVoteStatus } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    functionName: 'getChildCreationVoteStatus',
-    args: hasSelectedCabal ? [selectedCabalId] : undefined,
-    query: { enabled: hasSelectedCabal && radialMenu.phase === CabalPhase.Active },
-  }) as { data: readonly [bigint, bigint, bigint, bigint, boolean, bigint, bigint] | undefined; refetch: () => void }
-  
-  // Get user's child creation vote
-  const { data: userChildVote, refetch: refetchUserChildVote, isFetching: isUserChildVoteFetching } = useReadContract({
-    address: CABAL_DIAMOND_ADDRESS,
-    abi: CABAL_ABI,
-    functionName: 'getChildCreationVote',
-    args: hasSelectedCabal && address ? [selectedCabalId, address] : undefined,
-    query: { enabled: hasSelectedCabal && !!address && radialMenu.phase === CabalPhase.Active },
-  }) as { data: bigint | undefined; refetch: () => void; isFetching: boolean }
-  
-  // Extract child creation status for timer
-  const childFinalizableAt = childVoteStatus?.[6] ?? 0n
-  const childMajorityMet = childVoteStatus?.[4] ?? false
-  
   // Timer effect - updates `now` every second for countdown displays
   useEffect(() => {
-    // Start interval if we're in any countdown phase (launch OR child creation)
+    // Start interval if we're in a launch countdown phase
     const hasLaunchCountdown = isLaunchApproved && launchableAtEarly > 0n
-    const hasChildCountdown = childMajorityMet && childFinalizableAt > 0n
     
-    if (!hasLaunchCountdown && !hasChildCountdown) return
+    if (!hasLaunchCountdown) return
     
     const interval = setInterval(() => {
       setNow(Math.floor(Date.now() / 1000))
     }, 1000) // Update every second for countdown display
     
     return () => clearInterval(interval)
-  }, [isLaunchApproved, launchableAtEarly, childMajorityMet, childFinalizableAt])
+  }, [isLaunchApproved, launchableAtEarly])
   
   // Handle genesis success
   useEffect(() => {
@@ -664,14 +719,11 @@ export function GraphExplorer({
       refetchStakedBalance()
       refetchTokenBalance()
       refetchSelectedCabal()
-      // Staking clears vote - refetch vote status
-      refetchChildVoteStatus()
-      refetchUserChildVote()
       setStakeAmount('')
       setIsSigning(false)
       resetStake()
     }
-  }, [stakeSuccess, stakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, refetchChildVoteStatus, refetchUserChildVote, resetStake])
+  }, [stakeSuccess, stakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, resetStake])
   
   // Handle unstake success
   useEffect(() => {
@@ -681,37 +733,10 @@ export function GraphExplorer({
       refetchStakedBalance()
       refetchTokenBalance()
       refetchSelectedCabal()
-      // Unstaking clears vote - refetch vote status
-      refetchChildVoteStatus()
-      refetchUserChildVote()
       setStakeAmount('')
       resetUnstake()
     }
-  }, [unstakeSuccess, unstakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, refetchChildVoteStatus, refetchUserChildVote, resetUnstake])
-  
-  // Handle vote child success
-  useEffect(() => {
-    if (voteChildSuccess && voteChildHash) {
-      haptics.success()
-      toast.success("Vote cast for child CABAL creation!")
-      refetchChildVoteStatus()
-      refetchUserChildVote()
-      resetVoteChild()
-    }
-  }, [voteChildSuccess, voteChildHash, refetchChildVoteStatus, refetchUserChildVote, resetVoteChild])
-  
-  // Handle finalize child success
-  useEffect(() => {
-    if (finalizeChildSuccess && finalizeChildHash) {
-      haptics.sacredRhythm()
-      toast.success("Child CABAL created")
-      refetchChildVoteStatus()
-      refetchUserChildVote()
-      refetchHierarchicalIds()
-      refetchCabalsData()
-      resetFinalizeChild()
-    }
-  }, [finalizeChildSuccess, finalizeChildHash, refetchChildVoteStatus, refetchUserChildVote, refetchHierarchicalIds, refetchCabalsData, resetFinalizeChild])
+  }, [unstakeSuccess, unstakeHash, refetchStakedBalance, refetchTokenBalance, refetchSelectedCabal, resetUnstake])
   
   // Reset stake state when menu closes
   useEffect(() => {
@@ -732,12 +757,10 @@ export function GraphExplorer({
         refetchTbaWeth()
         refetchTbaToken()
         refetchTokenBalance()
-        refetchChildVoteStatus()
-        refetchUserChildVote()
       }, 100)
       return () => clearTimeout(timeout)
     }
-  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchStakedBalance, refetchTbaBalance, refetchTbaWeth, refetchTbaToken, refetchTokenBalance, refetchChildVoteStatus, refetchUserChildVote])
+  }, [radialMenu.isOpen, radialMenu.phase, hasSelectedCabal, refetchStakedBalance, refetchTbaBalance, refetchTbaWeth, refetchTbaToken, refetchTokenBalance])
   
   // Refetch presale vote data when menu opens for a presale cabal
   useEffect(() => {
@@ -862,75 +885,6 @@ export function GraphExplorer({
       },
     })
   }, [radialMenu.cabalId, stakeAmount, address, unstakeWrite])
-  
-  // Execute the actual child creation vote
-  const executeChildVote = useCallback((support: boolean) => {
-    if (!CABAL_DIAMOND_ADDRESS || !address) return
-    
-    voteChildWrite({
-      address: CABAL_DIAMOND_ADDRESS,
-      abi: CABAL_ABI,
-      functionName: 'voteCreateChild',
-      args: [BigInt(radialMenu.cabalId), support],
-    }, {
-      onError: (e) => {
-        haptics.error()
-        const msg = e.message || "Failed to vote"
-        if (msg.includes("User denied") || msg.includes("User rejected")) {
-          toast.error("Transaction cancelled")
-        } else if (msg.includes("VoteUnchanged")) {
-          toast.error("Already voted this direction")
-        } else {
-          toast.error(msg.split("\n")[0].slice(0, 60))
-        }
-      },
-    })
-  }, [radialMenu.cabalId, address, voteChildWrite])
-  
-  // Handle voting to create a child cabal - shows confirmation if would trigger threshold
-  const handleVoteChildCreation = useCallback((support: boolean) => {
-    if (!CABAL_DIAMOND_ADDRESS || !address) return
-    
-    // Check if this vote would push over threshold (51%)
-    const votesFor = childVoteStatus?.[0] ?? 0n
-    const totalStaked = childVoteStatus?.[2] ?? 0n
-    const majorityMet = childVoteStatus?.[4] ?? false
-    const userStaked = stakedBalance ?? 0n
-    
-    // Calculate if vote would trigger (push over 51% majority)
-    const majorityRequired = (totalStaked * 51n) / 100n
-    const wouldTriggerChildCreation = support && !majorityMet && 
-      userStaked > 0n && (votesFor + userStaked) >= majorityRequired
-    
-    if (wouldTriggerChildCreation) {
-      setShowChildCreateConfirm(true)
-      return
-    }
-    
-    executeChildVote(support)
-  }, [radialMenu.cabalId, address, childVoteStatus, stakedBalance, executeChildVote])
-  
-  // Handle finalizing child creation
-  const handleFinalizeChildCreation = useCallback(() => {
-    if (!CABAL_DIAMOND_ADDRESS || !address) return
-    
-    finalizeChildWrite({
-      address: CABAL_DIAMOND_ADDRESS,
-      abi: CABAL_ABI,
-      functionName: 'finalizeChildCreation',
-      args: [BigInt(radialMenu.cabalId)],
-    }, {
-      onError: (e) => {
-        haptics.error()
-        const msg = e.message || "Failed to create child"
-        if (msg.includes("User denied") || msg.includes("User rejected")) {
-          toast.error("Transaction cancelled")
-        } else {
-          toast.error(msg.split("\n")[0].slice(0, 60))
-        }
-      },
-    })
-  }, [radialMenu.cabalId, address, finalizeChildWrite])
   
   const handleStakeAction = useCallback(() => {
     if (stakeTab === 'stake') {
@@ -1473,11 +1427,15 @@ export function GraphExplorer({
       // Get position (already includes animated offset for focus transitions)
       const {x: currentX, y: currentY, radius: currentRadius} = getNodePosition(nodeId)
       
+      // Check if this active cabal has an active proposal
+      const hasActiveProposal = cabal.phase === CabalPhase.Active && cabalsWithActiveProposals.has(nodeId)
+
       const node: GraphNode = {
         id: nodeId,
         label: nodeId,
         phase: cabal.phase,
         isLaunching: isThisLaunching,
+        hasActiveProposal,
         nodeRadius: currentRadius,
         collisionRadius: isSelected ? currentRadius * 1.5 : currentRadius * 1.1,
         x: currentX,
@@ -1502,7 +1460,7 @@ export function GraphExplorer({
     // Store for snapshotting before focus transitions
     lastGraphDataRef.current = result
     return result
-  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch, animatedChildDistance, animatedParentDistance, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, focusedCabalId, focusTransitionProgress])
+  }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch, cabalsWithActiveProposals, animatedChildDistance, animatedParentDistance, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, focusedCabalId, focusTransitionProgress])
 
 
   const closeRadialMenu = useCallback(() => {
@@ -2107,18 +2065,19 @@ export function GraphExplorer({
             d3VelocityDecay={0.3}
             d3AlphaDecay={0.02}
             d3AlphaMin={0.001}
+            autoPauseRedraw={false}
             nodeCanvasObjectMode={() => "replace"}
           nodePointerAreaPaint={(node, color, ctx, globalScale) => {
             const n = node as GraphNode
             const menuActive = menuAnimState !== 'exited'
             const isFocused = n.id === focusedCabalId
-            const nodeRadius = n.nodeRadius || FULL_NODE_RADIUS
+            const nodeRadius = Math.max(1, n.nodeRadius || FULL_NODE_RADIUS)
             // Use animated radius for focused node when menu active
             const hitRadius = (menuActive && isFocused)
-              ? (animatedRadius || nodeRadius * PHI_INV)
+              ? Math.max(1, animatedRadius || nodeRadius * PHI_INV)
               : nodeRadius
             ctx.beginPath()
-            ctx.arc(n.x || 0, n.y || 0, hitRadius / globalScale, 0, 2 * Math.PI)
+            ctx.arc(n.x || 0, n.y || 0, Math.max(0.1, hitRadius / globalScale), 0, 2 * Math.PI)
             ctx.fillStyle = color
             ctx.fill()
           }}
@@ -2126,14 +2085,15 @@ export function GraphExplorer({
             const n = node as GraphNode
             const label = n.label
             const isSelected = radialMenu.isOpen && radialMenu.cabalId === n.id
-            
+
             // Use node's own radius (generation-based sizing)
-            const nodeBaseRadius = n.nodeRadius || FULL_NODE_RADIUS
+            const nodeBaseRadius = Math.max(1, n.nodeRadius || FULL_NODE_RADIUS)
             // Selected nodes shrink for radial menu (to φ⁻¹ of original)
-            const baseRadius = isSelected ? (animatedRadius || nodeBaseRadius * PHI_INV) : nodeBaseRadius
+            const baseRadius = isSelected ? Math.max(1, animatedRadius || nodeBaseRadius * PHI_INV) : nodeBaseRadius
             // Apply entrance animation scale (blooms from 0 to 1)
-            const scaledRadius = baseRadius * nodeEntranceScale
-            const radius = scaledRadius / globalScale
+            const scaledRadius = baseRadius * Math.max(0.01, nodeEntranceScale)
+            // Ensure radius is always positive to prevent canvas errors
+            const radius = Math.max(0.1, scaledRadius / globalScale)
             // Font size is φ⁻¹ (0.618) of the circle radius, also scaled for entrance
             const fontSize = (scaledRadius * 0.61803) / globalScale
             const x = n.x || 0
@@ -2149,9 +2109,58 @@ export function GraphExplorer({
             ctx.fillStyle = `rgb(${bgColor.r}, ${bgColor.g}, ${bgColor.b})`
             ctx.fill()
             
-            // Gold border using BRAND_GOLD at 40% opacity (matches border-primary/40)
-            // Presale nodes get a dashed border to indicate they're not yet launched
+            // Phase checks for visual effects
+            const isActivePhase = n.phase === CabalPhase.Active
             const isPresaleNode = n.phase === CabalPhase.Presale
+            const hasActiveProposal = n.isLaunching || n.hasActiveProposal
+            
+            // Sacred geometry golden ratio glow
+            // SIZE SHRINKS for breathing effect - very noticeable!
+            // All cabals get same brightness, animated ones shrink/expand
+            const showGlow = isActivePhase || isPresaleNode
+            if (showGlow) {
+              const PHI_INV = 0.618
+              const PHI_INV_SQ = 0.382
+              
+              // Glow size - shrinks dramatically for animated nodes
+              let glowScale = 1.0
+              
+              // Animate for: presales OR active cabals with proposals
+              const shouldAnimate = isPresaleNode || hasActiveProposal
+              if (shouldAnimate) {
+                // Animated SHRINKING glow using golden ratio timing
+                const PHI_MS = 1618 // φ seconds in milliseconds
+                const time = Date.now() % PHI_MS
+                const t = time / PHI_MS // 0 to 1
+
+                // Breathe from 100% to 62% (golden ratio)
+                // Using cosine so it starts at max (1.0) when t=0
+                const oscillation = (1 + Math.cos(t * Math.PI * 2)) / 2 // 1 to 0 to 1
+                glowScale = 0.62 + oscillation * 0.38 // 0.62 to 1.0
+              }
+              
+              // Create radial gradient - SIZE varies with animation
+              const glowRadius = Math.max(1, radius * glowScale)
+              const gradient = ctx.createRadialGradient(x, y, 0, x, y, glowRadius)
+              
+              // Same brightness for all - using golden ratio gradient stops
+              gradient.addColorStop(0, `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.4)`)
+              gradient.addColorStop(PHI_INV_SQ, `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.25)`)
+              gradient.addColorStop(PHI_INV, `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.1)`)
+              gradient.addColorStop(1, `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0)`)
+              
+              ctx.beginPath()
+              ctx.arc(x, y, glowRadius, 0, 2 * Math.PI)
+              ctx.fillStyle = gradient
+              ctx.fill()
+            }
+            
+            // Gold border using BRAND_GOLD at 40% opacity (matches border-primary/40)
+            // IMPORTANT: Must create new path at full radius (glow may have changed current path)
+            ctx.beginPath()
+            ctx.arc(x, y, radius, 0, 2 * Math.PI)
+            
+            // Presale nodes get a dashed border to indicate they're not yet launched
             if (isPresaleNode) {
               // Dashed line for presale - dash and gap scale with node size
               const dashSize = radius * 0.3
@@ -2490,189 +2499,29 @@ export function GraphExplorer({
                     <p className="text-xs text-muted-foreground">Connect wallet</p>
                   </div>
                 ) : (
-                  <div className="px-2 py-1.5 space-y-1.5 w-full">
-                    {/* Create Child Button (primary action) */}
-                    {(() => {
-                  const treasuryBalance = (tbaEthBalance?.value ?? 0n) + (tbaWethBalance ?? 0n)
-                  const minRequired = parseEther('0.00001') // Match contract MIN_CREATION_FEE
-                  const hasStake = (stakedBalance ?? 0n) > 0n
-                  // Only check treasury funds if we've actually loaded the balance
-                  const isTreasuryLoading = tbaEthBalance === undefined
-                  const hasTreasuryFunds = isTreasuryLoading || treasuryBalance >= minRequired
-                  
-                  // Parse child vote status
-                  const votesFor = childVoteStatus?.[0] ?? 0n
-                  const votesAgainst = childVoteStatus?.[1] ?? 0n
-                  const totalStaked = childVoteStatus?.[2] ?? 0n
-                  const majorityMet = childVoteStatus?.[4] ?? false
-                  const approvedAt = childVoteStatus?.[5] ?? 0n
-                  const finalizableAt = childVoteStatus?.[6] ?? 0n
-                  
-                  const childYesPercent = totalStaked > 0n 
-                    ? Number((votesFor * 100n) / totalStaked) 
-                    : 0
-                  
-                  // Contract now uses a nonce system to track voting rounds
-                  // getChildCreationVote returns 0 if the user's vote is from a previous (finalized) round
-                  // So we can reliably trust the userChildVote value
-                  const userVotedChildYes = !isUserChildVoteFetching && (userChildVote ?? 0n) === 1n
-                  
-                  // Use the reactive `now` state (updates every second) for countdown
-                  // Edge case: majorityMet can be true but approvedAt/finalizableAt can be 0
-                  // This happens if vote threshold was dynamically met due to stake changes after voting
-                  // In this case, treat as finalizable immediately (or show vote button to re-trigger timer)
-                  const hasApprovalTimestamp = approvedAt > 0n && finalizableAt > 0n
-                  const isChildFinalizable = majorityMet && (!hasApprovalTimestamp || now >= Number(finalizableAt))
-                  
-                  const isChildVoteLoading = isVotingChild || voteChildConfirming || isUserChildVoteFetching
-                  const isChildFinalizeLoading = isFinalizingChild || finalizeChildConfirming
-                  
-                  // Time remaining until finalizable (uses reactive `now` state)
-                  const childTimeRemaining = finalizableAt > 0n ? Math.max(0, Number(finalizableAt) - now) : 0
-                  const childMinsRemaining = Math.ceil(childTimeRemaining / 60)
-                  
-                  // Can vote if has stake and treasury has funds
-                  const canVote = hasStake && hasTreasuryFunds
-                  
-                  // Check if user voted NO (vote value 2)
-                  const userVotedChildNo = !isUserChildVoteFetching && (userChildVote ?? 0n) === 2n
-                  const userHasVoted = userVotedChildYes || userVotedChildNo
-                  
-                  // Active child creation vote in progress
-                  const hasActiveChildVote = votesFor > 0n || votesAgainst > 0n || majorityMet
-                  
-                  // Calculate user's voting power
-                  const userPowerPercent = (() => {
-                    const totalStaked = selectedCabal?.totalStaked ?? 0n
-                    const userStaked = stakedBalance ?? 0n
-                    if (totalStaked === 0n) return "0.00"
-                    const pct = Number((userStaked * 10000n) / totalStaked) / 100
-                    return pct.toFixed(2)
-                  })()
-                  
-                  return (
-                    <div className="px-3 py-2 space-y-1.5 w-full text-center">
-                      {/* Power display - always show at top */}
-                      <div className="flex justify-between text-xs pb-1 border-b border-primary/10">
-                        <span className="text-muted-foreground">Power:</span>
-                        <span className={hasStake ? 'text-primary font-medium' : 'text-muted-foreground'}>{userPowerPercent}%</span>
-                      </div>
-                      
-                      {hasActiveChildVote ? (
-                        // Active Vote - show vote UI only, no button grid
-                        <div className="space-y-1.5">
-                          <p className="text-[10px] font-medium text-primary">Create CABAL</p>
-                          
-                          {majorityMet ? (
-                            // Vote passed - show finalize or countdown
-                            isChildFinalizable ? (
-                              <>
-                                <p className="text-[9px] text-green-500">Passed</p>
-                                <Button
-                                  onClick={handleFinalizeChildCreation}
-                                  disabled={isChildFinalizeLoading}
-                                  className="w-full h-7 text-xs"
-                                  size="sm"
-                                >
-                                  {isChildFinalizeLoading ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    "Finalize"
-                                  )}
-                                </Button>
-                              </>
-                            ) : (
-                              <div className="text-center">
-                                <p className="text-[9px] text-green-500">Passed</p>
-                                <p className="text-xs text-muted-foreground">{childMinsRemaining}m</p>
-                              </div>
-                            )
-                          ) : (
-                            // Vote in progress - show progress and YES/NO buttons
-                            <>
-                              <div className="flex justify-between text-[9px]">
-                                <span className="text-green-500">{childYesPercent}%</span>
-                                <span className="text-muted-foreground">51%</span>
-                              </div>
-                              <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
-                                <div 
-                                  className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-l-full transition-all"
-                                  style={{ width: `${Math.min(childYesPercent, 100)}%` }}
-                                />
-                              </div>
-                              <div className="flex gap-1">
-                                <Button
-                                  onClick={() => handleVoteChildCreation(true)}
-                                  disabled={!canVote || isChildVoteLoading || userVotedChildYes}
-                                  className="flex-1 h-6 text-[10px] bg-green-600 hover:bg-green-700"
-                                  size="sm"
-                                >
-                                  {userVotedChildYes ? "Yes" : "Yes"}
-                                </Button>
-                                <Button
-                                  onClick={() => handleVoteChildCreation(false)}
-                                  disabled={!canVote || isChildVoteLoading || userVotedChildNo}
-                                  className="flex-1 h-6 text-[10px] bg-red-600 hover:bg-red-700"
-                                  size="sm"
-                                  variant="destructive"
-                                >
-                                  {userVotedChildNo ? "No" : "No"}
-                                </Button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        // No active vote - show governance grid
-                        <div className="grid grid-cols-3 gap-1">
-                          <button
-                            onClick={() => handleVoteChildCreation(true)}
-                            disabled={!canVote}
-                            className={`flex flex-col items-center gap-0.5 py-1 px-1 rounded transition-colors ${
-                              !canVote ? 'opacity-40 cursor-not-allowed' : 'hover:bg-primary/10'
-                            }`}
-                            title="Create new CABAL"
-                          >
-                            <Plus className="h-3 w-3 text-primary" />
-                            <span className="text-[8px] text-muted-foreground">Create</span>
-                          </button>
-                          <button
-                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'contribute' })}
-                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                            title="Contribute to presale"
-                          >
-                            <Send className="h-3 w-3 text-primary" />
-                            <span className="text-[8px] text-muted-foreground">Contrib</span>
-                          </button>
-                          <button
-                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'trade' })}
-                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                            title="Trade tokens"
-                          >
-                            <TrendingUp className="h-3 w-3 text-green-500" />
-                            <span className="text-[8px] text-muted-foreground">Trade</span>
-                          </button>
-                          <button
-                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'stake' })}
-                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                            title="Stake in cabal"
-                          >
-                            <Lock className="h-3 w-3 text-blue-500" />
-                            <span className="text-[8px] text-muted-foreground">Stake</span>
-                          </button>
-                          <button
-                            onClick={() => setGovernanceAction({ isOpen: true, actionType: 'delegate' })}
-                            className="flex flex-col items-center gap-0.5 py-1 px-1 rounded hover:bg-primary/10 transition-colors"
-                            title="Delegate power"
-                          >
-                            <Users className="h-3 w-3 text-orange-500" />
-                            <span className="text-[8px] text-muted-foreground">Deleg</span>
-                          </button>
-                        </div>
-                      )}
-                  </div>
-                )
-                })()}
+                  <div className="px-3 py-2 space-y-1.5 w-full text-center">
+                    {/* Power display */}
+                    <div className="flex justify-between text-xs pb-1 border-b border-primary/10">
+                      <span className="text-muted-foreground">Power:</span>
+                      <span className={(stakedBalance ?? 0n) > 0n ? 'text-primary font-medium' : 'text-muted-foreground'}>
+                        {(() => {
+                          const total = selectedCabal?.totalStaked ?? 0n
+                          const user = stakedBalance ?? 0n
+                          if (total === 0n) return "0.00"
+                          const pct = Number((user * 10000n) / total) / 100
+                          return pct.toFixed(2)
+                        })()}%
+                      </span>
+                    </div>
+                    {/* Create Proposal Button */}
+                    <Button
+                      onClick={() => setGovernanceAction({ isOpen: true, actionType: 'create' })}
+                      disabled={(stakedBalance ?? 0n) === 0n}
+                      className="w-full h-7 text-xs"
+                      size="sm"
+                    >
+                      Create Proposal
+                    </Button>
                   </div>
                 )
               ) : (
@@ -2805,48 +2654,6 @@ export function GraphExplorer({
           </DialogContent>
         </Dialog>
         
-        {/* Child Creation Confirmation Dialog */}
-        <Dialog open={showChildCreateConfirm} onOpenChange={setShowChildCreateConfirm}>
-          <DialogContent 
-            className="dialog-glow-animated"
-            onPointerDownCapture={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <DialogHeader>
-              <DialogTitle>
-                Start 10 Minute Countdown?
-              </DialogTitle>
-              <DialogDescription>
-                Your vote will start a countdown. After 10 minutes, anyone can finalize to create a new child CABAL.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowChildCreateConfirm(false)
-                }}
-                disabled={isVotingChild || voteChildConfirming}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  executeChildVote(true)
-                  setShowChildCreateConfirm(false)
-                }}
-                disabled={isVotingChild || voteChildConfirming}
-                className="gap-2"
-              >
-                {(isVotingChild || voteChildConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
-                {(isVotingChild || voteChildConfirming) ? "Confirming..." : "Create CABAL"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
         
         {/* Governance Action Modal */}
         <GovernanceActionModal
@@ -2855,6 +2662,8 @@ export function GraphExplorer({
           cabalId={BigInt(radialMenu.cabalId || "0")}
           actionType={governanceAction.actionType}
           cabals={cabalsData ?? []}
+          stakedBalance={stakedBalance ?? 0n}
+          totalStaked={selectedCabal?.totalStaked ?? 0n}
           onSuccess={() => {
             // Refetch cabals data after successful proposal
             refetchCabalsData?.()

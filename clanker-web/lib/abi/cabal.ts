@@ -1059,6 +1059,7 @@ export enum ProposalState {
   Defeated = 3,
   Executed = 4,
   Cancelled = 5,
+  Expired = 6,
 }
 
 // Activity type enum

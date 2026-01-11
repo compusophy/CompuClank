@@ -19,6 +19,7 @@ contract ChildCreationFacet {
     uint256 constant BPS_DENOMINATOR = 10000;
     uint256 constant CHILD_CREATION_MAJORITY_BPS = 5100;  // 51% of totalStaked must vote YES
     uint256 constant CHILD_CREATION_DELAY = 10 minutes;   // Timer after vote passes (TESTING)
+    uint256 constant CHILD_CREATION_EXPIRY = 10 minutes;  // Votes expire 10 min after finalization window opens
     uint256 constant MIN_CREATION_FEE = 0.00001 ether;    // Minimum ETH for child's initial contribution
     bytes32 constant TBA_SALT = bytes32(0);
     uint256 constant MAX_CHILDREN = 8;                     // Maximum children per cabal (hierarchical naming limit)
@@ -42,6 +43,10 @@ contract ChildCreationFacet {
         address indexed voter
     );
     
+    event ChildCreationVoteExpired(
+        uint256 indexed cabalId
+    );
+    
     event ChildCabalCreated(
         uint256 indexed parentCabalId,
         uint256 indexed childCabalId,
@@ -55,9 +60,11 @@ contract ChildCreationFacet {
     error VoteUnchanged();
     error ChildCreationNotApproved();
     error ChildCreationTimerNotElapsed();
+    error ChildCreationExpired();
     error InsufficientTreasuryBalance();
     error TransferFailed();
     error TooManyChildren();
+    error VoteNotExpired();
 
     // ============ External Functions ============
 
@@ -74,6 +81,16 @@ contract ChildCreationFacet {
         if (cabal.phase != CabalPhase.Active) revert CabalNotActive();
         if (cabal.childCabalIds.length >= MAX_CHILDREN) revert TooManyChildren();
         
+        // Auto-reset if vote has expired
+        uint256 approvedAt = LibAppStorage.getChildCreationApprovedAt(cabalId);
+        if (approvedAt > 0) {
+            uint256 expiryTime = approvedAt + CHILD_CREATION_DELAY + CHILD_CREATION_EXPIRY;
+            if (block.timestamp > expiryTime) {
+                LibAppStorage.resetChildCreationVoting(cabalId);
+                emit ChildCreationVoteExpired(cabalId);
+            }
+        }
+        
         // Get voting power (staked balance)
         uint256 votingPower = _getVotingPower(cabalId, msg.sender);
         if (votingPower == 0) revert NoVotingPower();
@@ -85,11 +102,11 @@ contract ChildCreationFacet {
         
         LibAppStorage.logActivity(cabalId, msg.sender, ActivityType.ProposalVoted, votingPower);
         
-        // Check current vote state
+        // Check current vote state (re-fetch approvedAt since it may have been reset above)
         uint256 votesFor = LibAppStorage.getChildCreationVotesFor(cabalId);
         uint256 votesAgainst = LibAppStorage.getChildCreationVotesAgainst(cabalId);
         uint256 majorityRequired = (cabal.totalStaked * CHILD_CREATION_MAJORITY_BPS) / BPS_DENOMINATOR;
-        uint256 approvedAt = LibAppStorage.getChildCreationApprovedAt(cabalId);
+        approvedAt = LibAppStorage.getChildCreationApprovedAt(cabalId);
         
         // Proposal should be cancelled if:
         // 1. YES votes drop below 51% threshold, OR
@@ -113,6 +130,24 @@ contract ChildCreationFacet {
     }
 
     /**
+     * @notice Reset an expired child creation vote
+     * @param cabalId The cabal with an expired vote
+     * @dev Anyone can call to reset an expired vote. Vote expires 10 min after finalization window opens.
+     */
+    function resetExpiredChildCreationVote(uint256 cabalId) external {
+        uint256 approvedAt = LibAppStorage.getChildCreationApprovedAt(cabalId);
+        if (approvedAt == 0) revert ChildCreationNotApproved();
+        
+        // Check if vote has expired (past finalization window + expiry time)
+        uint256 expiryTime = approvedAt + CHILD_CREATION_DELAY + CHILD_CREATION_EXPIRY;
+        if (block.timestamp < expiryTime) revert VoteNotExpired();
+        
+        // Reset voting state
+        LibAppStorage.resetChildCreationVoting(cabalId);
+        emit ChildCreationVoteExpired(cabalId);
+    }
+
+    /**
      * @notice Finalize child creation after timer has elapsed
      * @param cabalId The parent cabal creating the child
      * @dev Anyone can call once timer has passed. Creates child and resets voting state.
@@ -128,6 +163,10 @@ contract ChildCreationFacet {
         
         // Check timer has elapsed
         if (block.timestamp < approvedAt + CHILD_CREATION_DELAY) revert ChildCreationTimerNotElapsed();
+        
+        // Check vote hasn't expired
+        uint256 expiryTime = approvedAt + CHILD_CREATION_DELAY + CHILD_CREATION_EXPIRY;
+        if (block.timestamp > expiryTime) revert ChildCreationExpired();
         
         // Check treasury has enough ETH (need to check TBA balance)
         uint256 tbaBalance = cabal.tbaAddress.balance;
@@ -298,7 +337,7 @@ contract ChildCreationFacet {
         LibAppStorage.addChildCabal(parentCabalId, childCabalId);
         
         // Default governance settings
-        child.settings.votingPeriod = 50400;
+        child.settings.votingPeriod = 300;  // 10 minutes on Base (2s blocks)
         child.settings.quorumBps = 1000;
         child.settings.majorityBps = 5100;
         child.settings.proposalThreshold = 0;

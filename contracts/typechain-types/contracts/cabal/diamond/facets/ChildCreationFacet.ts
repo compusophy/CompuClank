@@ -31,6 +31,7 @@ export interface ChildCreationFacetInterface extends Interface {
       | "getChildCreationVote"
       | "getChildCreationVoteStatus"
       | "hasVotedChildCreation"
+      | "resetExpiredChildCreationVote"
       | "voteCreateChild"
   ): FunctionFragment;
 
@@ -39,6 +40,7 @@ export interface ChildCreationFacetInterface extends Interface {
       | "ChildCabalCreated"
       | "ChildCreationApproved"
       | "ChildCreationVoteCast"
+      | "ChildCreationVoteExpired"
       | "ChildCreationVoteReset"
   ): EventFragment;
 
@@ -63,6 +65,10 @@ export interface ChildCreationFacetInterface extends Interface {
     values: [BigNumberish, AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "resetExpiredChildCreationVote",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "voteCreateChild",
     values: [BigNumberish, boolean]
   ): string;
@@ -85,6 +91,10 @@ export interface ChildCreationFacetInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "hasVotedChildCreation",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "resetExpiredChildCreationVote",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -146,6 +156,18 @@ export namespace ChildCreationVoteCastEvent {
     voter: string;
     support: boolean;
     weight: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace ChildCreationVoteExpiredEvent {
+  export type InputTuple = [cabalId: BigNumberish];
+  export type OutputTuple = [cabalId: bigint];
+  export interface OutputObject {
+    cabalId: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -249,6 +271,12 @@ export interface ChildCreationFacet extends BaseContract {
     "view"
   >;
 
+  resetExpiredChildCreationVote: TypedContractMethod<
+    [cabalId: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   voteCreateChild: TypedContractMethod<
     [cabalId: BigNumberish, support: boolean],
     [void],
@@ -297,6 +325,9 @@ export interface ChildCreationFacet extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "resetExpiredChildCreationVote"
+  ): TypedContractMethod<[cabalId: BigNumberish], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "voteCreateChild"
   ): TypedContractMethod<
     [cabalId: BigNumberish, support: boolean],
@@ -324,6 +355,13 @@ export interface ChildCreationFacet extends BaseContract {
     ChildCreationVoteCastEvent.InputTuple,
     ChildCreationVoteCastEvent.OutputTuple,
     ChildCreationVoteCastEvent.OutputObject
+  >;
+  getEvent(
+    key: "ChildCreationVoteExpired"
+  ): TypedContractEvent<
+    ChildCreationVoteExpiredEvent.InputTuple,
+    ChildCreationVoteExpiredEvent.OutputTuple,
+    ChildCreationVoteExpiredEvent.OutputObject
   >;
   getEvent(
     key: "ChildCreationVoteReset"
@@ -365,6 +403,17 @@ export interface ChildCreationFacet extends BaseContract {
       ChildCreationVoteCastEvent.InputTuple,
       ChildCreationVoteCastEvent.OutputTuple,
       ChildCreationVoteCastEvent.OutputObject
+    >;
+
+    "ChildCreationVoteExpired(uint256)": TypedContractEvent<
+      ChildCreationVoteExpiredEvent.InputTuple,
+      ChildCreationVoteExpiredEvent.OutputTuple,
+      ChildCreationVoteExpiredEvent.OutputObject
+    >;
+    ChildCreationVoteExpired: TypedContractEvent<
+      ChildCreationVoteExpiredEvent.InputTuple,
+      ChildCreationVoteExpiredEvent.OutputTuple,
+      ChildCreationVoteExpiredEvent.OutputObject
     >;
 
     "ChildCreationVoteReset(uint256,address)": TypedContractEvent<

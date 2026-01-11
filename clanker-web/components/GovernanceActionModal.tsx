@@ -15,7 +15,6 @@ import { CABAL_DIAMOND_ADDRESS } from "@/lib/wagmi-config"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -24,7 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Send, TrendingUp, TrendingDown, Lock, Unlock, Vote, Users, Trash2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useTransactionGuard } from "@/lib/transaction-context"
 
@@ -38,158 +37,66 @@ export type GovernanceActionType =
   | 'vote'          // Vote in another cabal's proposal
   | 'delegate'      // Delegate voting power in another cabal
   | 'dissolve'      // Dissolve a child cabal
+  | 'create'        // Create a new child cabal
 
 interface GovernanceActionModalProps {
   isOpen: boolean
   onClose: () => void
   cabalId: bigint
-  actionType: GovernanceActionType
+  actionType: GovernanceActionType // Initial action type (ignored, we use internal state)
   cabals: readonly CabalInfoMinimal[]
   childCabalIds?: readonly bigint[]
+  stakedBalance?: bigint
+  totalStaked?: bigint
   onSuccess?: () => void
 }
 
-const ACTION_CONFIG: Record<GovernanceActionType, {
-  title: string
-  description: string
-  icon: React.ReactNode
-  targetFilter?: 'presale' | 'active' | 'child' | 'any'
-  amountLabel?: string
-  amountUnit?: string
-  requiresTargetProposal?: boolean
-  requiresDelegatee?: boolean
-}> = {
-  contribute: {
-    title: "Contribute to Presale",
-    description: "Propose to contribute ETH from treasury to another cabal's presale",
-    icon: <Send className="h-5 w-5" />,
-    targetFilter: 'presale',
-    amountLabel: "ETH Amount",
-    amountUnit: "ETH",
-  },
-  buy: {
-    title: "Buy Tokens",
-    description: "Propose to buy tokens from another cabal using treasury ETH",
-    icon: <TrendingUp className="h-5 w-5" />,
-    targetFilter: 'active',
-    amountLabel: "ETH to Spend",
-    amountUnit: "ETH",
-  },
-  sell: {
-    title: "Sell Tokens",
-    description: "Propose to sell tokens of another cabal for ETH",
-    icon: <TrendingDown className="h-5 w-5" />,
-    targetFilter: 'active',
-    amountLabel: "Token Amount",
-    amountUnit: "tokens",
-  },
-  trade: {
-    title: "Trade Tokens",
-    description: "Propose to buy or sell tokens of another cabal",
-    icon: <TrendingUp className="h-5 w-5" />,
-    targetFilter: 'active',
-    amountLabel: "Amount",
-    amountUnit: "",
-  },
-  stake: {
-    title: "Stake in CABAL",
-    description: "Propose to stake tokens in another cabal for voting power",
-    icon: <Lock className="h-5 w-5" />,
-    targetFilter: 'active',
-    amountLabel: "Token Amount",
-    amountUnit: "tokens",
-  },
-  unstake: {
-    title: "Unstake from CABAL",
-    description: "Propose to unstake tokens from another cabal",
-    icon: <Unlock className="h-5 w-5" />,
-    targetFilter: 'active',
-    amountLabel: "Token Amount",
-    amountUnit: "tokens",
-  },
-  vote: {
-    title: "Vote in CABAL",
-    description: "Propose to cast a vote in another cabal's governance",
-    icon: <Vote className="h-5 w-5" />,
-    targetFilter: 'active',
-    requiresTargetProposal: true,
-  },
-  delegate: {
-    title: "Delegate Power",
-    description: "Propose to delegate voting power in another cabal",
-    icon: <Users className="h-5 w-5" />,
-    targetFilter: 'active',
-    requiresDelegatee: true,
-  },
-  dissolve: {
-    title: "Dissolve Child",
-    description: "Propose to dissolve a child cabal and reclaim treasury",
-    icon: <Trash2 className="h-5 w-5" />,
-    targetFilter: 'child',
-  },
-}
+// Available proposal types for the selector
+const PROPOSAL_TYPES = [
+  { value: 'create', label: 'Create Child CABAL', targetFilter: null },
+  { value: 'contribute', label: 'Contribute to Presale', targetFilter: 'presale' as const },
+  { value: 'trade', label: 'Trade Tokens', targetFilter: 'active' as const },
+  { value: 'stake', label: 'Stake in CABAL', targetFilter: 'active' as const },
+  { value: 'delegate', label: 'Delegate Power', targetFilter: 'active' as const },
+] as const
 
 export function GovernanceActionModal({
   isOpen,
   onClose,
   cabalId,
-  actionType,
   cabals,
   childCabalIds = [],
+  stakedBalance = 0n,
+  totalStaked = 0n,
   onSuccess,
 }: GovernanceActionModalProps) {
-  const config = ACTION_CONFIG[actionType]
   const txGuard = useTransactionGuard()
   
+  // Calculate voting power percentage
+  const votingPower = totalStaked > 0n 
+    ? Number((stakedBalance * 10000n) / totalStaked) / 100 
+    : 0
+  
   // Form state
+  const [selectedType, setSelectedType] = useState<string>('create')
   const [targetCabalId, setTargetCabalId] = useState<string>("")
   const [amount, setAmount] = useState<string>("")
-  const [targetProposalId, setTargetProposalId] = useState<string>("")
-  const [voteSupport, setVoteSupport] = useState<boolean>(true)
-  const [delegatee, setDelegatee] = useState<string>("")
-  const [description, setDescription] = useState<string>("")
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy')
+  const [delegatee, setDelegatee] = useState<string>("")
   
   // Write contract
   const { writeContract, data: txHash, isPending } = useWriteContract()
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash: txHash })
   
-  // Reset form on close
-  useEffect(() => {
-    if (!isOpen) {
-      setTargetCabalId("")
-      setAmount("")
-      setTargetProposalId("")
-      setVoteSupport(true)
-      setDelegatee("")
-      setDescription("")
-      setTradeMode('buy')
-    }
-  }, [isOpen])
+  // Get current proposal type config
+  const currentType = PROPOSAL_TYPES.find(t => t.value === selectedType) ?? PROPOSAL_TYPES[0]
   
-  // Track transaction hash for global status
-  useEffect(() => {
-    if (txHash) {
-      txGuard.onHash(txHash)
-    }
-  }, [txHash, txGuard])
-  
-  // Handle success
-  useEffect(() => {
-    if (isSuccess && txHash) {
-      txGuard.onComplete()
-      toast.success("Proposal created!")
-      onSuccess?.()
-      onClose()
-    }
-  }, [isSuccess, txHash, onSuccess, onClose, txGuard])
-  
-  // Filter cabals based on action type
+  // Filter cabals based on selected type
   const filteredCabals = cabals.filter(c => {
     const cId = c.id.toString()
     if (cId === cabalId.toString()) return false // Can't target self
     
-    switch (config.targetFilter) {
+    switch (currentType.targetFilter) {
       case 'presale':
         return c.phase === CabalPhase.Presale
       case 'active':
@@ -201,8 +108,38 @@ export function GovernanceActionModal({
     }
   })
   
+  // Reset form on close
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedType('create')
+      setTargetCabalId("")
+      setAmount("")
+      setTradeMode('buy')
+      setDelegatee("")
+    }
+  }, [isOpen])
+  
+  // Track transaction hash for global status
+  useEffect(() => {
+    if (txHash) {
+      txGuard.onHash(txHash)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txHash])
+  
+  // Handle success
+  useEffect(() => {
+    if (isSuccess && txHash) {
+      txGuard.onComplete()
+      toast.success("Proposal created!")
+      onSuccess?.()
+      onClose()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess, txHash])
+  
   const handleSubmit = () => {
-    if (!CABAL_DIAMOND_ADDRESS || !targetCabalId) return
+    if (!CABAL_DIAMOND_ADDRESS) return
     
     // Check if another transaction is pending
     if (!txGuard.canStart()) {
@@ -210,149 +147,163 @@ export function GovernanceActionModal({
       return
     }
     
-    const autoDescription = description || `${config.title}: Target CABAL ${targetCabalId}`
-    
     // Start the transaction guard
-    txGuard.guardTransaction(config.title, () => {})
+    txGuard.guardTransaction("Create Proposal", () => {})
     
     const onError = (e: Error) => {
       txGuard.onComplete()
       toast.error(e.message?.split('\n')[0] || "Transaction failed")
     }
     
-    // Use direct writeContract calls to maintain type safety
-    switch (actionType) {
+    const description = `${currentType.label}`
+    
+    switch (selectedType) {
+      case 'create':
+        // Use minimum amount (0.00001 ETH) - no user input needed
+        writeContract({
+          address: CABAL_DIAMOND_ADDRESS,
+          abi: CABAL_ABI,
+          functionName: 'proposeCreateChildCabal',
+          args: [cabalId, parseEther("0.00001"), description],
+        }, { onError })
+        break
       case 'contribute':
+        if (!targetCabalId || !amount) return
         writeContract({
           address: CABAL_DIAMOND_ADDRESS,
           abi: CABAL_ABI,
           functionName: 'proposeContributeToPresale',
-          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription],
-        }, { onError })
-        break
-      case 'buy':
-        writeContract({
-          address: CABAL_DIAMOND_ADDRESS,
-          abi: CABAL_ABI,
-          functionName: 'proposeBuyTokens',
-          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
-        }, { onError })
-        break
-      case 'sell':
-        writeContract({
-          address: CABAL_DIAMOND_ADDRESS,
-          abi: CABAL_ABI,
-          functionName: 'proposeSellTokens',
-          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
+          args: [cabalId, BigInt(targetCabalId), parseEther(amount), description],
         }, { onError })
         break
       case 'trade':
-        // Use the selected trade mode (buy or sell)
+        if (!targetCabalId || !amount) return
         if (tradeMode === 'buy') {
           writeContract({
             address: CABAL_DIAMOND_ADDRESS,
             abi: CABAL_ABI,
             functionName: 'proposeBuyTokens',
-            args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
+            args: [cabalId, BigInt(targetCabalId), parseEther(amount), 0n, description],
           }, { onError })
         } else {
           writeContract({
             address: CABAL_DIAMOND_ADDRESS,
             abi: CABAL_ABI,
             functionName: 'proposeSellTokens',
-            args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), 0n, autoDescription],
+            args: [cabalId, BigInt(targetCabalId), parseEther(amount), 0n, description],
           }, { onError })
         }
         break
       case 'stake':
+        if (!targetCabalId || !amount) return
         writeContract({
           address: CABAL_DIAMOND_ADDRESS,
           abi: CABAL_ABI,
           functionName: 'proposeStake',
-          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription],
-        }, { onError })
-        break
-      case 'unstake':
-        writeContract({
-          address: CABAL_DIAMOND_ADDRESS,
-          abi: CABAL_ABI,
-          functionName: 'proposeUnstake',
-          args: [cabalId, BigInt(targetCabalId), parseEther(amount || "0"), autoDescription],
-        }, { onError })
-        break
-      case 'vote':
-        writeContract({
-          address: CABAL_DIAMOND_ADDRESS,
-          abi: CABAL_ABI,
-          functionName: 'proposeVote',
-          args: [cabalId, BigInt(targetCabalId), BigInt(targetProposalId || "0"), voteSupport, autoDescription],
+          args: [cabalId, BigInt(targetCabalId), parseEther(amount), description],
         }, { onError })
         break
       case 'delegate':
+        if (!targetCabalId || !delegatee) return
         writeContract({
           address: CABAL_DIAMOND_ADDRESS,
           abi: CABAL_ABI,
           functionName: 'proposeDelegate',
-          args: [cabalId, BigInt(targetCabalId), delegatee as `0x${string}`, autoDescription],
-        }, { onError })
-        break
-      case 'dissolve':
-        writeContract({
-          address: CABAL_DIAMOND_ADDRESS,
-          abi: CABAL_ABI,
-          functionName: 'proposeDissolveChild',
-          args: [cabalId, BigInt(targetCabalId), autoDescription],
+          args: [cabalId, BigInt(targetCabalId), delegatee as `0x${string}`, description],
         }, { onError })
         break
     }
   }
   
   const isLoading = isPending || isConfirming || txGuard.isPending
-  const canSubmit = targetCabalId && !isLoading && txGuard.canStart() && (
-    !config.amountLabel || amount
-  ) && (
-    !config.requiresTargetProposal || targetProposalId
-  ) && (
-    !config.requiresDelegatee || delegatee
-  )
+  
+  // Check if can submit based on selected type
+  const canSubmit = (() => {
+    if (isLoading || !txGuard.canStart()) return false
+    
+    switch (selectedType) {
+      case 'create':
+        return true // No inputs needed
+      case 'contribute':
+      case 'trade':
+      case 'stake':
+        return !!targetCabalId && !!amount
+      case 'delegate':
+        return !!targetCabalId && !!delegatee
+      default:
+        return false
+    }
+  })()
+  
+  // Check if this type needs a target cabal
+  const needsTarget = selectedType !== 'create'
+  
+  // Check if this type needs an amount
+  const needsAmount = selectedType === 'contribute' || selectedType === 'trade' || selectedType === 'stake'
+  
+  // Check if this type needs delegatee
+  const needsDelegatee = selectedType === 'delegate'
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {config.icon}
-            {config.title}
-          </DialogTitle>
-          <DialogDescription>{config.description}</DialogDescription>
+          <DialogTitle>Create Proposal</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          {/* Target Cabal Selection */}
+        {/* Voting Power Display */}
+        <div className="flex justify-between items-center py-2 px-3 bg-muted/50 rounded-lg border border-primary/20">
+          <span className="text-sm text-muted-foreground">Your Voting Power</span>
+          <span className={`text-sm font-medium ${votingPower > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+            {votingPower.toFixed(2)}%
+          </span>
+        </div>
+        
+        <div className="space-y-4 py-2">
+          {/* Proposal Type Selector */}
           <div className="space-y-2">
-            <Label>Target CABAL</Label>
-            <Select value={targetCabalId} onValueChange={setTargetCabalId}>
+            <Label>Proposal Type</Label>
+            <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a CABAL..." />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {filteredCabals.length === 0 ? (
-                  <SelectItem value="" disabled>
-                    No eligible CABALs found
+                {PROPOSAL_TYPES.map(type => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
                   </SelectItem>
-                ) : (
-                  filteredCabals.map(c => (
-                    <SelectItem key={c.id.toString()} value={c.id.toString()}>
-                      {c.symbol} (ID: {c.id.toString()})
-                    </SelectItem>
-                  ))
-                )}
+                ))}
               </SelectContent>
             </Select>
           </div>
           
-          {/* Trade Mode Toggle (for trade action) */}
-          {actionType === 'trade' && (
+          {/* Target Cabal Selection */}
+          {needsTarget && (
+            <div className="space-y-2">
+              <Label>Target CABAL</Label>
+              <Select value={targetCabalId} onValueChange={setTargetCabalId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a CABAL..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredCabals.length === 0 ? (
+                    <SelectItem value="" disabled>
+                      No eligible CABALs found
+                    </SelectItem>
+                  ) : (
+                    filteredCabals.map(c => (
+                      <SelectItem key={c.id.toString()} value={c.id.toString()}>
+                        {c.symbol} (ID: {c.id.toString()})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          {/* Trade Mode Toggle */}
+          {selectedType === 'trade' && (
             <div className="space-y-2">
               <Label>Trade Type</Label>
               <div className="flex gap-2">
@@ -364,7 +315,6 @@ export function GovernanceActionModal({
                   disabled={isLoading}
                   className="flex-1"
                 >
-                  <TrendingUp className="h-4 w-4 mr-1" />
                   Buy
                 </Button>
                 <Button
@@ -375,17 +325,22 @@ export function GovernanceActionModal({
                   disabled={isLoading}
                   className="flex-1"
                 >
-                  <TrendingDown className="h-4 w-4 mr-1" />
                   Sell
                 </Button>
               </div>
             </div>
           )}
-
+          
           {/* Amount Input */}
-          {config.amountLabel && (
+          {needsAmount && (
             <div className="space-y-2">
-              <Label>{actionType === 'trade' ? (tradeMode === 'buy' ? 'ETH to Spend' : 'Token Amount') : config.amountLabel}</Label>
+              <Label>
+                {selectedType === 'trade' 
+                  ? (tradeMode === 'buy' ? 'ETH to Spend' : 'Token Amount')
+                  : selectedType === 'contribute' 
+                    ? 'ETH Amount' 
+                    : 'Token Amount'}
+              </Label>
               <div className="flex gap-2">
                 <Input
                   type="number"
@@ -398,55 +353,18 @@ export function GovernanceActionModal({
                   disabled={isLoading}
                 />
                 <span className="flex items-center text-sm text-muted-foreground px-2">
-                  {actionType === 'trade' ? (tradeMode === 'buy' ? 'ETH' : 'tokens') : config.amountUnit}
+                  {selectedType === 'trade' 
+                    ? (tradeMode === 'buy' ? 'ETH' : 'tokens')
+                    : selectedType === 'contribute' 
+                      ? 'ETH' 
+                      : 'tokens'}
                 </span>
               </div>
             </div>
           )}
           
-          {/* Target Proposal (for vote action) */}
-          {config.requiresTargetProposal && (
-            <>
-              <div className="space-y-2">
-                <Label>Target Proposal ID</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={targetProposalId}
-                  onChange={(e) => setTargetProposalId(e.target.value)}
-                  placeholder="0"
-                  className="font-mono"
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Vote Direction</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={voteSupport ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setVoteSupport(true)}
-                    disabled={isLoading}
-                  >
-                    For
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={!voteSupport ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setVoteSupport(false)}
-                    disabled={isLoading}
-                  >
-                    Against
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-          
-          {/* Delegatee Address (for delegate action) */}
-          {config.requiresDelegatee && (
+          {/* Delegatee Address */}
+          {needsDelegatee && (
             <div className="space-y-2">
               <Label>Delegatee Address</Label>
               <Input
@@ -459,18 +377,6 @@ export function GovernanceActionModal({
               />
             </div>
           )}
-          
-          {/* Description (optional) */}
-          <div className="space-y-2">
-            <Label>Description (optional)</Label>
-            <Input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Why should this proposal pass?"
-              disabled={isLoading}
-            />
-          </div>
         </div>
         
         <DialogFooter>

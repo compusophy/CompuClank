@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useSendTransaction } from "wagmi"
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useSendTransaction, useBlockNumber } from "wagmi"
 import { useQueryClient } from "@tanstack/react-query"
 import { formatEther, parseEther, erc20Abi, encodeFunctionData } from "viem"
 import { toast } from "sonner"
@@ -569,7 +569,7 @@ function ProposalSection({
     )
   }
 
-  const [, , forVotes, againstVotes, , , executed, cancelled, description] = proposal as [
+  const [, , forVotes, againstVotes, startBlock, endBlock, executed, cancelled, description] = proposal as [
     bigint, string, bigint, bigint, bigint, bigint, boolean, boolean, string
   ]
 
@@ -583,14 +583,67 @@ function ProposalSection({
   const isDefeated = state === ProposalState.Defeated
   const isExecuted = state === ProposalState.Executed || executed
   const isCancelled = state === ProposalState.Cancelled || cancelled
+  const isExpired = state === ProposalState.Expired
   const userHasVoted = hasVoted as boolean
   const isVoteLoading = isVoting || isVoteConfirming
   const isExecuteLoading = isExecuting || isExecuteConfirming
+
+  // Countdown timer state
+  const [timeLeft, setTimeLeft] = useState<string>("")
+  
+  // Get current block number for accurate countdown
+  const { data: currentBlock } = useBlockNumber({ 
+    watch: true,
+    query: { refetchInterval: 2000 } // Refresh every 2 seconds (Base block time)
+  })
+  
+  // Calculate time remaining for voting or execution window
+  useEffect(() => {
+    if (!endBlock || !currentBlock) return
+    
+    // Base has ~2 second block times
+    const BLOCK_TIME_SECONDS = 2
+    const EXECUTION_WINDOW_BLOCKS = 300n // 10 minutes
+    
+    // For active proposals: countdown to voting end
+    // For succeeded proposals: countdown to execution deadline
+    let targetBlock: bigint
+    let label: string
+    
+    if (isActive) {
+      targetBlock = endBlock
+      label = "Voting ends"
+    } else if (isSucceeded) {
+      targetBlock = endBlock + EXECUTION_WINDOW_BLOCKS
+      label = "Expires"
+    } else {
+      setTimeLeft("")
+      return
+    }
+    
+    const blocksRemaining = Number(targetBlock - currentBlock)
+    
+    if (blocksRemaining <= 0) {
+      setTimeLeft(isActive ? "Voting ended" : "Expired")
+      return
+    }
+    
+    const secondsRemaining = blocksRemaining * BLOCK_TIME_SECONDS
+    const minutes = Math.floor(secondsRemaining / 60)
+    const seconds = secondsRemaining % 60
+    
+    if (minutes > 0) {
+      setTimeLeft(`${label} in ${minutes}m ${seconds}s`)
+    } else {
+      setTimeLeft(`${label} in ${seconds}s`)
+    }
+  }, [endBlock, currentBlock, isActive, isSucceeded])
 
   // Get state label
   const getStateLabel = () => {
     if (isExecuted) return "Executed"
     if (isCancelled) return "Cancelled"
+    if (isExpired) return "Expired"
     if (isSucceeded) return "Passed"
     if (isDefeated) return "Defeated"
     if (isActive) return "Voting"
@@ -602,13 +655,29 @@ function ProposalSection({
       {/* Proposal Description */}
       <div className="p-3 bg-muted rounded-lg">
         <p className="text-sm font-medium">{description || "No description"}</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Status: {getStateLabel()}
-        </p>
+        <div className="flex justify-between items-center mt-1">
+          <p className="text-xs text-muted-foreground">
+            Status: {getStateLabel()}
+          </p>
+          {timeLeft && (
+            <p className="text-xs text-amber-500 font-medium">
+              ⏱ {timeLeft}
+            </p>
+          )}
+        </div>
       </div>
+      
+      {/* Expired notice */}
+      {isExpired && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <p className="text-sm text-amber-500">
+            This proposal expired without being executed. You can create a new proposal.
+          </p>
+        </div>
+      )}
 
       {/* Vote Progress */}
-      {!isExecuted && !isCancelled && (
+      {!isExecuted && !isCancelled && !isExpired && (
         <div className="space-y-2">
           <div className="h-2 bg-muted rounded-full overflow-hidden relative">
             {/* For votes - grows from left */}

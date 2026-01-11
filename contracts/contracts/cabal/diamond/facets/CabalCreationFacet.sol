@@ -217,7 +217,7 @@ contract CabalCreationFacet {
         
         // Default governance settings
         cabal.settings = GovernanceSettings({
-            votingPeriod: 50400,      // ~1 week on Base (2s blocks)
+            votingPeriod: 300,        // 10 minutes on Base (2s blocks)
             quorumBps: 1000,          // 10%
             majorityBps: 5100,        // 51%
             proposalThreshold: 0      // Anyone can propose

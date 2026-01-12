@@ -188,11 +188,19 @@ export function GraphExplorer({
   const [stakeAmount, setStakeAmount] = useState('')
   const [isSigning, setIsSigning] = useState(false)
   
-  // Governance action modal state
+  // Governance action modal state (legacy - to be removed)
   const [governanceAction, setGovernanceAction] = useState<{
     isOpen: boolean
     actionType: GovernanceActionType
   }>({ isOpen: false, actionType: 'contribute' })
+  
+  // Governance submenu state - nested radial menu for proposal types
+  const [govSubmenuOpen, setGovSubmenuOpen] = useState(false)
+  const [govSubmenuAnimState, setGovSubmenuAnimState] = useState<'entering' | 'entered' | 'exiting' | 'exited'>('exited')
+  const govSubmenuAnimTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // Animated governance submenu radius for smooth expansion
+  const [animatedGovSubmenuRadius, setAnimatedGovSubmenuRadius] = useState<number | null>(null)
   
   const { isConnected, address } = useAccount()
   const chainId = useChainId()
@@ -1205,6 +1213,38 @@ export function GraphExplorer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuAnimState, FULL_NODE_RADIUS])
 
+  // Governance submenu animation - similar to main menu but smaller scale
+  useEffect(() => {
+    if (govSubmenuAnimState === 'exited') return
+    
+    const isEntering = govSubmenuAnimState === 'entering'
+    const isExiting = govSubmenuAnimState === 'exiting'
+    if (!isEntering && !isExiting) return
+    
+    // Sub-panel size calculations (smaller than main panels)
+    const GOV_PANEL_RADIUS = NODE_RADIUS  // Governance panel is same as main panels
+    const SUB_PANEL_RADIUS = GOV_PANEL_RADIUS * PHI_INV  // Sub-panels are φ⁻¹ of gov panel
+    
+    // Collapsed: sub-panels hidden inside gov panel
+    const collapsedRadius = 0
+    // Expanded: sub-panels orbit around gov panel center
+    const expandedRadius = GOV_PANEL_RADIUS + SUB_PANEL_RADIUS * 1.1  // Slight gap
+    
+    const currentRadius = animatedGovSubmenuRadius ?? (isEntering ? collapsedRadius : expandedRadius)
+    const targetRadius = isExiting ? collapsedRadius : expandedRadius
+    
+    const cleanup = animateValue({
+      from: currentRadius,
+      to: targetRadius,
+      duration: ANIM_DURATION.relaxed,  // 382ms
+      easing: easing.easeOutCubic,
+      onUpdate: setAnimatedGovSubmenuRadius,
+    })
+    
+    return cleanup
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [govSubmenuAnimState, NODE_RADIUS, PHI_INV])
+
   // Entrance animation - bloom nodes in when data first loads
   useEffect(() => {
     if (cabalsData && cabalsData.length > 0 && !hasTriggeredEntranceRef.current) {
@@ -1604,6 +1644,43 @@ export function GraphExplorer({
   }, [cabalsData, radialMenu.isOpen, radialMenu.cabalId, NODE_RADIUS, isLaunchApproved, launchingCabalIds, launchingCabalIdsFromBatch, cabalsWithActiveProposals, animatedChildDistance, animatedParentDistance, FULL_NODE_RADIUS, SMALL_NODE_RADIUS, focusedCabalId, focusTransitionProgress])
 
 
+  // Close governance submenu
+  const closeGovSubmenu = useCallback(() => {
+    if (govSubmenuAnimTimeoutRef.current) {
+      clearTimeout(govSubmenuAnimTimeoutRef.current)
+      govSubmenuAnimTimeoutRef.current = null
+    }
+    setGovSubmenuAnimState('exiting')
+    govSubmenuAnimTimeoutRef.current = setTimeout(() => {
+      setGovSubmenuOpen(false)
+      setGovSubmenuAnimState('exited')
+      setAnimatedGovSubmenuRadius(null)
+    }, 382) // Faster exit for submenu (φ⁻² seconds)
+  }, [])
+  
+  // Open governance submenu
+  const openGovSubmenu = useCallback(() => {
+    if (govSubmenuAnimTimeoutRef.current) {
+      clearTimeout(govSubmenuAnimTimeoutRef.current)
+      govSubmenuAnimTimeoutRef.current = null
+    }
+    setGovSubmenuOpen(true)
+    setGovSubmenuAnimState('entering')
+    govSubmenuAnimTimeoutRef.current = setTimeout(() => {
+      setGovSubmenuAnimState('entered')
+    }, 382) // φ⁻² seconds for submenu animation
+  }, [])
+  
+  // Toggle governance submenu
+  const toggleGovSubmenu = useCallback(() => {
+    if (govSubmenuAnimState === 'entering' || govSubmenuAnimState === 'exiting') return
+    if (govSubmenuAnimState === 'entered' || govSubmenuOpen) {
+      closeGovSubmenu()
+    } else {
+      openGovSubmenu()
+    }
+  }, [govSubmenuAnimState, govSubmenuOpen, closeGovSubmenu, openGovSubmenu])
+
   const closeRadialMenu = useCallback(() => {
     // Clear any pending animation
     if (menuAnimTimeoutRef.current) {
@@ -1611,9 +1688,14 @@ export function GraphExplorer({
       menuAnimTimeoutRef.current = null
     }
     
+    // Also close governance submenu
+    if (govSubmenuOpen || govSubmenuAnimState !== 'exited') {
+      closeGovSubmenu()
+    }
+
     // Trigger exit animation
     setMenuAnimState('exiting')
-    
+
     // Wait for animation to complete (618ms = ANIM_DURATION.slow)
     menuAnimTimeoutRef.current = setTimeout(() => {
       setRadialMenu(prev => ({ ...prev, isOpen: false }))
@@ -2043,6 +2125,34 @@ export function GraphExplorer({
   
   const isPresale = radialMenu.phase === CabalPhase.Presale
   const isActive = radialMenu.phase === CabalPhase.Active
+  
+  // Governance submenu panel sizes (φ⁻¹ scale of main panels)
+  const GOV_SUBPANEL_RADIUS = PANEL_RADIUS * PHI_INV  // ~62% of main panel
+  const GOV_SUBPANEL_SIZE = GOV_SUBPANEL_RADIUS * 2
+  // Distance from governance panel center to sub-panels
+  const GOV_SUBPANEL_OFFSET = animatedGovSubmenuRadius ?? 0
+  
+  // Proposal types for governance submenu (maps to GovernanceActionType)
+  const PROPOSAL_TYPES = [
+    { id: 'create', label: 'Child', icon: '👶' },       // Create child CABAL
+    { id: 'trade', label: 'Trade', icon: '📊' },        // Buy/Sell tokens
+    { id: 'contribute', label: 'Presale', icon: '💎' }, // Contribute to presale
+    { id: 'stake', label: 'Stake', icon: '🔒' },        // Stake in another CABAL
+    { id: 'delegate', label: 'Delegate', icon: '🤝' },  // Delegate voting power
+  ] as const
+  
+  // Get sub-panel position around governance panel (radial layout)
+  const getGovSubpanelPosition = (index: number, total: number) => {
+    // Start from top (270°) and go clockwise
+    const startAngle = 270
+    const angleStep = 360 / total
+    const angleDeg = startAngle + index * angleStep
+    const angleRad = angleDeg * (Math.PI / 180)
+    return {
+      x: GOV_SUBPANEL_OFFSET * Math.cos(angleRad),
+      y: GOV_SUBPANEL_OFFSET * Math.sin(angleRad),
+    }
+  }
   
   // Layout depends on phase:
   // - Presale: 3 panels (triangle) - RAISED at top, Send ETH bottom-left, Voting bottom-right
@@ -2639,7 +2749,8 @@ export function GraphExplorer({
                   <div className="px-2 space-y-1">
                     <p className="text-xs text-muted-foreground">Connect wallet</p>
                   </div>
-                ) : (
+                ) : hasActiveProposalForVoting ? (
+                  // Active proposal - show voting UI
                   <div className="px-3 py-2 space-y-1.5 w-full text-center">
                     {/* Power display */}
                     <div className="flex justify-between text-xs pb-1 border-b border-primary/10">
@@ -2654,84 +2765,81 @@ export function GraphExplorer({
                         })()}%
                       </span>
                     </div>
-                    
-                    {hasActiveProposalForVoting ? (
-                      // Active proposal - show voting UI
-                      <>
-                        <p className="text-[9px] text-muted-foreground truncate max-w-full" title={selectedProposalDescription}>
-                          {selectedProposalDescription.slice(0, 20) || "Proposal"}
-                        </p>
-                        {/* Vote Progress */}
-                        <div className="space-y-0.5">
-                          <div className="flex justify-between text-[9px]">
-                            <span className="text-green-500">{selectedProposalForVotes + selectedProposalAgainstVotes > 0n 
-                              ? Number((selectedProposalForVotes * 100n) / (selectedProposalForVotes + selectedProposalAgainstVotes)) 
-                              : 0}%</span>
-                            <span className="text-muted-foreground">
-                              {isProposalSucceeded ? "Passed ✓" : (
-                                // Show countdown for active proposals
-                                currentBlockNumber && selectedProposalEndBlock > 0n && currentBlockNumber < selectedProposalEndBlock
-                                  ? `${Math.ceil(Number(selectedProposalEndBlock - currentBlockNumber) * 2 / 60)} min`
-                                  : "Voting"
-                              )}
-                            </span>
-                          </div>
-                          <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
-                            <div 
-                              className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-l-full transition-all"
-                              style={{ width: `${selectedProposalForVotes + selectedProposalAgainstVotes > 0n 
-                                ? Number((selectedProposalForVotes * 100n) / (selectedProposalForVotes + selectedProposalAgainstVotes)) 
-                                : 0}%` }}
-                            />
-                          </div>
-                        </div>
-                        {isProposalSucceeded ? (
-                          // Can execute
-                          <Button
-                            onClick={handleGovExecute}
-                            disabled={isGovExecuting || govExecuteConfirming}
-                            className="w-full h-6 text-[10px]"
-                            size="sm"
-                          >
-                            {(isGovExecuting || govExecuteConfirming) ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              "Execute"
-                            )}
-                          </Button>
-                        ) : (
-                          // Voting buttons
-                          <div className="flex gap-1">
-                            <Button
-                              onClick={() => handleGovVote(true)}
-                              disabled={(stakedBalance ?? 0n) === 0n || isGovVoting || govVoteConfirming || userHasVotedProposal === true}
-                              className="flex-1 h-6 text-[10px] bg-green-600 hover:bg-green-700"
-                              size="sm"
-                            >
-                              {userHasVotedProposal ? "✓" : "Yes"}
-                            </Button>
-                            <Button
-                              onClick={() => handleGovVote(false)}
-                              disabled={(stakedBalance ?? 0n) === 0n || isGovVoting || govVoteConfirming || userHasVotedProposal === true}
-                              className="flex-1 h-6 text-[10px] bg-red-600 hover:bg-red-700"
-                              size="sm"
-                              variant="destructive"
-                            >
-                              No
-                            </Button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      // No active proposal - show Create Proposal button
+                    <p className="text-[9px] text-muted-foreground truncate max-w-full" title={selectedProposalDescription}>
+                      {selectedProposalDescription.slice(0, 20) || "Proposal"}
+                    </p>
+                    {/* Vote Progress */}
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between text-[9px]">
+                        <span className="text-green-500">{selectedProposalForVotes + selectedProposalAgainstVotes > 0n 
+                          ? Number((selectedProposalForVotes * 100n) / (selectedProposalForVotes + selectedProposalAgainstVotes)) 
+                          : 0}%</span>
+                        <span className="text-muted-foreground">
+                          {isProposalSucceeded ? "Passed ✓" : (
+                            currentBlockNumber && selectedProposalEndBlock > 0n && currentBlockNumber < selectedProposalEndBlock
+                              ? `${Math.ceil(Number(selectedProposalEndBlock - currentBlockNumber) * 2 / 60)} min`
+                              : "Voting"
+                          )}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden relative">
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-l-full transition-all"
+                          style={{ width: `${selectedProposalForVotes + selectedProposalAgainstVotes > 0n 
+                            ? Number((selectedProposalForVotes * 100n) / (selectedProposalForVotes + selectedProposalAgainstVotes)) 
+                            : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                    {isProposalSucceeded ? (
                       <Button
-                        onClick={() => setGovernanceAction({ isOpen: true, actionType: 'create' })}
-                        disabled={(stakedBalance ?? 0n) === 0n}
-                        className="w-full h-7 text-xs"
+                        onClick={handleGovExecute}
+                        disabled={isGovExecuting || govExecuteConfirming}
+                        className="w-full h-6 text-[10px]"
                         size="sm"
                       >
-                        Create Proposal
+                        {(isGovExecuting || govExecuteConfirming) ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Execute"
+                        )}
                       </Button>
+                    ) : (
+                      <div className="flex gap-1">
+                        <Button
+                          onClick={() => handleGovVote(true)}
+                          disabled={(stakedBalance ?? 0n) === 0n || isGovVoting || govVoteConfirming || userHasVotedProposal === true}
+                          className="flex-1 h-6 text-[10px] bg-green-600 hover:bg-green-700"
+                          size="sm"
+                        >
+                          {userHasVotedProposal ? "✓" : "Yes"}
+                        </Button>
+                        <Button
+                          onClick={() => handleGovVote(false)}
+                          disabled={(stakedBalance ?? 0n) === 0n || isGovVoting || govVoteConfirming || userHasVotedProposal === true}
+                          className="flex-1 h-6 text-[10px] bg-red-600 hover:bg-red-700"
+                          size="sm"
+                          variant="destructive"
+                        >
+                          No
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // No active proposal - clickable "Governance" to open radial submenu
+                  <div 
+                    className="flex flex-col items-center justify-center w-full h-full cursor-pointer hover:bg-primary/5 transition-colors"
+                    onClick={toggleGovSubmenu}
+                  >
+                    <span className="text-2xl mb-1">⚖️</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {govSubmenuOpen ? 'Close' : 'Propose'}
+                    </span>
+                    {(stakedBalance ?? 0n) === 0n && (
+                      <span className="text-[9px] text-muted-foreground/60 mt-0.5">
+                        Stake to vote
+                      </span>
                     )}
                   </div>
                 )
@@ -2741,6 +2849,54 @@ export function GraphExplorer({
                 </div>
               )}
             </div>
+            
+            {/* GOVERNANCE SUB-PANELS - Radial proposal type options */}
+            {isActive && (govSubmenuOpen || govSubmenuAnimState === 'exiting') && PROPOSAL_TYPES.map((proposal, index) => {
+              const subPos = getGovSubpanelPosition(index, PROPOSAL_TYPES.length)
+              // Position relative to governance panel (Panel 2)
+              const govPanelX = panelPositions[2].x
+              const govPanelY = panelPositions[2].y
+              const absoluteX = govPanelX + subPos.x
+              const absoluteY = govPanelY + subPos.y
+              
+              // Scale based on animation progress
+              const scale = govSubmenuAnimState === 'exiting' 
+                ? GOV_SUBPANEL_OFFSET / (PANEL_RADIUS + GOV_SUBPANEL_RADIUS * 1.1) 
+                : govSubmenuAnimState === 'entering' 
+                  ? GOV_SUBPANEL_OFFSET / (PANEL_RADIUS + GOV_SUBPANEL_RADIUS * 1.1)
+                  : 1
+              
+              return (
+                <div
+                  key={proposal.id}
+                  className={`absolute pointer-events-auto bg-background/95 border border-primary/30 shadow-lg backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full cursor-pointer hover:border-primary hover:bg-primary/10 transition-all ${
+                    govSubmenuAnimState === 'entering' ? 'gov-subpanel-enter' : 
+                    govSubmenuAnimState === 'exiting' ? 'gov-subpanel-exit' : 'gov-subpanel-visible'
+                  }`}
+                  style={{
+                    width: GOV_SUBPANEL_SIZE,
+                    height: GOV_SUBPANEL_SIZE,
+                    left: absoluteX - GOV_SUBPANEL_SIZE / 2,
+                    top: absoluteY - GOV_SUBPANEL_SIZE / 2,
+                    transformOrigin: `${GOV_SUBPANEL_SIZE / 2 - subPos.x}px ${GOV_SUBPANEL_SIZE / 2 - subPos.y}px`,
+                    transform: `scale(${scale})`,
+                    opacity: govSubmenuAnimState === 'entered' ? 1 : scale,
+                    zIndex: 10,
+                    animationDelay: `${index * 50}ms`,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    haptics.cardTap()
+                    // proposal.id is already a valid GovernanceActionType
+                    setGovernanceAction({ isOpen: true, actionType: proposal.id })
+                    closeGovSubmenu()
+                  }}
+                >
+                  <span className="text-lg">{proposal.icon}</span>
+                  <span className="text-[9px] font-medium text-muted-foreground mt-0.5">{proposal.label}</span>
+                </div>
+              )
+            })}
             
             {/* PANEL 4: BOTTOM CENTER - Stake (Active only) */}
             {isActive && (

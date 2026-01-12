@@ -749,22 +749,22 @@
   }
 }
 
-/* Panel base class with smooth transitions */
+/* Panel base class - visible by default, animations handle enter/exit */
 .radial-panel {
   will-change: transform, opacity;
-  opacity: 0;
-  transform: scale(0.5);
+  opacity: 1;
+  transform: scale(1);
 }
 
-/* Visible state after animation completes */
+/* Visible state - same as base, no transition needed */
 .radial-panel-visible {
   opacity: 1;
   transform: scale(1);
 }
 
-/* Bloom animation with smooth easing */
+/* Bloom animation with smooth easing - 'both' applies start AND end states */
 .radial-panel-enter {
-  animation: radial-bloom 0.382s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: radial-bloom 0.382s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Top panel (index 0) - enters first */
@@ -891,58 +891,41 @@
    Smaller panels that bloom from the governance circle
    ═══════════════════════════════════════════════════════════════ */
 
-/* Governance sub-panel bloom animation */
 @keyframes gov-subpanel-bloom {
-  0% {
+  from {
     opacity: 0;
     transform: scale(0);
   }
-  100% {
+  to {
     opacity: 1;
     transform: scale(1);
   }
 }
 
 @keyframes gov-subpanel-collapse {
-  0% {
+  from {
     opacity: 1;
     transform: scale(1);
   }
-  100% {
+  to {
     opacity: 0;
     transform: scale(0);
   }
 }
 
-/* Sub-panel base class */
-.gov-subpanel-visible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* Sub-panel enter animation - faster than main panels (φ⁻² timing) */
+/* Sub-panel enter - single animation, no replay */
 .gov-subpanel-enter {
-  animation: gov-subpanel-bloom 0.236s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: gov-subpanel-bloom 0.382s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Sub-panel exit animation */
+/* Sub-panel exit */
 .gov-subpanel-exit {
   animation: gov-subpanel-collapse 0.236s cubic-bezier(0.32, 0, 0.67, 0) forwards;
 }
 
-/* Staggered delays for sub-panels (golden ratio cascade) */
-.gov-subpanel-enter:nth-child(1) { animation-delay: 0ms; }
-.gov-subpanel-enter:nth-child(2) { animation-delay: 24ms; }
-.gov-subpanel-enter:nth-child(3) { animation-delay: 38ms; }
-.gov-subpanel-enter:nth-child(4) { animation-delay: 62ms; }
-.gov-subpanel-enter:nth-child(5) { animation-delay: 100ms; }
-.gov-subpanel-enter:nth-child(6) { animation-delay: 124ms; }
-.gov-subpanel-enter:nth-child(7) { animation-delay: 162ms; }
-.gov-subpanel-enter:nth-child(8) { animation-delay: 200ms; }
-
-/* Hover effect for sub-panels - sacred scale */
-.gov-subpanel-visible:hover {
-  transform: scale(1.0618); /* 1 + φ/10 */
+/* Hover effect */
+.gov-subpanel-enter:hover {
+  transform: scale(1.0618);
   border-color: rgba(212, 146, 54, 0.6);
   box-shadow: 0 0 20px rgba(212, 146, 54, 0.2);
 }

@@ -88,6 +88,7 @@ export function GraphExplorer({
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(null)
+  const menuCanvasRef = useRef<HTMLCanvasElement>(null)
   const { resolvedTheme } = useTheme()
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [radialMenu, setRadialMenu] = useState<RadialMenuState>({
@@ -115,6 +116,9 @@ export function GraphExplorer({
   // Animated submenu ring radius for smooth expansion
   const [animatedSubmenuRingRadius, setAnimatedSubmenuRingRadius] = useState<number | null>(null)
   const submenuRingAnimationFrameRef = useRef<number | null>(null)
+  
+  // Animated governance submenu ring radius
+  const [animatedGovRingRadius, setAnimatedGovRingRadius] = useState<number | null>(null)
   
   // Entrance animation for nodes when they first appear
   const [nodeEntranceScale, setNodeEntranceScale] = useState<number>(0)
@@ -199,8 +203,8 @@ export function GraphExplorer({
   const [govSubmenuAnimState, setGovSubmenuAnimState] = useState<'entering' | 'entered' | 'exiting' | 'exited'>('exited')
   const govSubmenuAnimTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
-  // Animated governance submenu radius for smooth expansion
-  const [animatedGovSubmenuRadius, setAnimatedGovSubmenuRadius] = useState<number | null>(null)
+  // Note: Governance submenu uses CSS animations (like main radial panels)
+  // No JS animation state needed - CSS handles the bloom/collapse
   
   const { isConnected, address } = useAccount()
   const chainId = useChainId()
@@ -1213,37 +1217,9 @@ export function GraphExplorer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuAnimState, FULL_NODE_RADIUS])
 
-  // Governance submenu animation - similar to main menu but smaller scale
-  useEffect(() => {
-    if (govSubmenuAnimState === 'exited') return
-    
-    const isEntering = govSubmenuAnimState === 'entering'
-    const isExiting = govSubmenuAnimState === 'exiting'
-    if (!isEntering && !isExiting) return
-    
-    // Sub-panel size calculations (smaller than main panels)
-    const GOV_PANEL_RADIUS = NODE_RADIUS  // Governance panel is same as main panels
-    const SUB_PANEL_RADIUS = GOV_PANEL_RADIUS * PHI_INV  // Sub-panels are φ⁻¹ of gov panel
-    
-    // Collapsed: sub-panels hidden inside gov panel
-    const collapsedRadius = 0
-    // Expanded: sub-panels orbit around gov panel center
-    const expandedRadius = GOV_PANEL_RADIUS + SUB_PANEL_RADIUS * 1.1  // Slight gap
-    
-    const currentRadius = animatedGovSubmenuRadius ?? (isEntering ? collapsedRadius : expandedRadius)
-    const targetRadius = isExiting ? collapsedRadius : expandedRadius
-    
-    const cleanup = animateValue({
-      from: currentRadius,
-      to: targetRadius,
-      duration: ANIM_DURATION.relaxed,  // 382ms
-      easing: easing.easeOutCubic,
-      onUpdate: setAnimatedGovSubmenuRadius,
-    })
-    
-    return cleanup
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [govSubmenuAnimState, NODE_RADIUS, PHI_INV])
+  // Governance submenu - NO JS animation needed
+  // Uses CSS animations (same pattern as main radial panels)
+  // JS just sets the final expanded state, CSS handles the bloom/collapse animation
 
   // Entrance animation - bloom nodes in when data first loads
   useEffect(() => {
@@ -1654,11 +1630,11 @@ export function GraphExplorer({
     govSubmenuAnimTimeoutRef.current = setTimeout(() => {
       setGovSubmenuOpen(false)
       setGovSubmenuAnimState('exited')
-      setAnimatedGovSubmenuRadius(null)
-    }, 382) // Faster exit for submenu (φ⁻² seconds)
+      setAnimatedGovRingRadius(null)
+    }, 382) // Match CSS animation duration (φ⁻² seconds)
   }, [])
   
-  // Open governance submenu
+  // Open governance submenu - uses SAME timing as main radial panels (382ms)
   const openGovSubmenu = useCallback(() => {
     if (govSubmenuAnimTimeoutRef.current) {
       clearTimeout(govSubmenuAnimTimeoutRef.current)
@@ -1668,18 +1644,52 @@ export function GraphExplorer({
     setGovSubmenuAnimState('entering')
     govSubmenuAnimTimeoutRef.current = setTimeout(() => {
       setGovSubmenuAnimState('entered')
-    }, 382) // φ⁻² seconds for submenu animation
+    }, 382) // Same duration as main radial panels
   }, [])
   
-  // Toggle governance submenu
+  // Toggle governance submenu - simple open/close
   const toggleGovSubmenu = useCallback(() => {
-    if (govSubmenuAnimState === 'entering' || govSubmenuAnimState === 'exiting') return
-    if (govSubmenuAnimState === 'entered' || govSubmenuOpen) {
+    if (govSubmenuAnimState === 'exiting') return // Don't toggle while closing
+    if (govSubmenuOpen) {
       closeGovSubmenu()
     } else {
       openGovSubmenu()
     }
-  }, [govSubmenuAnimState, govSubmenuOpen, closeGovSubmenu, openGovSubmenu])
+  }, [govSubmenuOpen, closeGovSubmenu, openGovSubmenu])
+  
+  // Animate governance submenu ring when opening/closing
+  // Use ref to avoid re-triggering animation when value changes
+  const animatedGovRingRadiusRef = useRef<number | null>(null)
+  animatedGovRingRadiusRef.current = animatedGovRingRadius
+  
+  useEffect(() => {
+    if (govSubmenuAnimState === 'entering' || govSubmenuAnimState === 'exiting') {
+      // Calculate ring values (same formulas as render phase)
+      const availRadius = Math.min(dimensions.width, dimensions.height) / 2
+      const fullNodeRadius = availRadius / 2.618
+      const panelRadius = fullNodeRadius  // PANEL_RADIUS = FULL_NODE_RADIUS
+      const govSubpanelRadius = panelRadius * PHI_INV * PHI_INV
+      const govShrunkCenterRadius = govSubpanelRadius * PHI_INV
+      const govSubpanelOffset = govShrunkCenterRadius + govSubpanelRadius
+      const govSubmenuRingRadius = govSubpanelOffset + govSubpanelRadius
+
+      const isOpening = govSubmenuAnimState === 'entering'
+      const startRadius = isOpening ? govShrunkCenterRadius : govSubmenuRingRadius
+      const endRadius = isOpening ? govSubmenuRingRadius : govShrunkCenterRadius
+      // Use ref to get current value without adding to dependencies
+      const currentRadius = animatedGovRingRadiusRef.current ?? startRadius
+
+      const cleanup = animateValue({
+        from: currentRadius,
+        to: endRadius,
+        duration: 382,
+        easing: easing.easeOutCubic,
+        onUpdate: setAnimatedGovRingRadius,
+      })
+
+      return cleanup
+    }
+  }, [govSubmenuAnimState, dimensions.width, dimensions.height])
 
   const closeRadialMenu = useCallback(() => {
     // Clear any pending animation
@@ -1688,10 +1698,14 @@ export function GraphExplorer({
       menuAnimTimeoutRef.current = null
     }
     
-    // Also close governance submenu
-    if (govSubmenuOpen || govSubmenuAnimState !== 'exited') {
-      closeGovSubmenu()
+    // Immediately reset governance submenu state (no animation - parent is closing)
+    if (govSubmenuAnimTimeoutRef.current) {
+      clearTimeout(govSubmenuAnimTimeoutRef.current)
+      govSubmenuAnimTimeoutRef.current = null
     }
+    setGovSubmenuOpen(false)
+    setGovSubmenuAnimState('exited')
+    setAnimatedGovRingRadius(null)
 
     // Trigger exit animation
     setMenuAnimState('exiting')
@@ -2126,19 +2140,23 @@ export function GraphExplorer({
   const isPresale = radialMenu.phase === CabalPhase.Presale
   const isActive = radialMenu.phase === CabalPhase.Active
   
-  // Governance submenu panel sizes (φ⁻¹ scale of main panels)
-  const GOV_SUBPANEL_RADIUS = PANEL_RADIUS * PHI_INV  // ~62% of main panel
+  // Governance submenu - fractal zoom INTO the governance panel
+  // Everything must fit WITHIN the original PANEL_RADIUS
+  // Fractal sizing: sub-panels at φ⁻², center at φ⁻¹ of sub-panels (0.61803 ratio)
+  const GOV_SUBPANEL_RADIUS = PANEL_RADIUS * PHI_INV * PHI_INV       // φ⁻² = 0.382
+  const GOV_SHRUNK_CENTER_RADIUS = GOV_SUBPANEL_RADIUS * PHI_INV     // 0.61803 of submenu panels
   const GOV_SUBPANEL_SIZE = GOV_SUBPANEL_RADIUS * 2
-  // Distance from governance panel center to sub-panels
-  const GOV_SUBPANEL_OFFSET = animatedGovSubmenuRadius ?? 0
+  // Expanded offset: tangent to shrunken center (static - CSS handles animation)
+  const GOV_SUBPANEL_OFFSET = GOV_SHRUNK_CENTER_RADIUS + GOV_SUBPANEL_RADIUS
+  // Ring radius for submenu = PANEL_RADIUS exactly (fits inside original panel)
+  const GOV_SUBMENU_RING_RADIUS = PANEL_RADIUS
   
   // Proposal types for governance submenu (maps to GovernanceActionType)
   const PROPOSAL_TYPES = [
-    { id: 'create', label: 'Child', icon: '👶' },       // Create child CABAL
-    { id: 'trade', label: 'Trade', icon: '📊' },        // Buy/Sell tokens
-    { id: 'contribute', label: 'Presale', icon: '💎' }, // Contribute to presale
-    { id: 'stake', label: 'Stake', icon: '🔒' },        // Stake in another CABAL
-    { id: 'delegate', label: 'Delegate', icon: '🤝' },  // Delegate voting power
+    { id: 'create', label: 'CHILD' },
+    { id: 'trade', label: 'TRADE' },
+    { id: 'contribute', label: 'PRESALE' },
+    { id: 'stake', label: 'STAKE' },
   ] as const
   
   // Get sub-panel position around governance panel (radial layout)
@@ -2280,19 +2298,6 @@ export function GraphExplorer({
               strokeDasharray="4 4"
               style={{ opacity: nodeEntranceScale }}
             />
-            {/* Outer ring around expanded panels - grows outward with menu */}
-            <circle
-              cx={dimensions.width / 2}
-              cy={dimensions.height / 2}
-              r={currentRingRadius}
-              fill="none"
-              stroke={`rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.25)`}
-              strokeWidth="1"
-              style={{
-                opacity: menuAnimState === 'entered' || menuAnimState === 'entering' ? 1 : 0,
-                transition: 'opacity 382ms cubic-bezier(0.33, 1, 0.68, 1)'
-              }}
-            />
           </svg>
         )}
         {dimensions.width > 0 && dimensions.height > 0 && (
@@ -2417,7 +2422,7 @@ export function GraphExplorer({
               const dashSize = radius * 0.3
               ctx.setLineDash([dashSize, dashSize * 0.5])
             }
-            ctx.strokeStyle = `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 0.4)`
+            ctx.strokeStyle = `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 1)`
             ctx.lineWidth = 1 / globalScale
             ctx.stroke()
             // Reset dash pattern for subsequent rendering
@@ -2461,8 +2466,38 @@ export function GraphExplorer({
             menuY = screenPos.y
           }
           
+          // Canvas size to contain all circles
+          const canvasSize = PANEL_OUTER_EDGE * 2 + 20
+          const canvasCenter = canvasSize / 2
+          
+          // Calculate main menu animation progress from ring radius
+          // Ring goes from shrunkCenterRadius (node) to PANEL_OUTER_EDGE
+          const mainRingRange = PANEL_OUTER_EDGE - shrunkCenterRadius
+          const mainAnimProgress = Math.max(0, Math.min(1, (currentRingRadius - shrunkCenterRadius) / mainRingRange))
+          
+          // Animated values for main panels - grow from center with ring
+          const animatedPanelOffset = PANEL_OFFSET * mainAnimProgress
+          const animatedPanelRadius = PANEL_RADIUS * mainAnimProgress
+          const animatedPanelSize = animatedPanelRadius * 2
+          
+          // Helper to get animated panel position
+          const getAnimatedPanelPosition = (index: number) => {
+            let angle: number
+            if (isPresale) {
+              const triangleAngles: Record<number, number> = { 0: 270, 3: 150, 2: 30 }
+              angle = (triangleAngles[index] ?? 0) * (Math.PI / 180)
+            } else {
+              const diamondAngles: Record<number, number> = { 0: 270, 2: 0, 3: 180, 4: 90 }
+              angle = (diamondAngles[index] ?? 0) * (Math.PI / 180)
+            }
+            return {
+              x: animatedPanelOffset * Math.cos(angle),
+              y: animatedPanelOffset * Math.sin(angle),
+            }
+          }
+          
           return (
-          <div 
+          <div
             className={`absolute pointer-events-none z-10 radial-menu-container ${menuAnimState}`}
             style={{
               left: menuX,
@@ -2472,20 +2507,174 @@ export function GraphExplorer({
             onTouchEnd={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Canvas layer for ALL circle borders - unified rendering */}
+            <canvas
+              ref={(canvas) => {
+                if (!canvas) return
+                const ctx = canvas.getContext('2d')
+                if (!ctx) return
+                
+                // Set up for high-DPI displays
+                const dpr = window.devicePixelRatio || 1
+                canvas.width = canvasSize * dpr
+                canvas.height = canvasSize * dpr
+                ctx.scale(dpr, dpr)
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvasSize, canvasSize)
+                
+                // Colors - match nodeCanvasObject exactly
+                const isDark = resolvedTheme === 'dark'
+                const bgColor = isDark ? BRAND_BG : { r: 250, g: 250, b: 249 }
+                const fillStyle = `rgb(${bgColor.r}, ${bgColor.g}, ${bgColor.b})`
+                const strokeStyle = `rgba(${BRAND_GOLD.r}, ${BRAND_GOLD.g}, ${BRAND_GOLD.b}, 1)`
+                ctx.lineWidth = 1
+
+                // Calculate main menu animation progress from ring radius
+                // Ring goes from shrunkCenterRadius (node) to PANEL_OUTER_EDGE
+                const mainRingRange = PANEL_OUTER_EDGE - shrunkCenterRadius
+                const mainAnimProgress = Math.max(0, Math.min(1, (currentRingRadius - shrunkCenterRadius) / mainRingRange))
+                
+                // Animated values - panels grow from center with ring
+                const animatedPanelOffset = PANEL_OFFSET * mainAnimProgress
+                const animatedPanelRadius = PANEL_RADIUS * mainAnimProgress
+                
+                // Draw main panel circles (fill + stroke) - animated positions
+                const activePanels = isPresale ? [0, 2, 3] : [0, 2, 3, 4]
+                
+                // Calculate gov submenu animation for Panel 2 shrinking
+                const defaultGovRing = govSubmenuAnimState === 'entering' ? GOV_SHRUNK_CENTER_RADIUS : GOV_SUBMENU_RING_RADIUS
+                const currentGovRing = animatedGovRingRadius ?? defaultGovRing
+                const govRingRange = GOV_SUBMENU_RING_RADIUS - GOV_SHRUNK_CENTER_RADIUS
+                const govAnimProgress = (govSubmenuOpen || govSubmenuAnimState === 'exiting')
+                  ? Math.max(0, Math.min(1, (currentGovRing - GOV_SHRUNK_CENTER_RADIUS) / govRingRange))
+                  : 0
+                
+                // Panel 2 shrinks from PANEL_RADIUS to GOV_SHRUNK_CENTER_RADIUS as gov submenu opens
+                const panel2ShrinkFactor = 1 - govAnimProgress * (1 - GOV_SHRUNK_CENTER_RADIUS / PANEL_RADIUS)
+                
+                activePanels.forEach(i => {
+                  // Recalculate position using animated offset
+                  let angle: number
+                  if (isPresale) {
+                    const triangleAngles: Record<number, number> = { 0: 270, 3: 150, 2: 30 }
+                    angle = (triangleAngles[i] ?? 0) * (Math.PI / 180)
+                  } else {
+                    const diamondAngles: Record<number, number> = { 0: 270, 2: 0, 3: 180, 4: 90 }
+                    angle = (diamondAngles[i] ?? 0) * (Math.PI / 180)
+                  }
+                  const posX = animatedPanelOffset * Math.cos(angle)
+                  const posY = animatedPanelOffset * Math.sin(angle)
+
+                  // Panel 2 shrinks when gov submenu opens
+                  const panelRadius = i === 2 ? animatedPanelRadius * panel2ShrinkFactor : animatedPanelRadius
+
+                  if (panelRadius > 0.5) {
+                    ctx.beginPath()
+                    ctx.arc(canvasCenter + posX, canvasCenter + posY, panelRadius, 0, 2 * Math.PI)
+                    ctx.fillStyle = fillStyle
+                    ctx.fill()
+                    ctx.strokeStyle = strokeStyle
+                    ctx.stroke()
+                  }
+                })
+
+                // Draw outer ring around main menu (animated - grows from node)
+                ctx.beginPath()
+                ctx.arc(canvasCenter, canvasCenter, currentRingRadius, 0, 2 * Math.PI)
+                ctx.strokeStyle = strokeStyle
+                ctx.stroke()
+
+                // Draw governance submenu circles if open
+                if (govSubmenuOpen || govSubmenuAnimState === 'exiting') {
+                  // Calculate animation progress from ring radius
+                  // Default depends on state: entering starts small, entered/exiting starts full
+                  const defaultRing = govSubmenuAnimState === 'entering' ? GOV_SHRUNK_CENTER_RADIUS : GOV_SUBMENU_RING_RADIUS
+                  const currentGovRing = animatedGovRingRadius ?? defaultRing
+                  const ringRange = GOV_SUBMENU_RING_RADIUS - GOV_SHRUNK_CENTER_RADIUS
+                  const animProgress = Math.max(0, Math.min(1, (currentGovRing - GOV_SHRUNK_CENTER_RADIUS) / ringRange))
+                  
+                  // Animated values - subpanels grow from center
+                  const animatedOffset = GOV_SUBPANEL_OFFSET * animProgress
+                  const animatedSubpanelRadius = GOV_SUBPANEL_RADIUS * animProgress
+                  
+                  PROPOSAL_TYPES.forEach((_, index) => {
+                    // Calculate position using animated offset
+                    const startAngle = 270
+                    const angleStep = 360 / PROPOSAL_TYPES.length
+                    const angleDeg = startAngle + index * angleStep
+                    const angleRad = angleDeg * (Math.PI / 180)
+                    const subX = animatedOffset * Math.cos(angleRad)
+                    const subY = animatedOffset * Math.sin(angleRad)
+                    
+                    const absX = canvasCenter + panelPositions[2].x + subX
+                    const absY = canvasCenter + panelPositions[2].y + subY
+
+                    // Only draw if there's something to draw
+                    if (animatedSubpanelRadius > 0.5) {
+                      ctx.beginPath()
+                      ctx.arc(absX, absY, animatedSubpanelRadius, 0, 2 * Math.PI)
+                      ctx.fillStyle = fillStyle
+                      ctx.fill()
+
+                      // Dashed border for PRESALE
+                      if (PROPOSAL_TYPES[index].id === 'contribute') {
+                        const dashSize = animatedSubpanelRadius * 0.3
+                        ctx.setLineDash([dashSize, dashSize * 0.5])
+                      }
+                      ctx.strokeStyle = strokeStyle
+                      ctx.stroke()
+
+                      // Reset dash
+                      if (PROPOSAL_TYPES[index].id === 'contribute') {
+                        ctx.setLineDash([])
+                      }
+                    }
+                  })
+
+                  // Outer ring = Panel 2's original size (container, doesn't change)
+                  // Position matches Panel 2's animated position
+                  const diamondAngles2: Record<number, number> = { 0: 270, 2: 0, 3: 180, 4: 90 }
+                  const angle2 = (diamondAngles2[2] ?? 0) * (Math.PI / 180)
+                  const panel2X = animatedPanelOffset * Math.cos(angle2)
+                  const panel2Y = animatedPanelOffset * Math.sin(angle2)
+                  
+                  ctx.beginPath()
+                  ctx.arc(
+                    canvasCenter + panel2X,
+                    canvasCenter + panel2Y,
+                    animatedPanelRadius, // Same as Panel 2's original size
+                    0,
+                    2 * Math.PI
+                  )
+                  ctx.strokeStyle = strokeStyle
+                  ctx.stroke()
+                }
+              }}
+              style={{
+                position: 'absolute',
+                left: -canvasSize / 2,
+                top: -canvasSize / 2,
+                width: canvasSize,
+                height: canvasSize,
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            />
             
             {/* PANEL 0: TOP - Treasury ETH (Active) or Raised (Presale) */}
-            <div 
-              className={`absolute pointer-events-auto rounded-full bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-0' : 
-                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
-              }`}
+            {(() => {
+              const pos = getAnimatedPanelPosition(0)
+              return (
+            <div
+              className="absolute pointer-events-auto rounded-full bg-transparent flex flex-col items-center justify-center text-center"
               style={{
-                width: PANEL_SIZE,
-                height: PANEL_SIZE,
-                left: panelPositions[0].x - PANEL_SIZE / 2,
-                top: panelPositions[0].y - PANEL_SIZE / 2,
-                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[0].x}px ${PANEL_SIZE / 2 - panelPositions[0].y}px`,
+                width: animatedPanelSize,
+                height: animatedPanelSize,
+                left: pos.x - animatedPanelSize / 2,
+                top: pos.y - animatedPanelSize / 2,
                 zIndex: 4,
+                opacity: mainAnimProgress,
               }}
             >
               {selectedCabal ? (
@@ -2514,22 +2703,24 @@ export function GraphExplorer({
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               )}
             </div>
-            
+              )
+            })()}
+
             {/* PANEL 1: Removed for presale - now using 3 panel triangle layout */}
-            
+
             {/* PANEL 3: BOTTOM-LEFT (Presale) or LEFT (Active) - Contribute / Trade */}
-            <div 
-              className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-3' : 
-                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
-              }`}
+            {(() => {
+              const pos = getAnimatedPanelPosition(3)
+              return (
+            <div
+              className="absolute pointer-events-auto bg-transparent flex flex-col items-center justify-center text-center overflow-hidden rounded-full"
               style={{
-                width: PANEL_SIZE,
-                height: PANEL_SIZE,
-                left: panelPositions[3].x - PANEL_SIZE / 2,
-                top: panelPositions[3].y - PANEL_SIZE / 2,
-                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[3].x}px ${PANEL_SIZE / 2 - panelPositions[3].y}px`,
+                width: animatedPanelSize,
+                height: animatedPanelSize,
+                left: pos.x - animatedPanelSize / 2,
+                top: pos.y - animatedPanelSize / 2,
                 zIndex: 3,
+                opacity: mainAnimProgress,
               }}
             >
               {isPresale ? (
@@ -2637,20 +2828,33 @@ export function GraphExplorer({
                 </div>
               )}
             </div>
-            
+              )
+            })()}
+
             {/* PANEL 2: BOTTOM-RIGHT (Presale) or RIGHT (Active) - Vote/Launch / Proposals */}
-            <div 
-              className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
-                menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-2' : 
-                menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
-              }`}
+            {/* When governance submenu is open, this panel shrinks to φ⁻² and sub-panels appear inside */}
+            {(() => {
+              const pos = getAnimatedPanelPosition(2)
+              // Use animated ring radius to calculate shrink (same as canvas)
+              const defaultGovRing = govSubmenuAnimState === 'entering' ? GOV_SHRUNK_CENTER_RADIUS : GOV_SUBMENU_RING_RADIUS
+              const currentGovRing = animatedGovRingRadius ?? defaultGovRing
+              const govRingRange = GOV_SUBMENU_RING_RADIUS - GOV_SHRUNK_CENTER_RADIUS
+              const govAnimProgress = (govSubmenuOpen || govSubmenuAnimState === 'exiting')
+                ? Math.max(0, Math.min(1, (currentGovRing - GOV_SHRUNK_CENTER_RADIUS) / govRingRange))
+                : 0
+              // Panel 2 shrinks from full size to GOV_SHRUNK_CENTER_RADIUS
+              const shrinkFactor = 1 - govAnimProgress * (1 - GOV_SHRUNK_CENTER_RADIUS / PANEL_RADIUS)
+              const panelSize = animatedPanelSize * shrinkFactor
+              return (
+            <div
+              className="absolute pointer-events-auto bg-transparent flex flex-col items-center justify-center text-center overflow-hidden rounded-full"
               style={{
-                width: PANEL_SIZE,
-                height: PANEL_SIZE,
-                left: panelPositions[2].x - PANEL_SIZE / 2,
-                top: panelPositions[2].y - PANEL_SIZE / 2,
-                transformOrigin: `${PANEL_SIZE / 2 - panelPositions[2].x}px ${PANEL_SIZE / 2 - panelPositions[2].y}px`,
-                zIndex: 1,
+                width: panelSize,
+                height: panelSize,
+                left: pos.x - panelSize / 2,
+                top: pos.y - panelSize / 2,
+                zIndex: govSubmenuOpen ? 15 : 2,
+                opacity: mainAnimProgress,
               }}
             >
               {isPresale ? (
@@ -2827,20 +3031,15 @@ export function GraphExplorer({
                     )}
                   </div>
                 ) : (
-                  // No active proposal - clickable "Governance" to open radial submenu
-                  <div 
+                  // No active proposal - clickable to open radial submenu
+                  <div
                     className="flex flex-col items-center justify-center w-full h-full cursor-pointer hover:bg-primary/5 transition-colors"
                     onClick={toggleGovSubmenu}
+                    style={{ fontSize: `${shrinkFactor * 16}px` }}
                   >
-                    <span className="text-2xl mb-1">⚖️</span>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {govSubmenuOpen ? 'Close' : 'Propose'}
+                    <span className="font-semibold tracking-tight">
+                      PROPOSALS
                     </span>
-                    {(stakedBalance ?? 0n) === 0n && (
-                      <span className="text-[9px] text-muted-foreground/60 mt-0.5">
-                        Stake to vote
-                      </span>
-                    )}
                   </div>
                 )
               ) : (
@@ -2849,69 +3048,81 @@ export function GraphExplorer({
                 </div>
               )}
             </div>
-            
+              )
+            })()}
+
             {/* GOVERNANCE SUB-PANELS - Radial proposal type options */}
-            {isActive && (govSubmenuOpen || govSubmenuAnimState === 'exiting') && PROPOSAL_TYPES.map((proposal, index) => {
-              const subPos = getGovSubpanelPosition(index, PROPOSAL_TYPES.length)
-              // Position relative to governance panel (Panel 2)
-              const govPanelX = panelPositions[2].x
-              const govPanelY = panelPositions[2].y
-              const absoluteX = govPanelX + subPos.x
-              const absoluteY = govPanelY + subPos.y
+            {/* These appear INSIDE the governance panel bounds when it expands */}
+            {isActive && (govSubmenuOpen || govSubmenuAnimState === 'exiting') && (() => {
+              // Calculate animation progress from ring radius (0 = closed, 1 = fully open)
+              // Default depends on state: entering starts small, entered/exiting starts full
+              const defaultRing = govSubmenuAnimState === 'entering' ? GOV_SHRUNK_CENTER_RADIUS : GOV_SUBMENU_RING_RADIUS
+              const currentGovRing = animatedGovRingRadius ?? defaultRing
+              const ringRange = GOV_SUBMENU_RING_RADIUS - GOV_SHRUNK_CENTER_RADIUS
+              const animProgress = Math.max(0, Math.min(1, (currentGovRing - GOV_SHRUNK_CENTER_RADIUS) / ringRange))
               
-              // Scale based on animation progress
-              const scale = govSubmenuAnimState === 'exiting' 
-                ? GOV_SUBPANEL_OFFSET / (PANEL_RADIUS + GOV_SUBPANEL_RADIUS * 1.1) 
-                : govSubmenuAnimState === 'entering' 
-                  ? GOV_SUBPANEL_OFFSET / (PANEL_RADIUS + GOV_SUBPANEL_RADIUS * 1.1)
-                  : 1
+              // Subpanel offset and size scale with animation progress
+              const animatedOffset = GOV_SUBPANEL_OFFSET * animProgress
+              const animatedSubpanelRadius = GOV_SUBPANEL_RADIUS * animProgress
+              const animatedSubpanelSize = animatedSubpanelRadius * 2
               
               return (
-                <div
-                  key={proposal.id}
-                  className={`absolute pointer-events-auto bg-background/95 border border-primary/30 shadow-lg backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full cursor-pointer hover:border-primary hover:bg-primary/10 transition-all ${
-                    govSubmenuAnimState === 'entering' ? 'gov-subpanel-enter' : 
-                    govSubmenuAnimState === 'exiting' ? 'gov-subpanel-exit' : 'gov-subpanel-visible'
-                  }`}
-                  style={{
-                    width: GOV_SUBPANEL_SIZE,
-                    height: GOV_SUBPANEL_SIZE,
-                    left: absoluteX - GOV_SUBPANEL_SIZE / 2,
-                    top: absoluteY - GOV_SUBPANEL_SIZE / 2,
-                    transformOrigin: `${GOV_SUBPANEL_SIZE / 2 - subPos.x}px ${GOV_SUBPANEL_SIZE / 2 - subPos.y}px`,
-                    transform: `scale(${scale})`,
-                    opacity: govSubmenuAnimState === 'entered' ? 1 : scale,
-                    zIndex: 10,
-                    animationDelay: `${index * 50}ms`,
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    haptics.cardTap()
-                    // proposal.id is already a valid GovernanceActionType
-                    setGovernanceAction({ isOpen: true, actionType: proposal.id })
-                    closeGovSubmenu()
-                  }}
-                >
-                  <span className="text-lg">{proposal.icon}</span>
-                  <span className="text-[9px] font-medium text-muted-foreground mt-0.5">{proposal.label}</span>
-                </div>
+              <>
+                {PROPOSAL_TYPES.map((proposal, index) => {
+                  // Calculate position using animated offset
+                  const startAngle = 270
+                  const angleStep = 360 / PROPOSAL_TYPES.length
+                  const angleDeg = startAngle + index * angleStep
+                  const angleRad = angleDeg * (Math.PI / 180)
+                  const subX = animatedOffset * Math.cos(angleRad)
+                  const subY = animatedOffset * Math.sin(angleRad)
+                  
+                  // Position relative to governance panel center
+                  const absoluteX = panelPositions[2].x + subX
+                  const absoluteY = panelPositions[2].y + subY
+
+                  return (
+                    <div
+                      key={proposal.id}
+                      className="absolute pointer-events-auto bg-transparent flex flex-col items-center justify-center text-center overflow-hidden rounded-full cursor-pointer hover:bg-primary/10"
+                      style={{
+                        width: animatedSubpanelSize,
+                        height: animatedSubpanelSize,
+                        left: absoluteX - animatedSubpanelSize / 2,
+                        top: absoluteY - animatedSubpanelSize / 2,
+                        transformOrigin: 'center center',
+                        zIndex: 12,
+                        opacity: animProgress,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        haptics.cardTap()
+                        // proposal.id is already a valid GovernanceActionType
+                        setGovernanceAction({ isOpen: true, actionType: proposal.id })
+                        closeGovSubmenu()
+                      }}
+                    >
+                      <span className="text-[10px] font-medium" style={{ opacity: animProgress > 0.5 ? 1 : animProgress * 2 }}>{proposal.label}</span>
+                    </div>
+                  )
+                })}
+              </>
               )
-            })}
+            })()}
             
             {/* PANEL 4: BOTTOM CENTER - Stake (Active only) */}
-            {isActive && (
-              <div 
-                className={`absolute pointer-events-auto bg-background/95 border border-primary/40 shadow-xl backdrop-blur-md flex flex-col items-center justify-center text-center overflow-hidden rounded-full radial-panel ${
-                  menuAnimState === 'entering' ? 'radial-panel-enter radial-delay-4' : 
-                  menuAnimState === 'exiting' ? 'radial-panel-exit' : 'radial-panel-visible'
-                }`}
+            {isActive && (() => {
+              const pos = getAnimatedPanelPosition(4)
+              return (
+              <div
+                className="absolute pointer-events-auto bg-transparent flex flex-col items-center justify-center text-center overflow-hidden rounded-full"
                 style={{
-                  width: PANEL_SIZE,
-                  height: PANEL_SIZE,
-                  left: panelPositions[4].x - PANEL_SIZE / 2,
-                  top: panelPositions[4].y - PANEL_SIZE / 2,
-                  transformOrigin: `${PANEL_SIZE / 2 - panelPositions[4].x}px ${PANEL_SIZE / 2 - panelPositions[4].y}px`,
+                  width: animatedPanelSize,
+                  height: animatedPanelSize,
+                  left: pos.x - animatedPanelSize / 2,
+                  top: pos.y - animatedPanelSize / 2,
                   zIndex: 2,
+                  opacity: mainAnimProgress,
                 }}
               >
                 {!isConnected ? (
@@ -2975,7 +3186,8 @@ export function GraphExplorer({
                   </div>
                 )}
               </div>
-            )}
+              )
+            })()}
           </div>
         )})()}
         
